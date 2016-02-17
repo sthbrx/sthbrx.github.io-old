@@ -14,6 +14,7 @@
         <header id="banner" class="body">
                 <h1><a href="/">Store Half Byte-Reverse Indexed </a></h1>
                 <nav><ul>
+                    <li><a href="/category/education-offtopic.html">[education, offtopic]</a></li>
                     <li class="active"><a href="/category/misc.html">misc</a></li>
                     <li><a href="/category/openpower.html">openpower</a></li>
                 </ul></nav>
@@ -21,86 +22,7 @@
 
             <aside id="featured" class="body">
                 <article>
-                    <h1 class="entry-title"><a href="/evolving-into-a-systems-programmer.html">"Evolving into a systems programmer"</a></h1>
-<footer class="post-info">
-        <abbr class="published" title="2015-11-06T11:13:37+11:00">
-                Published: Fri 06 November 2015
-        </abbr>
-
-        <address class="vcard author">
-                By                         <a class="url fn" href="/author/cyril-bur.html">Cyril Bur</a>
-        </address>
-<p>In <a href="/category/misc.html">misc</a>.</p>
-
-</footer><!-- /.post-info --><p>In a previous life I tutored first year computing. The university I
-attended had a policy of using C to introduce first years to programming.
-One of the most rewarding aspects of teaching is opening doors of
-possibility to people by sharing my knowledge.</p>
-<p>Over the years I had a mixture of computer science or computer engineering
-students as well as other disciplines of engineering who were required to
-learn the basics (notably electrical and mechanical). Each class was
-different and the initial knowledge always varied greatly. The beauty of
-teaching C meant that there was never someone who truly knew it all, heck,
-I didn't and still don't. The other advantage of teaching C is that I could
-very quickly spot the hackers, the shy person at the back of the room who's
-eyes light up when you know you've correctly explained pointers (to them
-anyway) or when asked "What happens if you use a negative index into an
-array" and the smile they would make upon hearing "What do you think happens".</p>
-<p>Right there I would see the makings of a hacker, and this post is dedicated
-to you or to anyone who wants to be a hacker. I've been asked "What did you
-do to get where you are?", "How do I get into Linux?" (vague much) at
-careers fairs. I never quite know what to say, here goes a braindump.</p>
-<p>Start with the basics, one of the easiest way we tested the first years was
-to tell them they can't use parts of libc. That was a great exam, taking
-aside those who didn't read the question and used <code>strlen()</code> when they were
-explicitly told they couldn't <code>#include &lt;string.h&gt;</code> a true hacker doesn't
-need libc, understand it won't always be there. I thought of this example
-because only two weeks ago I was writing code in an environment where I
-didn't have libc. Ok sure, if you've got it, use it, just don't crumble
-when you don't. Oh how I wish I could have told those students who argued
-that it was a pointless question that they were objectively wrong.</p>
-<p>Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
-a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
-it's intense but perhaps understand the beauty of GCC, know what it's doing
-for you. There is a variety of little 8 bit processors you can play with
-these days.</p>
-<p>At all levels of my teaching I saw almost everyone get something which
-'worked', and that's fine, it probably does but I'm here to tell you that
-it doesn't work until you know why it works. I'm all for the 'try it and
-see' approach but once you've tried it you have to explain why the
-behaviour changed otherwise you didn't fix it. As an extension to that,
-know how your tools work, I don't think anyone would expect you to be able
-to write tools to the level of complexity of GCC or GDB or Valgrind but
-have a rough idea as to how they achieve their goals.</p>
-<p>A hacker is paranoid, yes, <code>malloc()</code> fails. Linux might just decide now
-isn't a good time for you to <code>open()</code> and your <code>fopen()</code> calling function had
-better be cool with that. A hacker also doesn't rely on the kindness of the
-operating system theres an <code>munmap()</code> for a reason. Nor should you even
-completely trust it, what are you leaving around in memory?</p>
-<p>Above all do a it for the fun of it, so many of my students asked how I
-knew everything I knew (I was only a year ahead of them in my first year of
-teaching) and put simply, write code on a Saturday night.</p>
-<p>None of these things do or don't make you a hacker, being a hacker is a
-frame of mind and a way of thinking but all of the above helps.</p>
-<p>Unfortunately there isn't a single path, I might even say it is a path that
-chooses you. Odds are you're here because you approached me at some point
-and asked me one of those questions I never quite know how to answer.
-Perhaps this is the path, at the very least you're asking questions and
-approaching people. I'm hope I did on the day, but once again, all the very
-best with your endeavours into the future</p>                </article>
-            </aside><!-- /#featured -->
-                <section id="content" class="body">
-                    <h1>Other articles</h1>
-                    <hr />
-                    <ol id="posts-list" class="hfeed">
-
-            <li><article class="hentry">
-                <header>
-                    <h1><a href="/what-the-hile-is-this.html" rel="bookmark"
-                           title="Permalink to "What the HILE is this?"">"What the HILE is this?"</a></h1>
-                </header>
-
-                <div class="entry-content">
+                    <h1 class="entry-title"><a href="/what-the-hile-is-this.html">"What the HILE is this?"</a></h1>
 <footer class="post-info">
         <abbr class="published" title="2015-11-03T15:02:34+10:00">
                 Published: Tue 03 November 2015
@@ -111,8 +33,94 @@ best with your endeavours into the future</p>                </article>
         </address>
 <p>In <a href="/category/misc.html">misc</a>.</p>
 
-</footer><!-- /.post-info -->                <p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as ...</p>
-                <a class="readmore" href="/what-the-hile-is-this.html">read more</a>
+</footer><!-- /.post-info --><p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as making support for vendor tools easier.
+So it should just be a matter of compiling Petitboot LE right? Well...</p>
+<h3>Switching Endianess</h3>
+<p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
+<p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
+<p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
+<div class="highlight"><pre><span class="cp">#define FIXUP_ENDIAN</span>
+    <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
+    <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa602487d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x1c004a39</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa600607d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x01006b69</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6035a7d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6037b7d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x2400004c</span>
+</pre></div>
+
+
+<p>By some amazing coincidence if you take the opcode for <code>tdi 0, 0, 0x48</code> and flip the order of the bytes it forms the opcode for <code>b . + 8</code>. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR<sub>LE</sub> being set to 1.</p>
+<p>When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...</p>
+<h3>Petitboot's Secret Sauce</h3>
+<p>The main feature of Petitboot is that it is a full (but small!) Linux kernel and userspace which scans all available devices and presents possible boot options. To boot an available operating system Petitboot needs to start executing the OS's kernel, which it accomplishes via <a href="https://en.wikipedia.org/wiki/Kexec">kexec</a>. Simply speaking kexec loads the target kernel into memory, shuts the current system down most of the way, and at the last moment sets the instruction pointer to the start of the target kernel. From there it's like booting any other kernel, including the FIXUP_ENDIAN section above.</p>
+<h3>We've Booted! Wait...</h3>
+<p>So our LE Petitboot kernel boots fine thanks to FIXUP_ENDIAN, we kexec into some other kernel.. and everything falls to pieces.<br />
+The problem is we've unwittingly changed one of the assumptions of booting a kernel; namely that MSR<sub>LE</sub> defaults to zero. When kexec-ing from an LE kernel we start executing the next kernel in LE mode. This itself is ok, the FIXUP_ENDIAN macro will handle the switch if needed. The problem is that the FIXUP_ENDIAN macro is relatively recent, first entering the kernel in early 2014. So if we're booting, say, an old Fedora 19 install with a v3.9 kernel - things go very bad, very quickly.</p>
+<h3>Fix #1</h3>
+<p>The solution seems pretty straightforward: find where we jump into the next kernel, and just before that make sure we reset the LE bit in the MSR. That's exactly what <a href="https://github.com/antonblanchard/kexec-lite/commit/150b14e76a4b51f865b929ad9a9bf4133e2d3af7">this patch</a> to kexec-lite does.<br />
+That worked up until I tested on a machine with more than one CPU. Remembering that the MSR is processor-specific, we also have to <a href="https://github.com/torvalds/linux/commit/ffebf5f391dfa9da3e086abad3eef7d3e5300249">reset the endianess of each secondary CPU</a><br />
+Now things are looking good! All the CPUs are reset to big-endian, the target kernel boots fine, and then... 'recursive interrupts?!'</p>
+<h3>HILE</h3>
+<p>Skipping the debugging process that led to this (hint: <a href="https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/">mambo</a> is actually a pretty cool tool), these were the sequence of steps leading up to the problem:</p>
+<ul>
+<li>Little-endian Petitboot kexecs into a big-endian kernel</li>
+<li>All CPUs are reset to big-endian</li>
+<li>The big-endian kernel begins to boot successfully</li>
+<li>Somewhere in the device-tree parsing code we take an exception</li>
+<li>Execution jumps to the exception handler at <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/kernel/exceptions-64s.S#L199">0x300</a></li>
+<li>I notice that MSR<sub>LE</sub> is set to 1</li>
+<li>WHAT WHY IS THE LE BIT IN THE MSR SET TO 1</li>
+<li>We fail to read the first instruction at 0x300 because it's written in big-endian, so we jump to the exception handler at 0x300... oh no.</li>
+</ul>
+<p>And then we very busily execute nothing until the machine is killed. I spend some time staring incredulously at my screen, then appeal to a <a href="https://github.com/torvalds/linux/blob/master/MAINTAINERS">higher authority</a> who replies with "What is the HILE set to?"  </p>
+<p>..the WHAT?<br />
+Cracking open the <a href="https://www.power.org/documentation/power-isa-v-2-07b/">PowerISA</a> reveals this tidbit:</p>
+<blockquote>
+<p>The Hypervisor Interrupt Little-Endian (HILE) bit is a bit
+in an implementation-dependent register or similar
+mechanism. The contents of the HILE bit are copied
+into MSR<sub>LE</sub> by interrupts that set MSR<sub>HV</sub> to 1 (see Section
+6.5), to establish the Endian mode for the interrupt
+handler. The HILE bit is set, by an implementation-dependent
+method, during system initialization,
+and cannot be modified after system initialization.</p>
+</blockquote>
+<p>To be fair, there are use cases for taking exceptions in a different endianess. The problem is that while HILE gets switched on when setting MSR<sub>LE</sub> to 1, it <em>doesn't</em> get turned off when MSR<sub>LE</sub> is set to zero. In particular the line "...cannot be modified after system initialization." led to a fair amount of hand wringing from myself and whoever would listen; if we can't reset the HILE bit, we simply can't use little-endian kernels for Petitboot.  </p>
+<p>Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is <a href="https://github.com/open-power/skiboot">right here</a>. In particular we can see here the OPAL call to <a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702">opal_reinit_cpus</a> which among other things resets the HILE bit.<br />
+This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the <a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53">final patch to support PowerNV machines.</a></p>                </article>
+            </aside><!-- /#featured -->
+                <section id="content" class="body">
+                    <h1>Other articles</h1>
+                    <hr />
+                    <ol id="posts-list" class="hfeed">
+
+            <li><article class="hentry">
+                <header>
+                    <h1><a href="/docker-just-stop-using-aufs.html" rel="bookmark"
+                           title="Permalink to "Docker: Just Stop Using AUFS"">"Docker: Just Stop Using AUFS"</a></h1>
+                </header>
+
+                <div class="entry-content">
+<footer class="post-info">
+        <abbr class="published" title="2015-10-30T13:30:19+11:00">
+                Published: Fri 30 October 2015
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/daniel-axtens.html">Daniel Axtens</a>
+        </address>
+<p>In <a href="/category/misc.html">misc</a>.</p>
+
+</footer><!-- /.post-info -->                <p>Docker's default storage driver on most Ubuntu installs is AUFS.</p>
+<p>Don't use it. Use Overlay instead. Here's why.</p>
+<p>First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable ...</p>
+                <a class="readmore" href="/docker-just-stop-using-aufs.html">read more</a>
                 </div><!-- /.entry-content -->
             </article></li>
                 </ol><!-- /#posts-list -->
