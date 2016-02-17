@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8" />
+        <title>"Docker: Just Stop Using AUFS"</title>
+        <link rel="stylesheet" href="/theme/css/main.css" />
+
+        <!--[if IE]>
+            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">Store Half Byte-Reverse Indexed </a></h1>
+                <nav><ul>
+                    <li class="active"><a href="/category/misc.html">misc</a></li>
+                </ul></nav>
+        </header><!-- /#banner -->
+<section id="content" class="body">
+  <article>
+    <header>
+      <h1 class="entry-title">
+        <a href="/docker-just-stop-using-aufs.html" rel="bookmark"
+           title="Permalink to "Docker: Just Stop Using AUFS"">"Docker: Just Stop Using AUFS"</a></h1>
+    </header>
+
+    <div class="entry-content">
+<footer class="post-info">
+        <abbr class="published" title="2015-10-30T13:30:19+11:00">
+                Published: Fri 30 October 2015
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/daniel-axtens.html">Daniel Axtens</a>
+        </address>
+<p>In <a href="/category/misc.html">misc</a>.</p>
+
+</footer><!-- /.post-info -->      <p>Docker's default storage driver on most Ubuntu installs is AUFS.</p>
+<p>Don't use it. Use Overlay instead. Here's why.</p>
+<p>First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See <a href="/blog/2015/10/12/a-tale-of-two-dockers/">my previous post</a> for more info.)</p>
+<p>Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.</p>
+<p>Why? Well, my first point of call was to observe a compilation under
+<code>top</code>. The header is below.</p>
+<p><img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /></p>
+<p>Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.</p>
+<p>My next port of call for analysis of CPU-bound workloads is
+<code>perf</code>. <code>perf top</code> reports astounding quantities of time in
+spin-locks:</p>
+<p><img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /></p>
+<p><code>perf top -g</code> gives us some more information: the time is in system
+calls. <code>open()</code> and <code>stat()</code> are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.</p>
+<p><img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /></p>
+<p>Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (<code>docker info</code> will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)</p>
+<p>Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. <a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html">This presentation is particularly good.</a>
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.</p>
+<p>It's also easy to set up on Ubuntu:</p>
+<ul>
+<li>
+<p>export/save any docker containers you care about.</p>
+</li>
+<li>
+<p>add <code>--storage-driver=overlay</code> option to <code>DOCKER_OPTS</code> in <code>/etc/default/docker</code>, and restart docker (<code>service docker restart</code>)</p>
+</li>
+<li>
+<p>import/load the containters you exported</p>
+</li>
+<li>
+<p>verify that things work, then clear away your old storage directory (<code>/var/lib/docker/aufs</code>). </p>
+</li>
+</ul>
+<p>Having moved my base container across, I set off another build.</p>
+<p>The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:</p>
+<p><img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /></p>
+<p>The compiles went from taking painfully long to astonishingly fast. Winning.</p>
+<p>So in conclusion:</p>
+<ul>
+<li>
+<p>If you use Docker for something that involves open()ing or stat()ing files</p>
+</li>
+<li>
+<p>If you want your machine to do real work, rather than spin in spinlocks</p>
+</li>
+<li>
+<p>If you want to use code that's upstream and thus much better supported</p>
+</li>
+<li>
+<p>If you want something less disruptive than the btrfs or dm storage drivers</p>
+</li>
+</ul>
+<p>...then drop AUFS and switch to Overlay today.</p>
+    </div><!-- /.entry-content -->
+
+  </article>
+</section>
+        <section id="extras" class="body">
+                <div class="blogroll">
+                        <h2>blogroll</h2>
+                        <ul>
+                            <li><a href="http://getpelican.com/">Pelican</a></li>
+                            <li><a href="http://python.org/">Python.org</a></li>
+                            <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
+                            <li><a href="#">You can modify those links in your config file</a></li>
+                        </ul>
+                </div><!-- /.blogroll -->
+                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+
+                            <li><a href="#">You can add links in your config file</a></li>
+                            <li><a href="#">Another social link</a></li>
+                        </ul>
+                </div><!-- /.social -->
+        </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>
