@@ -18,8 +18,7 @@
                     <li><a href="/category/capi.html">CAPI</a></li>
                     <li><a href="/category/docker.html">Docker</a></li>
                     <li><a href="/category/education.html">Education</a></li>
-                    <li><a href="/category/open-power.html">Open-power</a></li>
-                    <li class="active"><a href="/category/openpower.html">Openpower</a></li>
+                    <li class="active"><a href="/category/openpower.html">OpenPower</a></li>
                     <li><a href="/category/petitboot.html">Petitboot</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
@@ -40,7 +39,7 @@
         <address class="vcard author">
                 By                         <a class="url fn" href="/author/russell-currey.html">Russell Currey</a>
         </address>
-<p>In <a href="/category/openpower.html">Openpower</a>.</p>
+<p>In <a href="/category/openpower.html">OpenPower</a>.</p>
 <p>tags: <a href="/tag/openpower.html">openpower</a> </p>
 </footer><!-- /.post-info -->      <p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
 <p>The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely <a href="https://github.com/open-power/skiboot">skiboot</a>, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that <a href="https://github.com/open-power/skiboot/blob/master/core/opal.c">skiboot exposes</a>, <code>opal_poll_events()</code> (which then calls <code>opal_run_pollers()</code>), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.</p>
