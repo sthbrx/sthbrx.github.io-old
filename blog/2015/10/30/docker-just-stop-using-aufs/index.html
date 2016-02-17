@@ -4,8 +4,10 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Store Half Byte-Reverse Indexed</title>
+  <title>"Docker: Just Stop Using AUFS" &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
+
+
 
 
 
@@ -42,7 +44,7 @@
       <li >
         <a href="http://callumscar.github.io/category/capi.html">Capi</a>
       </li>
-      <li >
+      <li class="active">
         <a href="http://callumscar.github.io/category/docker.html">Docker</a>
       </li>
       <li >
@@ -57,43 +59,102 @@
 </ul></nav>
   <div id="main">
     <div id="content">
-<div class="blog-index">
-  		<article>
+<div>
+  <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/10/12/a-tale-of-two-dockers/">"A tale of two Dockers"</a>
-      </h1>
+      <h1 class="entry-title">"Docker: Just Stop Using AUFS"</h1>
     <p class="meta">
-<time datetime="2015-10-12T14:14:00+11:00" pubdate>Mon 12 October 2015</time>    </p>
+<time datetime="2015-10-30T13:30:00+11:00" pubdate>Fri 30 October 2015</time>    </p>
 </header>
 
-  <div class="entry-content"><p>(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)</p>
-<p>Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/10/12/a-tale-of-two-dockers/">Read On &crarr;</a>
-  </footer>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">"Running ppc64le_hello on real hardware"</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-03T12:16:00+10:00" pubdate>Wed 03 June 2015</time>    </p>
-</header>
+  <div class="entry-content"><p>Docker's default storage driver on most Ubuntu installs is AUFS.</p>
+<p>Don't use it. Use Overlay instead. Here's why.</p>
+<p>First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See <a href="/blog/2015/10/12/a-tale-of-two-dockers/">my previous post</a> for more info.)</p>
+<p>Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.</p>
+<p>Why? Well, my first point of call was to observe a compilation under
+<code>top</code>. The header is below.</p>
+<p><img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /></p>
+<p>Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.</p>
+<p>My next port of call for analysis of CPU-bound workloads is
+<code>perf</code>. <code>perf top</code> reports astounding quantities of time in
+spin-locks:</p>
+<p><img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /></p>
+<p><code>perf top -g</code> gives us some more information: the time is in system
+calls. <code>open()</code> and <code>stat()</code> are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.</p>
+<p><img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /></p>
+<p>Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (<code>docker info</code> will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)</p>
+<p>Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. <a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html">This presentation is particularly good.</a>
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.</p>
+<p>It's also easy to set up on Ubuntu:</p>
+<ul>
+<li>
+<p>export/save any docker containers you care about.</p>
+</li>
+<li>
+<p>add <code>--storage-driver=overlay</code> option to <code>DOCKER_OPTS</code> in <code>/etc/default/docker</code>, and restart docker (<code>service docker restart</code>)</p>
+</li>
+<li>
+<p>import/load the containters you exported</p>
+</li>
+<li>
+<p>verify that things work, then clear away your old storage directory (<code>/var/lib/docker/aufs</code>). </p>
+</li>
+</ul>
+<p>Having moved my base container across, I set off another build.</p>
+<p>The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:</p>
+<p><img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /></p>
+<p>The compiles went from taking painfully long to astonishingly fast. Winning.</p>
+<p>So in conclusion:</p>
+<ul>
+<li>
+<p>If you use Docker for something that involves open()ing or stat()ing files</p>
+</li>
+<li>
+<p>If you want your machine to do real work, rather than spin in spinlocks</p>
+</li>
+<li>
+<p>If you want to use code that's upstream and thus much better supported</p>
+</li>
+<li>
+<p>If you want something less disruptive than the btrfs or dm storage drivers</p>
+</li>
+</ul>
+<p>...then drop AUFS and switch to Overlay today.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Daniel Axtens
+    </span>
+  </span>
+<time datetime="2015-10-30T13:30:00+11:00" pubdate>Fri 30 October 2015</time>  <span class="categories">
+    <a class='category' href='http://callumscar.github.io/category/docker.html'>Docker</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="http://callumscar.github.io/tag/docker.html">docker</a>,    <a class="category" href="http://callumscar.github.io/tag/aufs.html">aufs</a>,    <a class="category" href="http://callumscar.github.io/tag/overlay.html">overlay</a>,    <a class="category" href="http://callumscar.github.io/tag/performance.html">performance</a>,    <a class="category" href="http://callumscar.github.io/tag/power.html">power</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
 
-  <div class="entry-content"><p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
-<p>Firstly, clone the repo, and, as mentioned in ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">Read On &crarr;</a>
-  </footer>
-  		</article>
-<div class="pagination">
-    <a class="prev" href="http://callumscar.github.io/index4.html">&larr; Older</a>
-
-    <a class="next" href="http://callumscar.github.io/index2.html">Newer &rarr;</a>
-  <br />
-</div></div>
+</div>
 <aside class="sidebar">
   <section>
     <h1>Recent Posts</h1>

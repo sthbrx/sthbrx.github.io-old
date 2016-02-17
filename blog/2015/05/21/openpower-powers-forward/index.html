@@ -4,8 +4,10 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Store Half Byte-Reverse Indexed</title>
+  <title>"OpenPOWER Powers Forward" &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
+
+
 
 
 
@@ -48,7 +50,7 @@
       <li >
         <a href="http://callumscar.github.io/category/education.html">Education</a>
       </li>
-      <li >
+      <li class="active">
         <a href="http://callumscar.github.io/category/openpower.html">Openpower</a>
       </li>
       <li >
@@ -57,43 +59,37 @@
 </ul></nav>
   <div id="main">
     <div id="content">
-<div class="blog-index">
-  		<article>
+<div>
+  <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/10/12/a-tale-of-two-dockers/">"A tale of two Dockers"</a>
-      </h1>
+      <h1 class="entry-title">"OpenPOWER Powers Forward"</h1>
     <p class="meta">
-<time datetime="2015-10-12T14:14:00+11:00" pubdate>Mon 12 October 2015</time>    </p>
+<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time>    </p>
 </header>
 
-  <div class="entry-content"><p>(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)</p>
-<p>Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/10/12/a-tale-of-two-dockers/">Read On &crarr;</a>
-  </footer>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">"Running ppc64le_hello on real hardware"</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-03T12:16:00+10:00" pubdate>Wed 03 June 2015</time>    </p>
-</header>
+  <div class="entry-content"><p>I wrote this blog post late last year, it is very relevant for this blog though so I'll repost it here.</p>
+<p>With the launch of <a href="http://www.tyan.com/campaign/openpower/">TYAN's OpenPOWER reference system</a> now is a good time to reflect on the team responsible for so much of the research, design and development behind this very first ground breaking step of <a href="http://openpowerfoundation.org/">OpenPOWER</a> with their start to finish involvement of this new Power platform.</p>
+<p>ADL Canberra have been integral to the success of this launch providing the Open Power Abstraction Layer (OPAL) firmware. OPAL breathes new life into Linux on Power finally allowing Linux to run on directly on the hardware.
+While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to sit on top and take direct control of IBMs new Power8 processor without needing to negotiate with a hypervisor. With all the Linux expertise present at ADL Canberra it's no wonder that a Linux based bootloader was developed to make this system work. Petitboot leverage's all the resources of the Linux kernel to create a light, fast and yet extremely versatile bootloader. Petitboot provides a massive amount of tools for debugging and system configuration without the need to load an operating system.</p>
+<p>TYAN have developed great and highly customisable hardware. ADL Canberra have been there since day 1 performing vital platform enablement (bringup) of this new hardware. ADL Canberra have put all the work into the entire software stack, low level work to get OPAL and Linux to talk to the new BMC chip as well as the higher level, enabling to run Linux in either endian and Linux is even now capable of virtualising KVM guests in either endian irrespective of host endian. Furthermore a subset of ADL Canberra have been key to getting the Coherent Accelerator Processor Interface (CAPI) off the ground, enabling more almost endless customisation and greater diversity within the OpenPOWER ecosystem.</p>
+<p>ADL Canberra is the home for Linux on Power and the beginning of the OpenPOWER hardware sees much of the hard work by ADL Canberra come to fruition.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Cyril Bur
+    </span>
+  </span>
+<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time>  <span class="categories">
+    <a class='category' href='http://callumscar.github.io/category/openpower.html'>OpenPower</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="http://callumscar.github.io/tag/open-power.html">open-power</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
 
-  <div class="entry-content"><p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
-<p>Firstly, clone the repo, and, as mentioned in ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">Read On &crarr;</a>
-  </footer>
-  		</article>
-<div class="pagination">
-    <a class="prev" href="http://callumscar.github.io/index4.html">&larr; Older</a>
-
-    <a class="next" href="http://callumscar.github.io/index2.html">Newer &rarr;</a>
-  <br />
-</div></div>
+</div>
 <aside class="sidebar">
   <section>
     <h1>Recent Posts</h1>

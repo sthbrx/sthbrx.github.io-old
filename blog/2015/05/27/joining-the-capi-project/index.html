@@ -4,8 +4,10 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Store Half Byte-Reverse Indexed</title>
+  <title>"Joining the CAPI project" &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
+
+
 
 
 
@@ -39,7 +41,7 @@
       <li >
         <a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a>
       </li>
-      <li >
+      <li class="active">
         <a href="http://callumscar.github.io/category/capi.html">Capi</a>
       </li>
       <li >
@@ -57,44 +59,50 @@
 </ul></nav>
   <div id="main">
     <div id="content">
-<div class="blog-index">
-  		<article>
+<div>
+  <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/06/02/autoboot/">"Petitboot Autoboot Changes"</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>    </p>
-</header>
-
-  <div class="entry-content"><p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
-<h2>Old &amp; Busted</h2>
-<p>For some context, here is the old (or current depending on what you're running) section ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/06/02/autoboot/">Read On &crarr;</a>
-  </footer>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/05/27/joining-the-capi-project/">"Joining the CAPI project"</a>
-      </h1>
+      <h1 class="entry-title">"Joining the CAPI project"</h1>
     <p class="meta">
 <time datetime="2015-05-27T15:08:00+10:00" pubdate>Wed 27 May 2015</time>    </p>
 </header>
 
   <div class="entry-content"><p>(I wrote this blog post a couple of months ago, but it's still quite relevant.)</p>
-<p>Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/05/27/joining-the-capi-project/">Read On &crarr;</a>
-  </footer>
-  		</article>
-<div class="pagination">
-    <a class="prev" href="http://callumscar.github.io/index5.html">&larr; Older</a>
+<p>Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you an idea of what this is, and what I'll be up to in the future!</p>
+<h2>What even is CAPI?</h2>
+<p>To help you understand CAPI, think back to the time before computers. We had a variety of machines: machines to build things, to check things, to count things, but they were all specialised --- good at one and only one thing.</p>
+<p>Specialised machines, while great at their intended task, are really expensive to develop. Not only that, it's often impossible to change how they operate, even in very small ways.</p>
+<p>Computer processors, on the other hand, are generalists. They are cheap. They can do a lot of things. If you can break a task down into simple steps, it's easy to get them to do it. The trade-off is that computer processors are incredibly inefficient at everything.</p>
+<p>Now imagine, if you will, that a specialised machine is a highly trained and experienced professional, a computer processor is a hungover university student.</p>
+<p>Over the years, we've tried lots of things to make student faster. Firstly, we gave the student lots of caffeine to make them go as fast as they can. That worked for a while, but you can only give someone so much caffeine before they become unreliable. Then we tried teaming the student up with another student, so they can do two things at once. That worked, so we added more and more students. Unfortunately, lots of tasks can only be done by one person at a time, and team-work is complicated to co-ordinate. We've also recently noticed that some tasks come up often, so we've given them some tools for those specific tasks. Sadly, the tools are only useful for those specific situations.</p>
+<p>Sometimes, what you really need is a professional.</p>
+<p>However, there are a few difficulties in getting a professional to work with uni students. They don't speak the same way; they don't think the same way, and they don't work the same way. You need to teach the uni students how to work with the professional, and vice versa.</p>
+<p>Previously, developing this interface – this connection between a generalist processor and a specialist machine – has been particularly difficult. The interface between processors and these specialised machines – known as <em>accelerators</em> – has also tended to suffer from bottlenecks and inefficiencies.</p>
+<p>This is the problem CAPI solves. CAPI provides a simpler and more optimised way to interface specialised hardware accelerators with IBM's most recent line of processors, POWER8. It's a common 'language' that the processor and the accelerator talk, that makes it much easier to build the hardware side and easier to program the software side. In our Canberra lab, we're working primarily on the operating system side of this. We are working with some external companies who are building CAPI devices and the optimised software products which use them.</p>
+<p>From a technical point of view, CAPI provides <em>coherent</em> access to system memory and processor caches, eliminating a major bottleneck in using external devices as accelerators. This is illustrated really well by the following graphic from <a href="https://www.youtube.com/watch?v=4ZyXc12J6FA">an IBM promotional video</a>. In the non-CAPI case, you can see there's a lot of data (the little boxes) stalled in the PCIe subsystem, whereas with CAPI, the accelerator has direct access to the memory subsystem, which makes everything go faster.</p>
+<p><img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png" /></p>
+<h2>Uses of CAPI</h2>
+<p>CAPI technology is already powering a few really cool products.</p>
+<p>Firstly, we have an implementation of Redis that sits on top of flash storage connected over CAPI. Or, to take out the buzzwords, CAPI lets us do really, really fast NoSQL databases. There's <a href="https://www.youtube.com/watch?v=cCmFc_0xsvA">a video online</a> giving more details.</p>
+<p>Secondly, our partner <a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;mtag=connectx_4_vpi_card">Mellanox</a> is using CAPI to make network cards that run at speeds of up to 100Gb/s.</p>
+<p>CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Daniel Axtens
+    </span>
+  </span>
+<time datetime="2015-05-27T15:08:00+10:00" pubdate>Wed 27 May 2015</time>  <span class="categories">
+    <a class='category' href='http://callumscar.github.io/category/capi.html'>CAPI</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="http://callumscar.github.io/tag/capi.html">capi</a>,    <a class="category" href="http://callumscar.github.io/tag/open-power.html">open-power</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
 
-    <a class="next" href="http://callumscar.github.io/index3.html">Newer &rarr;</a>
-  <br />
-</div></div>
+</div>
 <aside class="sidebar">
   <section>
     <h1>Recent Posts</h1>

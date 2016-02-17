@@ -4,8 +4,10 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Store Half Byte-Reverse Indexed</title>
+  <title>"Petitboot Autoboot Changes" &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
+
+
 
 
 
@@ -36,7 +38,7 @@
 
 
 <ul class="main-navigation">
-      <li >
+      <li class="active">
         <a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a>
       </li>
       <li >
@@ -57,43 +59,55 @@
 </ul></nav>
   <div id="main">
     <div id="content">
-<div class="blog-index">
-  		<article>
+<div>
+  <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/10/12/a-tale-of-two-dockers/">"A tale of two Dockers"</a>
-      </h1>
+      <h1 class="entry-title">"Petitboot Autoboot Changes"</h1>
     <p class="meta">
-<time datetime="2015-10-12T14:14:00+11:00" pubdate>Mon 12 October 2015</time>    </p>
+<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>    </p>
 </header>
 
-  <div class="entry-content"><p>(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)</p>
-<p>Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/10/12/a-tale-of-two-dockers/">Read On &crarr;</a>
-  </footer>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">"Running ppc64le_hello on real hardware"</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-03T12:16:00+10:00" pubdate>Wed 03 June 2015</time>    </p>
-</header>
+  <div class="entry-content"><p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
+<h2>Old &amp; Busted</h2>
+<p>For some context, here is the old (or current depending on what you're running) section of the configuration screen.</p>
+<p><img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg" /></p>
+<p>This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.</p>
+<p>A side note about default options: it is important to note that not all boot options are valid <em>autoboot</em> options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.</p>
+<h2>New Hotness</h2>
+<p>Below is the new autoboot configuration.</p>
+<p><img alt="New Autoboot" src="/images/sammj/newstyle.jpg" /></p>
+<p>The new design allows you to specify an ordered list of autoboot options.
+The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).</p>
+<p>Selecting the first button, 'Add Device' brings up the following screen:</p>
+<p><img alt="Device Selection" src="/images/sammj/devices.jpg" /></p>
+<p>From here you can select any device or <em>class</em> of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').</p>
+<p>This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
+You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).</p>
+<p>Presently you can add any option into the list and order them how you like - which means you can do silly things like this:</p>
+<p><img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg" /></p>
+<h2>IPMI</h2>
+<p>Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!</p>
+<p>If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:</p>
+<p><img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg" /></p>
+<hr />
+<p>That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Samuel Mendoza-Jonas
+    </span>
+  </span>
+<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>  <span class="categories">
+    <a class='category' href='http://callumscar.github.io/category/autoboot.html'>Autoboot</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="http://callumscar.github.io/tag/petitboot.html">petitboot</a>,    <a class="category" href="http://callumscar.github.io/tag/power.html">power</a>,    <a class="category" href="http://callumscar.github.io/tag/p8.html">p8</a>,    <a class="category" href="http://callumscar.github.io/tag/openpower.html">openpower</a>,    <a class="category" href="http://callumscar.github.io/tag/goodposts.html">goodposts</a>,    <a class="category" href="http://callumscar.github.io/tag/autoboot.html">autoboot</a>,    <a class="category" href="http://callumscar.github.io/tag/realcontent.html">realcontent</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
 
-  <div class="entry-content"><p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
-<p>Firstly, clone the repo, and, as mentioned in ...</p></div>
-  <footer>
-    <a rel="full-article" href="http://callumscar.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">Read On &crarr;</a>
-  </footer>
-  		</article>
-<div class="pagination">
-    <a class="prev" href="http://callumscar.github.io/index4.html">&larr; Older</a>
-
-    <a class="next" href="http://callumscar.github.io/index2.html">Newer &rarr;</a>
-  <br />
-</div></div>
+</div>
 <aside class="sidebar">
   <section>
     <h1>Recent Posts</h1>
