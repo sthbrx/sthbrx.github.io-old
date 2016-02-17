@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
         <meta charset="utf-8" />
-        <title>Store Half Byte-Reverse Indexed - Samuel Mendoza-Jonas</title>
+        <title>Store Half Byte-Reverse Indexed - Petitboot</title>
         <link rel="stylesheet" href="/theme/css/main.css" />
 
         <!--[if IE]>
@@ -20,7 +20,7 @@
                     <li><a href="/category/education.html">Education</a></li>
                     <li><a href="/category/open-power.html">Open-power</a></li>
                     <li><a href="/category/openpower.html">Openpower</a></li>
-                    <li><a href="/category/petitboot.html">Petitboot</a></li>
+                    <li class="active"><a href="/category/petitboot.html">Petitboot</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
 
@@ -97,36 +97,6 @@ and cannot be modified after system initialization.</p>
 <p>Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is <a href="https://github.com/open-power/skiboot">right here</a>. In particular we can see here the OPAL call to <a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702">opal_reinit_cpus</a> which among other things resets the HILE bit.<br />
 This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the <a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53">final patch to support PowerNV machines.</a></p>                </article>
             </aside><!-- /#featured -->
-                <section id="content" class="body">
-                    <h1>Other articles</h1>
-                    <hr />
-                    <ol id="posts-list" class="hfeed">
-
-            <li><article class="hentry">
-                <header>
-                    <h1><a href="/petitboot-autoboot-changes.html" rel="bookmark"
-                           title="Permalink to "Petitboot Autoboot Changes"">"Petitboot Autoboot Changes"</a></h1>
-                </header>
-
-                <div class="entry-content">
-<footer class="post-info">
-        <abbr class="published" title="2015-06-02T08:11:00+10:00">
-                Published: Tue 02 June 2015
-        </abbr>
-
-        <address class="vcard author">
-                By                         <a class="url fn" href="/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-        </address>
-<p>In <a href="/category/autoboot.html">Autoboot</a>.</p>
-<p>tags: <a href="/tag/petitboot.html">petitboot</a> <a href="/tag/power.html">power</a> <a href="/tag/p8.html">p8</a> <a href="/tag/openpower.html">openpower</a> <a href="/tag/goodposts.html">goodposts</a> <a href="/tag/autoboot.html">autoboot</a> <a href="/tag/realcontent.html">realcontent</a> </p>
-</footer><!-- /.post-info -->                <p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
-<h2>Old &amp; Busted</h2>
-<p>For some context, here is the old (or current depending on what you're running) section ...</p>
-                <a class="readmore" href="/petitboot-autoboot-changes.html">read more</a>
-                </div><!-- /.entry-content -->
-            </article></li>
-                </ol><!-- /#posts-list -->
-                </section><!-- /#content -->
         <section id="extras" class="body">
                 <div class="blogroll">
                         <h2>blogroll</h2>

@@ -14,14 +14,13 @@
         <header id="banner" class="body">
                 <h1><a href="/">Store Half Byte-Reverse Indexed </a></h1>
                 <nav><ul>
-                    <li><a href="/category/docker-aufs-overlay-performance-power.html">docker aufs overlay performance power</a></li>
-                    <li><a href="/category/docker-php-performance.html">docker php performance</a></li>
-                    <li><a href="/category/education-offtopic.html">[education, offtopic]</a></li>
-                    <li><a href="/category/misc.html">misc</a></li>
-                    <li><a href="/category/openpower.html">openpower</a></li>
-                    <li><a href="/category/openpower-power-p8.html">openpower power p8</a></li>
-                    <li><a href="/category/petitboot-power-p8-openpower-goodposts-autoboot-realcontent.html">petitboot power p8 openpower goodposts autoboot realcontent</a></li>
-                    <li><a href="/category/petitboot-power-p8-openpower-goodposts-autoboot-realcontent-kexec-kernel.html">petitboot power p8 openpower goodposts autoboot realcontent kexec kernel</a></li>
+                    <li><a href="/category/autoboot.html">Autoboot</a></li>
+                    <li><a href="/category/capi.html">CAPI</a></li>
+                    <li><a href="/category/docker.html">Docker</a></li>
+                    <li><a href="/category/education.html">Education</a></li>
+                    <li><a href="/category/open-power.html">Open-power</a></li>
+                    <li><a href="/category/openpower.html">Openpower</a></li>
+                    <li><a href="/category/petitboot.html">Petitboot</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
 
@@ -36,7 +35,7 @@
         <address class="vcard author">
                 By                         <a class="url fn" href="/author/russell-currey.html">Russell Currey</a>
         </address>
-<p>In <a href="/category/openpower.html">openpower</a>.</p>
+<p>In <a href="/category/openpower.html">Openpower</a>.</p>
 <p>tags: <a href="/tag/openpower.html">openpower</a> </p>
 </footer><!-- /.post-info --><p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
 <p>The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely <a href="https://github.com/open-power/skiboot">skiboot</a>, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that <a href="https://github.com/open-power/skiboot/blob/master/core/opal.c">skiboot exposes</a>, <code>opal_poll_events()</code> (which then calls <code>opal_run_pollers()</code>), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.</p>
@@ -120,6 +119,38 @@
 <p>You can find the full code in-tree <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c">here</a>.</p>
 <p>And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.</p>                </article>
             </aside><!-- /#featured -->
+                <section id="content" class="body">
+                    <h1>Other articles</h1>
+                    <hr />
+                    <ol id="posts-list" class="hfeed">
+
+            <li><article class="hentry">
+                <header>
+                    <h1><a href="/what-the-hile-is-this.html" rel="bookmark"
+                           title="Permalink to "What the HILE is this?"">"What the HILE is this?"</a></h1>
+                </header>
+
+                <div class="entry-content">
+<footer class="post-info">
+        <abbr class="published" title="2015-11-03T15:02:00+11:00">
+                Published: Tue 03 November 2015
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+        </address>
+<p>In <a href="/category/petitboot.html">Petitboot</a>.</p>
+<p>tags: <a href="/tag/petitboot.html">petitboot</a> <a href="/tag/power.html">power</a> <a href="/tag/p8.html">p8</a> <a href="/tag/openpower.html">openpower</a> <a href="/tag/goodposts.html">goodposts</a> <a href="/tag/autoboot.html">autoboot</a> <a href="/tag/realcontent.html">realcontent</a> <a href="/tag/kexec.html">kexec</a> <a href="/tag/kernel.html">kernel</a> </p>
+</footer><!-- /.post-info -->                <p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as ...</p>
+                <a class="readmore" href="/what-the-hile-is-this.html">read more</a>
+                </div><!-- /.entry-content -->
+            </article></li>
+                </ol><!-- /#posts-list -->
+<p class="paginator">
+    Page 1 / 2
+        <a href="/tag/openpower2.html">&raquo;</a>
+</p>
+                </section><!-- /#content -->
         <section id="extras" class="body">
                 <div class="blogroll">
                         <h2>blogroll</h2>

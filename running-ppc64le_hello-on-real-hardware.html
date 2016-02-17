@@ -14,14 +14,13 @@
         <header id="banner" class="body">
                 <h1><a href="/">Store Half Byte-Reverse Indexed </a></h1>
                 <nav><ul>
-                    <li><a href="/category/docker-aufs-overlay-performance-power.html">docker aufs overlay performance power</a></li>
-                    <li><a href="/category/docker-php-performance.html">docker php performance</a></li>
-                    <li><a href="/category/education-offtopic.html">[education, offtopic]</a></li>
-                    <li><a href="/category/misc.html">misc</a></li>
-                    <li><a href="/category/openpower.html">openpower</a></li>
-                    <li class="active"><a href="/category/openpower-power-p8.html">openpower power p8</a></li>
-                    <li><a href="/category/petitboot-power-p8-openpower-goodposts-autoboot-realcontent.html">petitboot power p8 openpower goodposts autoboot realcontent</a></li>
-                    <li><a href="/category/petitboot-power-p8-openpower-goodposts-autoboot-realcontent-kexec-kernel.html">petitboot power p8 openpower goodposts autoboot realcontent kexec kernel</a></li>
+                    <li><a href="/category/autoboot.html">Autoboot</a></li>
+                    <li><a href="/category/capi.html">CAPI</a></li>
+                    <li><a href="/category/docker.html">Docker</a></li>
+                    <li><a href="/category/education.html">Education</a></li>
+                    <li><a href="/category/open-power.html">Open-power</a></li>
+                    <li class="active"><a href="/category/openpower.html">Openpower</a></li>
+                    <li><a href="/category/petitboot.html">Petitboot</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
 <section id="content" class="body">
@@ -34,15 +33,15 @@
 
     <div class="entry-content">
 <footer class="post-info">
-        <abbr class="published" title="2015-06-03T12:16:57+10:00">
+        <abbr class="published" title="2015-06-03T12:16:00+10:00">
                 Published: Wed 03 June 2015
         </abbr>
 
         <address class="vcard author">
                 By                         <a class="url fn" href="/author/daniel-axtens.html">Daniel Axtens</a>
         </address>
-<p>In <a href="/category/openpower-power-p8.html">openpower power p8</a>.</p>
-
+<p>In <a href="/category/openpower.html">Openpower</a>.</p>
+<p>tags: <a href="/tag/openpower.html">openpower</a> <a href="/tag/power.html">power</a> <a href="/tag/p8.html">p8</a> </p>
 </footer><!-- /.post-info -->      <p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
 <p>Firstly, clone the repo, and, as mentioned in the README, comment out <code>mambo_write</code>. Build it.</p>
 <p>Grab <a href="https://github.com/open-power/op-build">op-build</a>, and build a Habanero defconfig. To save yourself a fair bit of time, first edit <code>openpower/configs/habanero_defconfig</code> to answer <code>n</code> about a custom kernel source. That'll save you hours of waiting for git.</p>
