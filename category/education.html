@@ -1,122 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
-        <meta charset="utf-8" />
-        <title>Store Half Byte-Reverse Indexed - Education</title>
-        <link rel="stylesheet" href="http://callumscar.github.io/theme/css/main.css" />
-        <link href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate" title="Store Half Byte-Reverse Indexed Atom Feed" />
+  <meta charset="utf-8">
+  <title>Category: Education &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
 
-        <!--[if IE]>
-            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-        <![endif]-->
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="http://callumscar.github.io/favicon.png" rel="icon">
+
+  <link href="http://callumscar.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
 </head>
 
-<body id="index" class="home">
-        <header id="banner" class="body">
-                <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed </a></h1>
-                <nav><ul>
-                    <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
-                    <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
-                    <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
-                    <li class="active"><a href="http://callumscar.github.io/category/education.html">Education</a></li>
-                    <li><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
-                    <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
-                </ul></nav>
-        </header><!-- /#banner -->
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
 
-            <aside id="featured" class="body">
-                <article>
-                    <h1 class="entry-title"><a href="http://callumscar.github.io/evolving-into-a-systems-programmer.html">"Evolving into a systems programmer"</a></h1>
-<footer class="post-info">
-        <abbr class="published" title="2015-11-06T11:13:00+11:00">
-                Published: Fri 06 November 2015
-        </abbr>
 
-        <address class="vcard author">
-                By                         <a class="url fn" href="http://callumscar.github.io/author/cyril-bur.html">Cyril Bur</a>
-        </address>
-<p>In <a href="http://callumscar.github.io/category/education.html">Education</a>.</p>
-<p>tags: <a href="http://callumscar.github.io/tag/education.html">education</a> <a href="http://callumscar.github.io/tag/offtopic.html">offtopic</a> </p>
-</footer><!-- /.post-info --><p>In a previous life I tutored first year computing. The university I
-attended had a policy of using C to introduce first years to programming.
-One of the most rewarding aspects of teaching is opening doors of
-possibility to people by sharing my knowledge.</p>
-<p>Over the years I had a mixture of computer science or computer engineering
-students as well as other disciplines of engineering who were required to
-learn the basics (notably electrical and mechanical). Each class was
-different and the initial knowledge always varied greatly. The beauty of
-teaching C meant that there was never someone who truly knew it all, heck,
-I didn't and still don't. The other advantage of teaching C is that I could
-very quickly spot the hackers, the shy person at the back of the room who's
-eyes light up when you know you've correctly explained pointers (to them
-anyway) or when asked "What happens if you use a negative index into an
-array" and the smile they would make upon hearing "What do you think happens".</p>
-<p>Right there I would see the makings of a hacker, and this post is dedicated
-to you or to anyone who wants to be a hacker. I've been asked "What did you
-do to get where you are?", "How do I get into Linux?" (vague much) at
-careers fairs. I never quite know what to say, here goes a braindump.</p>
-<p>Start with the basics, one of the easiest way we tested the first years was
-to tell them they can't use parts of libc. That was a great exam, taking
-aside those who didn't read the question and used <code>strlen()</code> when they were
-explicitly told they couldn't <code>#include &lt;string.h&gt;</code> a true hacker doesn't
-need libc, understand it won't always be there. I thought of this example
-because only two weeks ago I was writing code in an environment where I
-didn't have libc. Ok sure, if you've got it, use it, just don't crumble
-when you don't. Oh how I wish I could have told those students who argued
-that it was a pointless question that they were objectively wrong.</p>
-<p>Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
-a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
-it's intense but perhaps understand the beauty of GCC, know what it's doing
-for you. There is a variety of little 8 bit processors you can play with
-these days.</p>
-<p>At all levels of my teaching I saw almost everyone get something which
-'worked', and that's fine, it probably does but I'm here to tell you that
-it doesn't work until you know why it works. I'm all for the 'try it and
-see' approach but once you've tried it you have to explain why the
-behaviour changed otherwise you didn't fix it. As an extension to that,
-know how your tools work, I don't think anyone would expect you to be able
-to write tools to the level of complexity of GCC or GDB or Valgrind but
-have a rough idea as to how they achieve their goals.</p>
-<p>A hacker is paranoid, yes, <code>malloc()</code> fails. Linux might just decide now
-isn't a good time for you to <code>open()</code> and your <code>fopen()</code> calling function had
-better be cool with that. A hacker also doesn't rely on the kindness of the
-operating system theres an <code>munmap()</code> for a reason. Nor should you even
-completely trust it, what are you leaving around in memory?</p>
-<p>Above all do a it for the fun of it, so many of my students asked how I
-knew everything I knew (I was only a year ahead of them in my first year of
-teaching) and put simply, write code on a Saturday night.</p>
-<p>None of these things do or don't make you a hacker, being a hacker is a
-frame of mind and a way of thinking but all of the above helps.</p>
-<p>Unfortunately there isn't a single path, I might even say it is a path that
-chooses you. Odds are you're here because you approached me at some point
-and asked me one of those questions I never quite know how to answer.
-Perhaps this is the path, at the very least you're asking questions and
-approaching people. I'm hope I did on the day, but once again, all the very
-best with your endeavours into the future</p>                </article>
-            </aside><!-- /#featured -->
-        <section id="extras" class="body">
-                <div class="blogroll">
-                        <h2>blogroll</h2>
-                        <ul>
-                            <li><a href="http://ozlabs.org">OzLabs</a></li>
-                        </ul>
-                </div><!-- /.blogroll -->
-                <div class="social">
-                        <h2>social</h2>
-                        <ul>
-                            <li><a href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate">atom feed</a></li>
+<ul class="main-navigation">
+      <li >
+        <a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/capi.html">Capi</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/docker.html">Docker</a>
+      </li>
+      <li class="active">
+        <a href="http://callumscar.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/openpower.html">Openpower</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+	<article role="article">
+    	<header>
+    		<h1 class="entry-title">Category: Education</h1>
+    	</header>
 
-                        </ul>
-                </div><!-- /.social -->
-        </section><!-- /#extras -->
+    	<div id="blog-archives">
+            <h2>2015</h2>
+                    <article>
+                        <h1><a href="http://callumscar.github.io/evolving-into-a-systems-programmer.html">"Evolving into a systems programmer"</a></h1>
+                        <time datetime="2015-11-06 11:13:00+11:00" pubdate>
+                            <span class="month">Nov</span>
+                            <span class="day">06</span>
+                            <span class="year">2015</span>
+                        </time>
+                        <footer>
+                            <span class="categories">posted in
+                                <a class='category' href='http://callumscar.github.io/category/education.html'>Education</a>
+                            </span>
+                        </footer>
+                    </article>
+	    </div>
+    </article>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="http://callumscar.github.io/evolving-into-a-systems-programmer.html">"Evolving into a systems programmer"</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
+        <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
+        <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
+        <li><a href="http://callumscar.github.io/category/education.html">Education</a></li>
+        <li><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
+        <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
+    </ul>
+  </section>
+ 
 
-        <footer id="contentinfo" class="body">
-                <address id="about" class="vcard body">
-                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
-                </address><!-- /#about -->
+  <section>
+  <h1>Tags</h1>
+    <a href="http://callumscar.github.io/tag/peformance.html">peformance</a>,    <a href="http://callumscar.github.io/tag/kernel.html">kernel</a>,    <a href="http://callumscar.github.io/tag/aufs.html">aufs</a>,    <a href="http://callumscar.github.io/tag/power.html">power</a>,    <a href="http://callumscar.github.io/tag/overlay.html">overlay</a>,    <a href="http://callumscar.github.io/tag/p8.html">p8</a>,    <a href="http://callumscar.github.io/tag/kexec.html">kexec</a>,    <a href="http://callumscar.github.io/tag/open-power.html">open-power</a>,    <a href="http://callumscar.github.io/tag/autoboot.html">autoboot</a>,    <a href="http://callumscar.github.io/tag/openpower.html">openpower</a>,    <a href="http://callumscar.github.io/tag/offtopic.html">offtopic</a>,    <a href="http://callumscar.github.io/tag/petitboot.html">petitboot</a>,    <a href="http://callumscar.github.io/tag/realcontent.html">realcontent</a>,    <a href="http://callumscar.github.io/tag/performance.html">performance</a>,    <a href="http://callumscar.github.io/tag/docker.html">docker</a>,    <a href="http://callumscar.github.io/tag/education.html">education</a>,    <a href="http://callumscar.github.io/tag/goodposts.html">goodposts</a>,    <a href="http://callumscar.github.io/tag/php.html">php</a>,    <a href="http://callumscar.github.io/tag/capi.html">capi</a>  </section>
 
-                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
-        </footer><!-- /#contentinfo -->
 
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="http://callumscar.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="http://callumscar.github.io/theme/js/ender.js"></script>
+  <script src="http://callumscar.github.io/theme/js/octopress.js" type="text/javascript"></script>
 </body>
 </html>

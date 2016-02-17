@@ -1,155 +1,145 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
-        <meta charset="utf-8" />
-        <title>Store Half Byte-Reverse Indexed - Samuel Mendoza-Jonas</title>
-        <link rel="stylesheet" href="http://callumscar.github.io/theme/css/main.css" />
-        <link href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate" title="Store Half Byte-Reverse Indexed Atom Feed" />
+  <meta charset="utf-8">
+  <title>Author: Samuel Mendoza-Jonas &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
 
-        <!--[if IE]>
-            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-        <![endif]-->
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="http://callumscar.github.io/favicon.png" rel="icon">
+
+  <link href="http://callumscar.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
 </head>
 
-<body id="index" class="home">
-        <header id="banner" class="body">
-                <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed </a></h1>
-                <nav><ul>
-                    <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
-                    <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
-                    <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
-                    <li><a href="http://callumscar.github.io/category/education.html">Education</a></li>
-                    <li><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
-                    <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
-                </ul></nav>
-        </header><!-- /#banner -->
-
-            <aside id="featured" class="body">
-                <article>
-                    <h1 class="entry-title"><a href="http://callumscar.github.io/what-the-hile-is-this.html">"What the HILE is this?"</a></h1>
-<footer class="post-info">
-        <abbr class="published" title="2015-11-03T15:02:00+11:00">
-                Published: Tue 03 November 2015
-        </abbr>
-
-        <address class="vcard author">
-                By                         <a class="url fn" href="http://callumscar.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-        </address>
-<p>In <a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a>.</p>
-<p>tags: <a href="http://callumscar.github.io/tag/petitboot.html">petitboot</a> <a href="http://callumscar.github.io/tag/power.html">power</a> <a href="http://callumscar.github.io/tag/p8.html">p8</a> <a href="http://callumscar.github.io/tag/openpower.html">openpower</a> <a href="http://callumscar.github.io/tag/goodposts.html">goodposts</a> <a href="http://callumscar.github.io/tag/autoboot.html">autoboot</a> <a href="http://callumscar.github.io/tag/realcontent.html">realcontent</a> <a href="http://callumscar.github.io/tag/kexec.html">kexec</a> <a href="http://callumscar.github.io/tag/kernel.html">kernel</a> </p>
-</footer><!-- /.post-info --><p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as making support for vendor tools easier.
-So it should just be a matter of compiling Petitboot LE right? Well...</p>
-<h3>Switching Endianess</h3>
-<p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
-<p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
-<p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
-<div class="highlight"><pre><span class="cp">#define FIXUP_ENDIAN</span>
-    <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
-    <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa602487d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x1c004a39</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa600607d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x01006b69</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6035a7d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6037b7d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x2400004c</span>
-</pre></div>
-
-
-<p>By some amazing coincidence if you take the opcode for <code>tdi 0, 0, 0x48</code> and flip the order of the bytes it forms the opcode for <code>b . + 8</code>. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR<sub>LE</sub> being set to 1.</p>
-<p>When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...</p>
-<h3>Petitboot's Secret Sauce</h3>
-<p>The main feature of Petitboot is that it is a full (but small!) Linux kernel and userspace which scans all available devices and presents possible boot options. To boot an available operating system Petitboot needs to start executing the OS's kernel, which it accomplishes via <a href="https://en.wikipedia.org/wiki/Kexec">kexec</a>. Simply speaking kexec loads the target kernel into memory, shuts the current system down most of the way, and at the last moment sets the instruction pointer to the start of the target kernel. From there it's like booting any other kernel, including the FIXUP_ENDIAN section above.</p>
-<h3>We've Booted! Wait...</h3>
-<p>So our LE Petitboot kernel boots fine thanks to FIXUP_ENDIAN, we kexec into some other kernel.. and everything falls to pieces.<br />
-The problem is we've unwittingly changed one of the assumptions of booting a kernel; namely that MSR<sub>LE</sub> defaults to zero. When kexec-ing from an LE kernel we start executing the next kernel in LE mode. This itself is ok, the FIXUP_ENDIAN macro will handle the switch if needed. The problem is that the FIXUP_ENDIAN macro is relatively recent, first entering the kernel in early 2014. So if we're booting, say, an old Fedora 19 install with a v3.9 kernel - things go very bad, very quickly.</p>
-<h3>Fix #1</h3>
-<p>The solution seems pretty straightforward: find where we jump into the next kernel, and just before that make sure we reset the LE bit in the MSR. That's exactly what <a href="https://github.com/antonblanchard/kexec-lite/commit/150b14e76a4b51f865b929ad9a9bf4133e2d3af7">this patch</a> to kexec-lite does.<br />
-That worked up until I tested on a machine with more than one CPU. Remembering that the MSR is processor-specific, we also have to <a href="https://github.com/torvalds/linux/commit/ffebf5f391dfa9da3e086abad3eef7d3e5300249">reset the endianess of each secondary CPU</a><br />
-Now things are looking good! All the CPUs are reset to big-endian, the target kernel boots fine, and then... 'recursive interrupts?!'</p>
-<h3>HILE</h3>
-<p>Skipping the debugging process that led to this (hint: <a href="https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/">mambo</a> is actually a pretty cool tool), these were the sequence of steps leading up to the problem:</p>
-<ul>
-<li>Little-endian Petitboot kexecs into a big-endian kernel</li>
-<li>All CPUs are reset to big-endian</li>
-<li>The big-endian kernel begins to boot successfully</li>
-<li>Somewhere in the device-tree parsing code we take an exception</li>
-<li>Execution jumps to the exception handler at <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/kernel/exceptions-64s.S#L199">0x300</a></li>
-<li>I notice that MSR<sub>LE</sub> is set to 1</li>
-<li>WHAT WHY IS THE LE BIT IN THE MSR SET TO 1</li>
-<li>We fail to read the first instruction at 0x300 because it's written in big-endian, so we jump to the exception handler at 0x300... oh no.</li>
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
 </ul>
-<p>And then we very busily execute nothing until the machine is killed. I spend some time staring incredulously at my screen, then appeal to a <a href="https://github.com/torvalds/linux/blob/master/MAINTAINERS">higher authority</a> who replies with "What is the HILE set to?"  </p>
-<p>..the WHAT?<br />
-Cracking open the <a href="https://www.power.org/documentation/power-isa-v-2-07b/">PowerISA</a> reveals this tidbit:</p>
-<blockquote>
-<p>The Hypervisor Interrupt Little-Endian (HILE) bit is a bit
-in an implementation-dependent register or similar
-mechanism. The contents of the HILE bit are copied
-into MSR<sub>LE</sub> by interrupts that set MSR<sub>HV</sub> to 1 (see Section
-6.5), to establish the Endian mode for the interrupt
-handler. The HILE bit is set, by an implementation-dependent
-method, during system initialization,
-and cannot be modified after system initialization.</p>
-</blockquote>
-<p>To be fair, there are use cases for taking exceptions in a different endianess. The problem is that while HILE gets switched on when setting MSR<sub>LE</sub> to 1, it <em>doesn't</em> get turned off when MSR<sub>LE</sub> is set to zero. In particular the line "...cannot be modified after system initialization." led to a fair amount of hand wringing from myself and whoever would listen; if we can't reset the HILE bit, we simply can't use little-endian kernels for Petitboot.  </p>
-<p>Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is <a href="https://github.com/open-power/skiboot">right here</a>. In particular we can see here the OPAL call to <a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702">opal_reinit_cpus</a> which among other things resets the HILE bit.<br />
-This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the <a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53">final patch to support PowerNV machines.</a></p>                </article>
-            </aside><!-- /#featured -->
-                <section id="content" class="body">
-                    <h1>Other articles</h1>
-                    <hr />
-                    <ol id="posts-list" class="hfeed">
 
-            <li><article class="hentry">
-                <header>
-                    <h1><a href="http://callumscar.github.io/petitboot-autoboot-changes.html" rel="bookmark"
-                           title="Permalink to "Petitboot Autoboot Changes"">"Petitboot Autoboot Changes"</a></h1>
-                </header>
 
-                <div class="entry-content">
-<footer class="post-info">
-        <abbr class="published" title="2015-06-02T08:11:00+10:00">
-                Published: Tue 02 June 2015
-        </abbr>
+<ul class="main-navigation">
+      <li >
+        <a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/capi.html">Capi</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/openpower.html">Openpower</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+	<article role="article">
+    	<header>
+    		<h1 class="entry-title">Author: Samuel Mendoza-Jonas</h1>
+    	</header>
 
-        <address class="vcard author">
-                By                         <a class="url fn" href="http://callumscar.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-        </address>
-<p>In <a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a>.</p>
-<p>tags: <a href="http://callumscar.github.io/tag/petitboot.html">petitboot</a> <a href="http://callumscar.github.io/tag/power.html">power</a> <a href="http://callumscar.github.io/tag/p8.html">p8</a> <a href="http://callumscar.github.io/tag/openpower.html">openpower</a> <a href="http://callumscar.github.io/tag/goodposts.html">goodposts</a> <a href="http://callumscar.github.io/tag/autoboot.html">autoboot</a> <a href="http://callumscar.github.io/tag/realcontent.html">realcontent</a> </p>
-</footer><!-- /.post-info -->                <p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
-<h2>Old &amp; Busted</h2>
-<p>For some context, here is the old (or current depending on what you're running) section ...</p>
-                <a class="readmore" href="http://callumscar.github.io/petitboot-autoboot-changes.html">read more</a>
-                </div><!-- /.entry-content -->
-            </article></li>
-                </ol><!-- /#posts-list -->
-                </section><!-- /#content -->
-        <section id="extras" class="body">
-                <div class="blogroll">
-                        <h2>blogroll</h2>
-                        <ul>
-                            <li><a href="http://ozlabs.org">OzLabs</a></li>
-                        </ul>
-                </div><!-- /.blogroll -->
-                <div class="social">
-                        <h2>social</h2>
-                        <ul>
-                            <li><a href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate">atom feed</a></li>
+    	<div id="blog-archives">
+            <h2>2015</h2>
+                    <article>
+                        <h1><a href="http://callumscar.github.io/what-the-hile-is-this.html">"What the HILE is this?"</a></h1>
+                        <time datetime="2015-11-03 15:02:00+11:00" pubdate>
+                            <span class="month">Nov</span>
+                            <span class="day">03</span>
+                            <span class="year">2015</span>
+                        </time>
+                        <footer>
+                            <span class="categories">posted in
+                                <a class='category' href='http://callumscar.github.io/category/petitboot.html'>Petitboot</a>
+                            </span>
+                        </footer>
+                    </article>
+                    <article>
+                        <h1><a href="http://callumscar.github.io/petitboot-autoboot-changes.html">"Petitboot Autoboot Changes"</a></h1>
+                        <time datetime="2015-06-02 08:11:00+10:00" pubdate>
+                            <span class="month">Jun</span>
+                            <span class="day">02</span>
+                            <span class="year">2015</span>
+                        </time>
+                        <footer>
+                            <span class="categories">posted in
+                                <a class='category' href='http://callumscar.github.io/category/autoboot.html'>Autoboot</a>
+                            </span>
+                        </footer>
+                    </article>
+	    </div>
+    </article>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="http://callumscar.github.io/what-the-hile-is-this.html">"What the HILE is this?"</a>
+      </li>
+      <li class="post">
+          <a href="http://callumscar.github.io/petitboot-autoboot-changes.html">"Petitboot Autoboot Changes"</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
+        <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
+        <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
+        <li><a href="http://callumscar.github.io/category/education.html">Education</a></li>
+        <li><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
+        <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
+    </ul>
+  </section>
+ 
 
-                        </ul>
-                </div><!-- /.social -->
-        </section><!-- /#extras -->
+  <section>
+  <h1>Tags</h1>
+    <a href="http://callumscar.github.io/tag/peformance.html">peformance</a>,    <a href="http://callumscar.github.io/tag/kernel.html">kernel</a>,    <a href="http://callumscar.github.io/tag/aufs.html">aufs</a>,    <a href="http://callumscar.github.io/tag/power.html">power</a>,    <a href="http://callumscar.github.io/tag/overlay.html">overlay</a>,    <a href="http://callumscar.github.io/tag/p8.html">p8</a>,    <a href="http://callumscar.github.io/tag/kexec.html">kexec</a>,    <a href="http://callumscar.github.io/tag/open-power.html">open-power</a>,    <a href="http://callumscar.github.io/tag/autoboot.html">autoboot</a>,    <a href="http://callumscar.github.io/tag/openpower.html">openpower</a>,    <a href="http://callumscar.github.io/tag/offtopic.html">offtopic</a>,    <a href="http://callumscar.github.io/tag/petitboot.html">petitboot</a>,    <a href="http://callumscar.github.io/tag/realcontent.html">realcontent</a>,    <a href="http://callumscar.github.io/tag/performance.html">performance</a>,    <a href="http://callumscar.github.io/tag/docker.html">docker</a>,    <a href="http://callumscar.github.io/tag/education.html">education</a>,    <a href="http://callumscar.github.io/tag/goodposts.html">goodposts</a>,    <a href="http://callumscar.github.io/tag/php.html">php</a>,    <a href="http://callumscar.github.io/tag/capi.html">capi</a>  </section>
 
-        <footer id="contentinfo" class="body">
-                <address id="about" class="vcard body">
-                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
-                </address><!-- /#about -->
 
-                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
-        </footer><!-- /#contentinfo -->
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
 
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="http://callumscar.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="http://callumscar.github.io/theme/js/ender.js"></script>
+  <script src="http://callumscar.github.io/theme/js/octopress.js" type="text/javascript"></script>
 </body>
 </html>

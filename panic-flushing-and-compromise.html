@@ -1,48 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
-        <meta charset="utf-8" />
-        <title>"Panic, flushing and compromise"</title>
-        <link rel="stylesheet" href="http://callumscar.github.io/theme/css/main.css" />
-        <link href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate" title="Store Half Byte-Reverse Indexed Atom Feed" />
+  <meta charset="utf-8">
+  <title>"Panic, flushing and compromise" &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
 
-        <!--[if IE]>
-            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-        <![endif]-->
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="http://callumscar.github.io/favicon.png" rel="icon">
+
+  <link href="http://callumscar.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
 </head>
 
-<body id="index" class="home">
-        <header id="banner" class="body">
-                <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed </a></h1>
-                <nav><ul>
-                    <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
-                    <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
-                    <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
-                    <li><a href="http://callumscar.github.io/category/education.html">Education</a></li>
-                    <li class="active"><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
-                    <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
-                </ul></nav>
-        </header><!-- /#banner -->
-<section id="content" class="body">
-  <article>
-    <header>
-      <h1 class="entry-title">
-        <a href="http://callumscar.github.io/panic-flushing-and-compromise.html" rel="bookmark"
-           title="Permalink to "Panic, flushing and compromise"">"Panic, flushing and compromise"</a></h1>
-    </header>
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
 
-    <div class="entry-content">
-<footer class="post-info">
-        <abbr class="published" title="2016-02-15T14:22:00+11:00">
-                Published: Mon 15 February 2016
-        </abbr>
 
-        <address class="vcard author">
-                By                         <a class="url fn" href="http://callumscar.github.io/author/russell-currey.html">Russell Currey</a>
-        </address>
-<p>In <a href="http://callumscar.github.io/category/openpower.html">OpenPower</a>.</p>
-<p>tags: <a href="http://callumscar.github.io/tag/openpower.html">openpower</a> </p>
-</footer><!-- /.post-info -->      <p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
+<ul class="main-navigation">
+      <li >
+        <a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/capi.html">Capi</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/education.html">Education</a>
+      </li>
+      <li class="active">
+        <a href="http://callumscar.github.io/category/openpower.html">Openpower</a>
+      </li>
+      <li >
+        <a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">"Panic, flushing and compromise"</h1>
+    <p class="meta">
+<time datetime="2016-02-15T14:22:00+11:00" pubdate>Mon 15 February 2016</time>    </p>
+</header>
+
+  <div class="entry-content"><p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
 <p>The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely <a href="https://github.com/open-power/skiboot">skiboot</a>, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that <a href="https://github.com/open-power/skiboot/blob/master/core/opal.c">skiboot exposes</a>, <code>opal_poll_events()</code> (which then calls <code>opal_run_pollers()</code>), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.</p>
 <p>Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.</p>
 <p>Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.</p>
@@ -122,34 +147,79 @@
 
 
 <p>You can find the full code in-tree <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c">here</a>.</p>
-<p>And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.</p>
-    </div><!-- /.entry-content -->
-
+<p>And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Russell Currey
+    </span>
+  </span>
+<time datetime="2016-02-15T14:22:00+11:00" pubdate>Mon 15 February 2016</time>  <span class="categories">
+    <a class='category' href='http://callumscar.github.io/category/openpower.html'>OpenPower</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="http://callumscar.github.io/tag/openpower.html">openpower</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
   </article>
-</section>
-        <section id="extras" class="body">
-                <div class="blogroll">
-                        <h2>blogroll</h2>
-                        <ul>
-                            <li><a href="http://ozlabs.org">OzLabs</a></li>
-                        </ul>
-                </div><!-- /.blogroll -->
-                <div class="social">
-                        <h2>social</h2>
-                        <ul>
-                            <li><a href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate">atom feed</a></li>
 
-                        </ul>
-                </div><!-- /.social -->
-        </section><!-- /#extras -->
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="http://callumscar.github.io/panic-flushing-and-compromise.html">"Panic, flushing and compromise"</a>
+      </li>
+      <li class="post">
+          <a href="http://callumscar.github.io/evolving-into-a-systems-programmer.html">"Evolving into a systems programmer"</a>
+      </li>
+      <li class="post">
+          <a href="http://callumscar.github.io/what-the-hile-is-this.html">"What the HILE is this?"</a>
+      </li>
+      <li class="post">
+          <a href="http://callumscar.github.io/docker-just-stop-using-aufs.html">"Docker: Just Stop Using AUFS"</a>
+      </li>
+      <li class="post">
+          <a href="http://callumscar.github.io/a-tale-of-two-dockers.html">"A tale of two Dockers"</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
+        <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
+        <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
+        <li><a href="http://callumscar.github.io/category/education.html">Education</a></li>
+        <li><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
+        <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
+    </ul>
+  </section>
+ 
 
-        <footer id="contentinfo" class="body">
-                <address id="about" class="vcard body">
-                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
-                </address><!-- /#about -->
+  <section>
+  <h1>Tags</h1>
+    <a href="http://callumscar.github.io/tag/peformance.html">peformance</a>,    <a href="http://callumscar.github.io/tag/kernel.html">kernel</a>,    <a href="http://callumscar.github.io/tag/aufs.html">aufs</a>,    <a href="http://callumscar.github.io/tag/power.html">power</a>,    <a href="http://callumscar.github.io/tag/overlay.html">overlay</a>,    <a href="http://callumscar.github.io/tag/p8.html">p8</a>,    <a href="http://callumscar.github.io/tag/kexec.html">kexec</a>,    <a href="http://callumscar.github.io/tag/open-power.html">open-power</a>,    <a href="http://callumscar.github.io/tag/autoboot.html">autoboot</a>,    <a href="http://callumscar.github.io/tag/openpower.html">openpower</a>,    <a href="http://callumscar.github.io/tag/offtopic.html">offtopic</a>,    <a href="http://callumscar.github.io/tag/petitboot.html">petitboot</a>,    <a href="http://callumscar.github.io/tag/realcontent.html">realcontent</a>,    <a href="http://callumscar.github.io/tag/performance.html">performance</a>,    <a href="http://callumscar.github.io/tag/docker.html">docker</a>,    <a href="http://callumscar.github.io/tag/education.html">education</a>,    <a href="http://callumscar.github.io/tag/goodposts.html">goodposts</a>,    <a href="http://callumscar.github.io/tag/php.html">php</a>,    <a href="http://callumscar.github.io/tag/capi.html">capi</a>  </section>
 
-                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
-        </footer><!-- /#contentinfo -->
 
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2016  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="http://callumscar.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="http://callumscar.github.io/theme/js/ender.js"></script>
+  <script src="http://callumscar.github.io/theme/js/octopress.js" type="text/javascript"></script>
 </body>
 </html>
