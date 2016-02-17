@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="http://callumscar.github.io/" rel="alternate"></link><link href="http://callumscar.github.io/atom.xml" rel="self"></link><id>http://callumscar.github.io/</id><updated>2016-02-15T14:22:00+11:00</updated><entry><title>"Panic, flushing and compromise"</title><link href="http://callumscar.github.io/panic-flushing-and-compromise.html" rel="alternate"></link><published>2016-02-15T14:22:00+11:00</published><author><name>Russell Currey</name></author><id>tag:callumscar.github.io,2016-02-15:panic-flushing-and-compromise.html</id><summary type="html">&lt;p&gt;This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.&lt;/p&gt;
+&lt;p&gt;The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely &lt;a href="https://github.com/open-power/skiboot"&gt;skiboot&lt;/a&gt;, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that &lt;a href="https://github.com/open-power/skiboot/blob/master/core/opal.c"&gt;skiboot exposes&lt;/a&gt;, &lt;code&gt;opal_poll_events()&lt;/code&gt; (which then calls &lt;code&gt;opal_run_pollers()&lt;/code&gt;), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.&lt;/p&gt;
+&lt;p&gt;Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.&lt;/p&gt;
+&lt;p&gt;Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.&lt;/p&gt;
+&lt;p&gt;There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the &lt;code&gt;opal_cec_reboot()&lt;/code&gt; function.  So all we need to do is flush out the console buffer:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;int64&lt;/span&gt; &lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OPAL: Reboot request...&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+
+    &lt;span class="n"&gt;console_complete_flush&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt; &lt;span class="c1"&gt;// &amp;lt;-- what I added&lt;/span&gt;
+
+    &lt;span class="c1"&gt;// rebooting stuff happens here...&lt;/span&gt;
+
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;OPAL_SUCCESS&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Writing a complete flushing function was pretty easy, then call it from the power down and reboot functions.  Easy, all nicely contained in firmware.&lt;/p&gt;
+&lt;p&gt;Now, what if the kernel isn't configured to reboot after panic.  Or, what if the reboot timer is really long?  Do you want to wait 3 minutes to see your panic output?  Probably not.  We need to call the pollers after panic.&lt;/p&gt;
+&lt;p&gt;First, I had to figure out what the kernel actually &lt;em&gt;does&lt;/em&gt; when it panics.  Let's have a look at the &lt;a href="https://github.com/torvalds/linux/blob/master/kernel/panic.c"&gt;panic function itself&lt;/a&gt; to figure out where we could work some code in.&lt;/p&gt;
+&lt;p&gt;In the &lt;code&gt;panic()&lt;/code&gt; function, the easiest place I found to put in some code was &lt;code&gt;panic_blink()&lt;/code&gt;.  This is supposed to be a function to blink the LEDs on your keyboard when the kernel is panicking, but we could set it to &lt;code&gt;opal_poll_events()&lt;/code&gt; and it'd work fine.  There, problem solved!&lt;/p&gt;
+&lt;p&gt;Oh, wait.  That will never get accepted upstream, ever.  Let's try again.&lt;/p&gt;
+&lt;p&gt;Well, there are &lt;code&gt;#ifdef&lt;/code&gt;s in the code that are architecture specific, for s390 and SPARC.  I could add an &lt;code&gt;#ifdef&lt;/code&gt; to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from &lt;code&gt;arch/powerpc&lt;/code&gt;, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.&lt;/p&gt;
+&lt;p&gt;As a kernel noob, I found myself digging into what every function called by &lt;code&gt;panic()&lt;/code&gt; actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;It turns out &lt;code&gt;kmsg_dump()&lt;/code&gt; does what it says: dumps messages from the kernel.  Different parts of the kernel can register their own dumpers, so the kernel can have a variety of dumpers for different purposes.  One existing example in OpenPOWER is a kmsg dumper that stores messages in &lt;code&gt;nvram&lt;/code&gt; (non-volatile RAM), so you can find it after you reboot.&lt;/p&gt;
+&lt;p&gt;Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call &lt;code&gt;opal_poll_events()&lt;/code&gt; a whole bunch of times, right?  That &lt;em&gt;would&lt;/em&gt; work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.&lt;/p&gt;
+&lt;p&gt;Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.&lt;/p&gt;
+&lt;p&gt;In the end, it looks like this:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
+&lt;span class="cm"&gt; * Console output is controlled by OPAL firmware.  The kernel regularly calls&lt;/span&gt;
+&lt;span class="cm"&gt; * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,&lt;/span&gt;
+&lt;span class="cm"&gt; * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message&lt;/span&gt;
+&lt;span class="cm"&gt; * may not be completely printed.  This function does not actually dump the&lt;/span&gt;
+&lt;span class="cm"&gt; * message, it just ensures that OPAL completely flushes the console buffer.&lt;/span&gt;
+&lt;span class="cm"&gt; */&lt;/span&gt;
+&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;force_opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;kmsg_dumper&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dumper&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+                                     &lt;span class="k"&gt;enum&lt;/span&gt; &lt;span class="n"&gt;kmsg_dump_reason&lt;/span&gt; &lt;span class="n"&gt;reason&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="kt"&gt;int64_t&lt;/span&gt; &lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+    &lt;span class="cm"&gt;/*&lt;/span&gt;
+&lt;span class="cm"&gt;     * Outside of a panic context the pollers will continue to run,&lt;/span&gt;
+&lt;span class="cm"&gt;     * so we don&amp;#39;t need to do any special flushing.&lt;/span&gt;
+&lt;span class="cm"&gt;     */&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;reason&lt;/span&gt; &lt;span class="o"&gt;!=&lt;/span&gt; &lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;opal_check_token&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;OPAL_CONSOLE_FLUSH&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;ret&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="n"&gt;OPAL_UNSUPPORTED&lt;/span&gt; &lt;span class="o"&gt;||&lt;/span&gt; &lt;span class="n"&gt;ret&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="n"&gt;OPAL_PARAMETER&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+            &lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+        &lt;span class="cm"&gt;/* Incrementally flush until there&amp;#39;s nothing left */&lt;/span&gt;
+        &lt;span class="k"&gt;while&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;!=&lt;/span&gt; &lt;span class="n"&gt;OPAL_SUCCESS&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="k"&gt;else&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="cm"&gt;/*&lt;/span&gt;
+&lt;span class="cm"&gt;         * If OPAL_CONSOLE_FLUSH is not implemented in the firmware,&lt;/span&gt;
+&lt;span class="cm"&gt;         * the console can still be flushed by calling the polling&lt;/span&gt;
+&lt;span class="cm"&gt;         * function enough times to flush the buffer.  We don&amp;#39;t know&lt;/span&gt;
+&lt;span class="cm"&gt;         * how much output still needs to be flushed, but we can be&lt;/span&gt;
+&lt;span class="cm"&gt;         * generous since the kernel is in panic and doesn&amp;#39;t need&lt;/span&gt;
+&lt;span class="cm"&gt;         * to do much else.&lt;/span&gt;
+&lt;span class="cm"&gt;         */&lt;/span&gt;
+        &lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KERN_NOTICE&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;opal: OPAL_CONSOLE_FLUSH missing.&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;1024&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+            &lt;span class="n"&gt;opal_poll_events&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nb"&gt;NULL&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;You can find the full code in-tree &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.&lt;/p&gt;</summary><category term="openpower"></category></entry><entry><title>"Evolving into a systems programmer"</title><link href="http://callumscar.github.io/evolving-into-a-systems-programmer.html" rel="alternate"></link><published>2015-11-06T11:13:00+11:00</published><author><name>Cyril Bur</name></author><id>tag:callumscar.github.io,2015-11-06:evolving-into-a-systems-programmer.html</id><summary type="html">&lt;p&gt;In a previous life I tutored first year computing. The university I
+attended had a policy of using C to introduce first years to programming.
+One of the most rewarding aspects of teaching is opening doors of
+possibility to people by sharing my knowledge.&lt;/p&gt;
+&lt;p&gt;Over the years I had a mixture of computer science or computer engineering
+students as well as other disciplines of engineering who were required to
+learn the basics (notably electrical and mechanical). Each class was
+different and the initial knowledge always varied greatly. The beauty of
+teaching C meant that there was never someone who truly knew it all, heck,
+I didn't and still don't. The other advantage of teaching C is that I could
+very quickly spot the hackers, the shy person at the back of the room who's
+eyes light up when you know you've correctly explained pointers (to them
+anyway) or when asked "What happens if you use a negative index into an
+array" and the smile they would make upon hearing "What do you think happens".&lt;/p&gt;
+&lt;p&gt;Right there I would see the makings of a hacker, and this post is dedicated
+to you or to anyone who wants to be a hacker. I've been asked "What did you
+do to get where you are?", "How do I get into Linux?" (vague much) at
+careers fairs. I never quite know what to say, here goes a braindump.&lt;/p&gt;
+&lt;p&gt;Start with the basics, one of the easiest way we tested the first years was
+to tell them they can't use parts of libc. That was a great exam, taking
+aside those who didn't read the question and used &lt;code&gt;strlen()&lt;/code&gt; when they were
+explicitly told they couldn't &lt;code&gt;#include &amp;lt;string.h&amp;gt;&lt;/code&gt; a true hacker doesn't
+need libc, understand it won't always be there. I thought of this example
+because only two weeks ago I was writing code in an environment where I
+didn't have libc. Ok sure, if you've got it, use it, just don't crumble
+when you don't. Oh how I wish I could have told those students who argued
+that it was a pointless question that they were objectively wrong.&lt;/p&gt;
+&lt;p&gt;Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
+a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
+it's intense but perhaps understand the beauty of GCC, know what it's doing
+for you. There is a variety of little 8 bit processors you can play with
+these days.&lt;/p&gt;
+&lt;p&gt;At all levels of my teaching I saw almost everyone get something which
+'worked', and that's fine, it probably does but I'm here to tell you that
+it doesn't work until you know why it works. I'm all for the 'try it and
+see' approach but once you've tried it you have to explain why the
+behaviour changed otherwise you didn't fix it. As an extension to that,
+know how your tools work, I don't think anyone would expect you to be able
+to write tools to the level of complexity of GCC or GDB or Valgrind but
+have a rough idea as to how they achieve their goals.&lt;/p&gt;
+&lt;p&gt;A hacker is paranoid, yes, &lt;code&gt;malloc()&lt;/code&gt; fails. Linux might just decide now
+isn't a good time for you to &lt;code&gt;open()&lt;/code&gt; and your &lt;code&gt;fopen()&lt;/code&gt; calling function had
+better be cool with that. A hacker also doesn't rely on the kindness of the
+operating system theres an &lt;code&gt;munmap()&lt;/code&gt; for a reason. Nor should you even
+completely trust it, what are you leaving around in memory?&lt;/p&gt;
+&lt;p&gt;Above all do a it for the fun of it, so many of my students asked how I
+knew everything I knew (I was only a year ahead of them in my first year of
+teaching) and put simply, write code on a Saturday night.&lt;/p&gt;
+&lt;p&gt;None of these things do or don't make you a hacker, being a hacker is a
+frame of mind and a way of thinking but all of the above helps.&lt;/p&gt;
+&lt;p&gt;Unfortunately there isn't a single path, I might even say it is a path that
+chooses you. Odds are you're here because you approached me at some point
+and asked me one of those questions I never quite know how to answer.
+Perhaps this is the path, at the very least you're asking questions and
+approaching people. I'm hope I did on the day, but once again, all the very
+best with your endeavours into the future&lt;/p&gt;</summary><category term="education"></category><category term="offtopic"></category></entry><entry><title>"What the HILE is this?"</title><link href="http://callumscar.github.io/what-the-hile-is-this.html" rel="alternate"></link><published>2015-11-03T15:02:00+11:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:callumscar.github.io,2015-11-03:what-the-hile-is-this.html</id><summary type="html">&lt;p&gt;One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as making support for vendor tools easier.
+So it should just be a matter of compiling Petitboot LE right? Well...&lt;/p&gt;
+&lt;h3&gt;Switching Endianess&lt;/h3&gt;
+&lt;p&gt;Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.&lt;/p&gt;
+&lt;p&gt;When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.&lt;/p&gt;
+&lt;p&gt;The solution to this is an amazing little snippet of code in &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65"&gt;arch/powerpc/boot/ppc_asm.h&lt;/a&gt; (follow the link to see some helpful commenting):&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
+    &lt;span class="n"&gt;tdi&lt;/span&gt;   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mh"&gt;0x48&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;b&lt;/span&gt;     &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;36&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x05009f42&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa602487d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x1c004a39&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa600607d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x01006b69&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa6035a7d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa6037b7d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x2400004c&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;By some amazing coincidence if you take the opcode for &lt;code&gt;tdi 0, 0, 0x48&lt;/code&gt; and flip the order of the bytes it forms the opcode for &lt;code&gt;b . + 8&lt;/code&gt;. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR&lt;sub&gt;LE&lt;/sub&gt; being set to 1.&lt;/p&gt;
+&lt;p&gt;When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...&lt;/p&gt;
+&lt;h3&gt;Petitboot's Secret Sauce&lt;/h3&gt;
+&lt;p&gt;The main feature of Petitboot is that it is a full (but small!) Linux kernel and userspace which scans all available devices and presents possible boot options. To boot an available operating system Petitboot needs to start executing the OS's kernel, which it accomplishes via &lt;a href="https://en.wikipedia.org/wiki/Kexec"&gt;kexec&lt;/a&gt;. Simply speaking kexec loads the target kernel into memory, shuts the current system down most of the way, and at the last moment sets the instruction pointer to the start of the target kernel. From there it's like booting any other kernel, including the FIXUP_ENDIAN section above.&lt;/p&gt;
+&lt;h3&gt;We've Booted! Wait...&lt;/h3&gt;
+&lt;p&gt;So our LE Petitboot kernel boots fine thanks to FIXUP_ENDIAN, we kexec into some other kernel.. and everything falls to pieces.&lt;br /&gt;
+The problem is we've unwittingly changed one of the assumptions of booting a kernel; namely that MSR&lt;sub&gt;LE&lt;/sub&gt; defaults to zero. When kexec-ing from an LE kernel we start executing the next kernel in LE mode. This itself is ok, the FIXUP_ENDIAN macro will handle the switch if needed. The problem is that the FIXUP_ENDIAN macro is relatively recent, first entering the kernel in early 2014. So if we're booting, say, an old Fedora 19 install with a v3.9 kernel - things go very bad, very quickly.&lt;/p&gt;
+&lt;h3&gt;Fix #1&lt;/h3&gt;
+&lt;p&gt;The solution seems pretty straightforward: find where we jump into the next kernel, and just before that make sure we reset the LE bit in the MSR. That's exactly what &lt;a href="https://github.com/antonblanchard/kexec-lite/commit/150b14e76a4b51f865b929ad9a9bf4133e2d3af7"&gt;this patch&lt;/a&gt; to kexec-lite does.&lt;br /&gt;
+That worked up until I tested on a machine with more than one CPU. Remembering that the MSR is processor-specific, we also have to &lt;a href="https://github.com/torvalds/linux/commit/ffebf5f391dfa9da3e086abad3eef7d3e5300249"&gt;reset the endianess of each secondary CPU&lt;/a&gt;&lt;br /&gt;
+Now things are looking good! All the CPUs are reset to big-endian, the target kernel boots fine, and then... 'recursive interrupts?!'&lt;/p&gt;
+&lt;h3&gt;HILE&lt;/h3&gt;
+&lt;p&gt;Skipping the debugging process that led to this (hint: &lt;a href="https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/"&gt;mambo&lt;/a&gt; is actually a pretty cool tool), these were the sequence of steps leading up to the problem:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Little-endian Petitboot kexecs into a big-endian kernel&lt;/li&gt;
+&lt;li&gt;All CPUs are reset to big-endian&lt;/li&gt;
+&lt;li&gt;The big-endian kernel begins to boot successfully&lt;/li&gt;
+&lt;li&gt;Somewhere in the device-tree parsing code we take an exception&lt;/li&gt;
+&lt;li&gt;Execution jumps to the exception handler at &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/kernel/exceptions-64s.S#L199"&gt;0x300&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;I notice that MSR&lt;sub&gt;LE&lt;/sub&gt; is set to 1&lt;/li&gt;
+&lt;li&gt;WHAT WHY IS THE LE BIT IN THE MSR SET TO 1&lt;/li&gt;
+&lt;li&gt;We fail to read the first instruction at 0x300 because it's written in big-endian, so we jump to the exception handler at 0x300... oh no.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;And then we very busily execute nothing until the machine is killed. I spend some time staring incredulously at my screen, then appeal to a &lt;a href="https://github.com/torvalds/linux/blob/master/MAINTAINERS"&gt;higher authority&lt;/a&gt; who replies with "What is the HILE set to?"  &lt;/p&gt;
+&lt;p&gt;..the WHAT?&lt;br /&gt;
+Cracking open the &lt;a href="https://www.power.org/documentation/power-isa-v-2-07b/"&gt;PowerISA&lt;/a&gt; reveals this tidbit:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The Hypervisor Interrupt Little-Endian (HILE) bit is a bit
+in an implementation-dependent register or similar
+mechanism. The contents of the HILE bit are copied
+into MSR&lt;sub&gt;LE&lt;/sub&gt; by interrupts that set MSR&lt;sub&gt;HV&lt;/sub&gt; to 1 (see Section
+6.5), to establish the Endian mode for the interrupt
+handler. The HILE bit is set, by an implementation-dependent
+method, during system initialization,
+and cannot be modified after system initialization.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;To be fair, there are use cases for taking exceptions in a different endianess. The problem is that while HILE gets switched on when setting MSR&lt;sub&gt;LE&lt;/sub&gt; to 1, it &lt;em&gt;doesn't&lt;/em&gt; get turned off when MSR&lt;sub&gt;LE&lt;/sub&gt; is set to zero. In particular the line "...cannot be modified after system initialization." led to a fair amount of hand wringing from myself and whoever would listen; if we can't reset the HILE bit, we simply can't use little-endian kernels for Petitboot.  &lt;/p&gt;
+&lt;p&gt;Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is &lt;a href="https://github.com/open-power/skiboot"&gt;right here&lt;/a&gt;. In particular we can see here the OPAL call to &lt;a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702"&gt;opal_reinit_cpus&lt;/a&gt; which among other things resets the HILE bit.&lt;br /&gt;
+This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the &lt;a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53"&gt;final patch to support PowerNV machines.&lt;/a&gt;&lt;/p&gt;</summary><category term="petitboot"></category><category term="power"></category><category term="p8"></category><category term="openpower"></category><category term="goodposts"></category><category term="autoboot"></category><category term="realcontent"></category><category term="kexec"></category><category term="kernel"></category></entry><entry><title>"Docker: Just Stop Using AUFS"</title><link href="http://callumscar.github.io/docker-just-stop-using-aufs.html" rel="alternate"></link><published>2015-10-30T13:30:00+11:00</published><author><name>Daniel Axtens</name></author><id>tag:callumscar.github.io,2015-10-30:docker-just-stop-using-aufs.html</id><summary type="html">&lt;p&gt;Docker's default storage driver on most Ubuntu installs is AUFS.&lt;/p&gt;
+&lt;p&gt;Don't use it. Use Overlay instead. Here's why.&lt;/p&gt;
+&lt;p&gt;First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See &lt;a href="/blog/2015/10/12/a-tale-of-two-dockers/"&gt;my previous post&lt;/a&gt; for more info.)&lt;/p&gt;
+&lt;p&gt;Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.&lt;/p&gt;
+&lt;p&gt;Why? Well, my first point of call was to observe a compilation under
+&lt;code&gt;top&lt;/code&gt;. The header is below.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.&lt;/p&gt;
+&lt;p&gt;My next port of call for analysis of CPU-bound workloads is
+&lt;code&gt;perf&lt;/code&gt;. &lt;code&gt;perf top&lt;/code&gt; reports astounding quantities of time in
+spin-locks:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;perf top -g&lt;/code&gt; gives us some more information: the time is in system
+calls. &lt;code&gt;open()&lt;/code&gt; and &lt;code&gt;stat()&lt;/code&gt; are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (&lt;code&gt;docker info&lt;/code&gt; will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)&lt;/p&gt;
+&lt;p&gt;Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. &lt;a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html"&gt;This presentation is particularly good.&lt;/a&gt;
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
+&lt;p&gt;It's also easy to set up on Ubuntu:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;export/save any docker containers you care about.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;add &lt;code&gt;--storage-driver=overlay&lt;/code&gt; option to &lt;code&gt;DOCKER_OPTS&lt;/code&gt; in &lt;code&gt;/etc/default/docker&lt;/code&gt;, and restart docker (&lt;code&gt;service docker restart&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;import/load the containters you exported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;verify that things work, then clear away your old storage directory (&lt;code&gt;/var/lib/docker/aufs&lt;/code&gt;). &lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Having moved my base container across, I set off another build.&lt;/p&gt;
+&lt;p&gt;The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /&gt;&lt;/p&gt;
+&lt;p&gt;The compiles went from taking painfully long to astonishingly fast. Winning.&lt;/p&gt;
+&lt;p&gt;So in conclusion:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;If you use Docker for something that involves open()ing or stat()ing files&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want your machine to do real work, rather than spin in spinlocks&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want to use code that's upstream and thus much better supported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want something less disruptive than the btrfs or dm storage drivers&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;...then drop AUFS and switch to Overlay today.&lt;/p&gt;</summary><category term="docker"></category><category term="aufs"></category><category term="overlay"></category><category term="performance"></category><category term="power"></category></entry><entry><title>"A tale of two Dockers"</title><link href="http://callumscar.github.io/a-tale-of-two-dockers.html" rel="alternate"></link><published>2015-10-12T14:14:00+11:00</published><author><name>Daniel Axtens</name></author><id>tag:callumscar.github.io,2015-10-12:a-tale-of-two-dockers.html</id><summary type="html">&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
+&lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
+&lt;p&gt;Docker: what is it?&lt;/p&gt;
+&lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
+&lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
+&lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
+&lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
+&lt;p&gt;What Docker does well is not something novel, but the engineering feat of bringing together fine-grained control, isolation and immutability, and – importantly – a tool-chain that is easier to use than any of the alternatives. Docker's tool-chain eases a lot of pain points with regards to building containers: it's vastly simpler than chroots, and easier to customise than most VM setups. Docker also has a number of engineering tricks to reduce the disk space overhead of isolation.&lt;/p&gt;
+&lt;p&gt;So, to summarise: Docker provides a toolkit for isolated, immutable, finely controlled containers to run executables and services.&lt;/p&gt;
+&lt;h2&gt;Docker in development: why?&lt;/h2&gt;
+&lt;p&gt;I don't run network services at work; I do performance work. So how do I use Docker?&lt;/p&gt;
+&lt;p&gt;There are two things I do with Docker: I build PHP 5, and do performance regression testing on PHP 7. They're good case studies of how isolation and immutability provide real benefits in development and testing, and how the Docker tool chain makes life a lot nicer that previous solutions.&lt;/p&gt;
+&lt;h3&gt;PHP 5 builds&lt;/h3&gt;
+&lt;p&gt;I use the &lt;em&gt;isolation&lt;/em&gt; that Docker provides to make building PHP 5 easier. PHP 5 depends on an old version of Bison, version 2. Ubuntu and Debian long since moved to version 3. There are a few ways I could have solved this:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;I could just install the old version directly on my system in &lt;code&gt;/usr/local/&lt;/code&gt;, and hope everything still works and nothing else picks up Bison 2 when it needs Bison 3. Or I could install it somewhere else and remember to change my path correctly before I build PHP 5.&lt;/li&gt;
+&lt;li&gt;I could roll a chroot by hand. Even with tools like debootstrap and schroot, working in chroots is a painful process.&lt;/li&gt;
+&lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4" rel="footnote"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
+&lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
+&lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
+&lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
+&lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5" rel="footnote"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png" /&gt;&lt;/p&gt;
+&lt;h2&gt;Docker pain points&lt;/h2&gt;
+&lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Docker was apparently written by people who had no concept that platforms other than x86 exist. This leads to major issues for cross-architectural setups. For instance, Docker identifies images by a name and a revision. For example, &lt;code&gt;ubuntu&lt;/code&gt; is the name of an image, and &lt;code&gt;15.04&lt;/code&gt; is a revision. There's no ability to specify an architecture. So, how you do specify that you want, say, a 64-bit, little-endian PowerPC build of an image versus an x86 build? There have been a couple of approaches, both of which are pretty bad. You could name the image differently: say &lt;code&gt;ubuntu_ppc64le&lt;/code&gt;. You can also just cheat and override the &lt;code&gt;ubuntu&lt;/code&gt; name with an architecture specific version. Both of these break some assumptions in the Docker ecosystem and are a pain to work with.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Image building is incredibly inflexible. If you have one system that requires a proxy, and one that does not, you need different Dockerfiles. As far as I can tell, there are no simple ways to hook in any changes between systems into a generic Dockerfile. This is largely by design, but it's still really annoying when you have one system behind a firewall and one system out on the public cloud (as I do in the PHP 7 setup).&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6" rel="footnote"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Final words&lt;/h2&gt;
+&lt;p&gt;Docker provides me with a lot of useful tools in software development: both in terms of building and testing. Making use of it requires a certain amount of careful design thought, but when applied thoughtfully it can make life significantly easier.&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id="fn:1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</summary><category term="docker"></category><category term="php"></category><category term="peformance"></category></entry><entry><title>"Running ppc64le_hello on real hardware"</title><link href="http://callumscar.github.io/running-ppc64le_hello-on-real-hardware.html" rel="alternate"></link><published>2015-06-03T12:16:00+10:00</published><author><name>Daniel Axtens</name></author><id>tag:callumscar.github.io,2015-06-03:running-ppc64le_hello-on-real-hardware.html</id><summary type="html">&lt;p&gt;So today I saw &lt;a href="https://github.com/andreiw/ppc64le_hello"&gt;Freestanding “Hello World” for OpenPower&lt;/a&gt; on &lt;a href="https://news.ycombinator.com/item?id=9649490"&gt;Hacker News&lt;/a&gt;. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.&lt;/p&gt;
+&lt;p&gt;Firstly, clone the repo, and, as mentioned in the README, comment out &lt;code&gt;mambo_write&lt;/code&gt;. Build it.&lt;/p&gt;
+&lt;p&gt;Grab &lt;a href="https://github.com/open-power/op-build"&gt;op-build&lt;/a&gt;, and build a Habanero defconfig. To save yourself a fair bit of time, first edit &lt;code&gt;openpower/configs/habanero_defconfig&lt;/code&gt; to answer &lt;code&gt;n&lt;/code&gt; about a custom kernel source. That'll save you hours of waiting for git.&lt;/p&gt;
+&lt;p&gt;This will build you a PNOR that will boot a linux kernel with Petitboot. This is almost what you want: you need Skiboot, Hostboot and a bunch of the POWER specific bits and bobs, but you don't actually want the Linux boot kernel.&lt;/p&gt;
+&lt;p&gt;Then, based on &lt;code&gt;op-build/openpower/package/openpower-pnor/openpower-pnor.mk&lt;/code&gt;, we look through the output of &lt;code&gt;op-build&lt;/code&gt; for a  &lt;code&gt;create_pnor_image.pl&lt;/code&gt; command, something like this monstrosity:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Replace the &lt;code&gt;-bootkernel&lt;/code&gt; arguement with the path to ppc64le_hello, e.g.: &lt;code&gt;-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Don't forget to move it into place! &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+Hello OPAL!
+           _start = 0x20010000
+                              _bss   = 0x20017E28
+                                                 _stack = 0x20018000
+                                                                    _end   = 0x2001A000
+                                                                                       KPCR   = 0x20017E50
+                                                                                                          OPAL   = 0x30000000
+                                                                                                                             FDT    = 0x3044DB68
+                                                                                                                                                CPU0 not found?
+
+                                                                                                                                                               Pick your poison:
+                                                                                                                                                                                Choices: (MMU = disabled):
+                                                                                                                                                                                                             (d) 5s delay
+                                                                                                                                                                                                                            (e) test exception
+    (n) test nested exception
+                                (f) dump FDT
+                                               (M) enable MMU
+                                                                (m) disable MMU
+                                                                                  (t) test MMU
+                                                                                                 (u) test non-priviledged code
+                                                                                                                                 (I) enable ints
+                                                                                                                                                   (i) disable ints
+                                                                                                                                                                      (H) enable HV dec
+                                                                                                                                                                                          (h) disable HV dec
+                                                                                                                                                                                                               (q) poweroff
+                                                                                                                                                                                                                             1.42486|ERRL|Dumping errors reported prior to registration
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to &lt;code&gt;cpu_init&lt;/code&gt; in main.c to test for a PowerPC POWER8:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/PowerPC,POWER8@20&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;CPU0 not found?&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This is definitely the &lt;em&gt;wrong&lt;/em&gt; way to do this, but it works for now.&lt;/p&gt;
+&lt;p&gt;Now, correcting for weird wrapping, we get:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;Hello OPAL!
+_start = 0x20010000
+_bss   = 0x20017E28
+_stack = 0x20018000
+_end   = 0x2001A000
+KPCR   = 0x20017E50
+OPAL   = 0x30000000
+FDT    = 0x3044DB68
+Assuming default SLB size
+SLB size = 0x20
+TB freq = 512000000
+[13205442015,3] OPAL: Trying a CPU re-init with flags: 0x2
+Unrecoverable exception stack top @ 0x20019EC8
+HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
+SLB entries:
+1: E 0x8000000 V 0x4000000000000400
+EA 0x20040000 -&amp;gt; hash 0x20040 -&amp;gt; pteg 0x200 = RA 0x20040000
+EA 0x20041000 -&amp;gt; hash 0x20041 -&amp;gt; pteg 0x208 = RA 0x20041000
+EA 0x20042000 -&amp;gt; hash 0x20042 -&amp;gt; pteg 0x210 = RA 0x20042000
+EA 0x20043000 -&amp;gt; hash 0x20043 -&amp;gt; pteg 0x218 = RA 0x20043000
+EA 0x20044000 -&amp;gt; hash 0x20044 -&amp;gt; pteg 0x220 = RA 0x20044000
+EA 0x20045000 -&amp;gt; hash 0x20045 -&amp;gt; pteg 0x228 = RA 0x20045000
+EA 0x20046000 -&amp;gt; hash 0x20046 -&amp;gt; pteg 0x230 = RA 0x20046000
+EA 0x20047000 -&amp;gt; hash 0x20047 -&amp;gt; pteg 0x238 = RA 0x20047000
+EA 0x20048000 -&amp;gt; hash 0x20048 -&amp;gt; pteg 0x240 = RA 0x20048000
+...
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.&lt;/p&gt;
+&lt;p&gt;Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;Choices: (MMU = disabled):
+   (d) 5s delay
+   (e) test exception
+   (n) test nested exception
+   (f) dump FDT
+   (M) enable MMU
+   (m) disable MMU
+   (t) test MMU
+   (u) test non-priviledged code
+   (I) enable ints
+   (i) disable ints
+   (H) enable HV dec
+   (h) disable HV dec
+   (q) poweroff
+&amp;lt;press e&amp;gt;
+Testing exception handling...
+sc(feed) =&amp;gt; 0xFEEDFACE
+Choices: (MMU = disabled):
+   (d) 5s delay
+   (e) test exception
+   (n) test nested exception
+   (f) dump FDT
+   (M) enable MMU
+   (m) disable MMU
+   (t) test MMU
+   (u) test non-priviledged code
+   (I) enable ints
+   (i) disable ints
+   (H) enable HV dec
+   (h) disable HV dec
+   (q) poweroff
+&amp;lt;press t&amp;gt;
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = RA 0x20010000
+mapped 0xFFFFFFF000 to 0x20010000 correctly
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = RA 0x20011000
+mapped 0xFFFFFFF000 to 0x20011000 incorrectly
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
+Choices: (MMU = disabled):
+   (d) 5s delay
+   (e) test exception
+   (n) test nested exception
+   (f) dump FDT
+   (M) enable MMU
+   (m) disable MMU
+   (t) test MMU
+   (u) test non-priviledged code
+   (I) enable ints
+   (i) disable ints
+   (H) enable HV dec
+   (h) disable HV dec
+   (q) poweroff
+&amp;lt;press u&amp;gt;
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = RA 0x20080000
+returning to user code
+returning to kernel code
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a &lt;em&gt;lot&lt;/em&gt;. The delay seems to correspond well with real time as well.&lt;/p&gt;
+&lt;p&gt;It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;1.41801|ERRL|Dumping errors reported prior to registration
+  2.89873|Ignoring boot flags, incorrect version 0x0
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;That may be easy to fix, but again I haven't had time to trace it.&lt;/p&gt;
+&lt;p&gt;All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!&lt;/p&gt;</summary><category term="openpower"></category><category term="power"></category><category term="p8"></category></entry><entry><title>"Petitboot Autoboot Changes"</title><link href="http://callumscar.github.io/petitboot-autoboot-changes.html" rel="alternate"></link><published>2015-06-02T08:11:00+10:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:callumscar.github.io,2015-06-02:petitboot-autoboot-changes.html</id><summary type="html">&lt;p&gt;The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.&lt;/p&gt;
+&lt;h2&gt;Old &amp;amp; Busted&lt;/h2&gt;
+&lt;p&gt;For some context, here is the old (or current depending on what you're running) section of the configuration screen.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.&lt;/p&gt;
+&lt;p&gt;A side note about default options: it is important to note that not all boot options are valid &lt;em&gt;autoboot&lt;/em&gt; options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.&lt;/p&gt;
+&lt;h2&gt;New Hotness&lt;/h2&gt;
+&lt;p&gt;Below is the new autoboot configuration.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="New Autoboot" src="/images/sammj/newstyle.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;The new design allows you to specify an ordered list of autoboot options.
+The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).&lt;/p&gt;
+&lt;p&gt;Selecting the first button, 'Add Device' brings up the following screen:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Device Selection" src="/images/sammj/devices.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;From here you can select any device or &lt;em&gt;class&lt;/em&gt; of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').&lt;/p&gt;
+&lt;p&gt;This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
+You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).&lt;/p&gt;
+&lt;p&gt;Presently you can add any option into the list and order them how you like - which means you can do silly things like this:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg" /&gt;&lt;/p&gt;
+&lt;h2&gt;IPMI&lt;/h2&gt;
+&lt;p&gt;Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!&lt;/p&gt;
+&lt;p&gt;If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg" /&gt;&lt;/p&gt;
+&lt;hr /&gt;
+&lt;p&gt;That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.&lt;/p&gt;</summary><category term="petitboot"></category><category term="power"></category><category term="p8"></category><category term="openpower"></category><category term="goodposts"></category><category term="autoboot"></category><category term="realcontent"></category></entry><entry><title>"Joining the CAPI project"</title><link href="http://callumscar.github.io/joining-the-capi-project.html" rel="alternate"></link><published>2015-05-27T15:08:00+10:00</published><author><name>Daniel Axtens</name></author><id>tag:callumscar.github.io,2015-05-27:joining-the-capi-project.html</id><summary type="html">&lt;p&gt;(I wrote this blog post a couple of months ago, but it's still quite relevant.)&lt;/p&gt;
+&lt;p&gt;Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you an idea of what this is, and what I'll be up to in the future!&lt;/p&gt;
+&lt;h2&gt;What even is CAPI?&lt;/h2&gt;
+&lt;p&gt;To help you understand CAPI, think back to the time before computers. We had a variety of machines: machines to build things, to check things, to count things, but they were all specialised --- good at one and only one thing.&lt;/p&gt;
+&lt;p&gt;Specialised machines, while great at their intended task, are really expensive to develop. Not only that, it's often impossible to change how they operate, even in very small ways.&lt;/p&gt;
+&lt;p&gt;Computer processors, on the other hand, are generalists. They are cheap. They can do a lot of things. If you can break a task down into simple steps, it's easy to get them to do it. The trade-off is that computer processors are incredibly inefficient at everything.&lt;/p&gt;
+&lt;p&gt;Now imagine, if you will, that a specialised machine is a highly trained and experienced professional, a computer processor is a hungover university student.&lt;/p&gt;
+&lt;p&gt;Over the years, we've tried lots of things to make student faster. Firstly, we gave the student lots of caffeine to make them go as fast as they can. That worked for a while, but you can only give someone so much caffeine before they become unreliable. Then we tried teaming the student up with another student, so they can do two things at once. That worked, so we added more and more students. Unfortunately, lots of tasks can only be done by one person at a time, and team-work is complicated to co-ordinate. We've also recently noticed that some tasks come up often, so we've given them some tools for those specific tasks. Sadly, the tools are only useful for those specific situations.&lt;/p&gt;
+&lt;p&gt;Sometimes, what you really need is a professional.&lt;/p&gt;
+&lt;p&gt;However, there are a few difficulties in getting a professional to work with uni students. They don't speak the same way; they don't think the same way, and they don't work the same way. You need to teach the uni students how to work with the professional, and vice versa.&lt;/p&gt;
+&lt;p&gt;Previously, developing this interface – this connection between a generalist processor and a specialist machine – has been particularly difficult. The interface between processors and these specialised machines – known as &lt;em&gt;accelerators&lt;/em&gt; – has also tended to suffer from bottlenecks and inefficiencies.&lt;/p&gt;
+&lt;p&gt;This is the problem CAPI solves. CAPI provides a simpler and more optimised way to interface specialised hardware accelerators with IBM's most recent line of processors, POWER8. It's a common 'language' that the processor and the accelerator talk, that makes it much easier to build the hardware side and easier to program the software side. In our Canberra lab, we're working primarily on the operating system side of this. We are working with some external companies who are building CAPI devices and the optimised software products which use them.&lt;/p&gt;
+&lt;p&gt;From a technical point of view, CAPI provides &lt;em&gt;coherent&lt;/em&gt; access to system memory and processor caches, eliminating a major bottleneck in using external devices as accelerators. This is illustrated really well by the following graphic from &lt;a href="https://www.youtube.com/watch?v=4ZyXc12J6FA"&gt;an IBM promotional video&lt;/a&gt;. In the non-CAPI case, you can see there's a lot of data (the little boxes) stalled in the PCIe subsystem, whereas with CAPI, the accelerator has direct access to the memory subsystem, which makes everything go faster.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png" /&gt;&lt;/p&gt;
+&lt;h2&gt;Uses of CAPI&lt;/h2&gt;
+&lt;p&gt;CAPI technology is already powering a few really cool products.&lt;/p&gt;
+&lt;p&gt;Firstly, we have an implementation of Redis that sits on top of flash storage connected over CAPI. Or, to take out the buzzwords, CAPI lets us do really, really fast NoSQL databases. There's &lt;a href="https://www.youtube.com/watch?v=cCmFc_0xsvA"&gt;a video online&lt;/a&gt; giving more details.&lt;/p&gt;
+&lt;p&gt;Secondly, our partner &lt;a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;amp;mtag=connectx_4_vpi_card"&gt;Mellanox&lt;/a&gt; is using CAPI to make network cards that run at speeds of up to 100Gb/s.&lt;/p&gt;
+&lt;p&gt;CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!&lt;/p&gt;</summary><category term="capi"></category><category term="open-power"></category></entry><entry><title>"OpenPOWER Powers Forward"</title><link href="http://callumscar.github.io/openpower-powers-forward.html" rel="alternate"></link><published>2015-05-21T11:29:00+10:00</published><author><name>Cyril Bur</name></author><id>tag:callumscar.github.io,2015-05-21:openpower-powers-forward.html</id><summary type="html">&lt;p&gt;I wrote this blog post late last year, it is very relevant for this blog though so I'll repost it here.&lt;/p&gt;
+&lt;p&gt;With the launch of &lt;a href="http://www.tyan.com/campaign/openpower/"&gt;TYAN's OpenPOWER reference system&lt;/a&gt; now is a good time to reflect on the team responsible for so much of the research, design and development behind this very first ground breaking step of &lt;a href="http://openpowerfoundation.org/"&gt;OpenPOWER&lt;/a&gt; with their start to finish involvement of this new Power platform.&lt;/p&gt;
+&lt;p&gt;ADL Canberra have been integral to the success of this launch providing the Open Power Abstraction Layer (OPAL) firmware. OPAL breathes new life into Linux on Power finally allowing Linux to run on directly on the hardware.
+While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to sit on top and take direct control of IBMs new Power8 processor without needing to negotiate with a hypervisor. With all the Linux expertise present at ADL Canberra it's no wonder that a Linux based bootloader was developed to make this system work. Petitboot leverage's all the resources of the Linux kernel to create a light, fast and yet extremely versatile bootloader. Petitboot provides a massive amount of tools for debugging and system configuration without the need to load an operating system.&lt;/p&gt;
+&lt;p&gt;TYAN have developed great and highly customisable hardware. ADL Canberra have been there since day 1 performing vital platform enablement (bringup) of this new hardware. ADL Canberra have put all the work into the entire software stack, low level work to get OPAL and Linux to talk to the new BMC chip as well as the higher level, enabling to run Linux in either endian and Linux is even now capable of virtualising KVM guests in either endian irrespective of host endian. Furthermore a subset of ADL Canberra have been key to getting the Coherent Accelerator Processor Interface (CAPI) off the ground, enabling more almost endless customisation and greater diversity within the OpenPOWER ecosystem.&lt;/p&gt;
+&lt;p&gt;ADL Canberra is the home for Linux on Power and the beginning of the OpenPOWER hardware sees much of the hard work by ADL Canberra come to fruition.&lt;/p&gt;</summary><category term="open-power"></category></entry></feed>

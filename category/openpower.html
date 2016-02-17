@@ -3,7 +3,8 @@
 <head>
         <meta charset="utf-8" />
         <title>Store Half Byte-Reverse Indexed - OpenPower</title>
-        <link rel="stylesheet" href="/theme/css/main.css" />
+        <link rel="stylesheet" href="http://callumscar.github.io/theme/css/main.css" />
+        <link href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate" title="Store Half Byte-Reverse Indexed Atom Feed" />
 
         <!--[if IE]>
             <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
@@ -12,30 +13,30 @@
 
 <body id="index" class="home">
         <header id="banner" class="body">
-                <h1><a href="/">Store Half Byte-Reverse Indexed </a></h1>
+                <h1><a href="http://callumscar.github.io/">Store Half Byte-Reverse Indexed </a></h1>
                 <nav><ul>
-                    <li><a href="/category/autoboot.html">Autoboot</a></li>
-                    <li><a href="/category/capi.html">CAPI</a></li>
-                    <li><a href="/category/docker.html">Docker</a></li>
-                    <li><a href="/category/education.html">Education</a></li>
-                    <li class="active"><a href="/category/openpower.html">OpenPower</a></li>
-                    <li><a href="/category/petitboot.html">Petitboot</a></li>
+                    <li><a href="http://callumscar.github.io/category/autoboot.html">Autoboot</a></li>
+                    <li><a href="http://callumscar.github.io/category/capi.html">CAPI</a></li>
+                    <li><a href="http://callumscar.github.io/category/docker.html">Docker</a></li>
+                    <li><a href="http://callumscar.github.io/category/education.html">Education</a></li>
+                    <li class="active"><a href="http://callumscar.github.io/category/openpower.html">OpenPower</a></li>
+                    <li><a href="http://callumscar.github.io/category/petitboot.html">Petitboot</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
 
             <aside id="featured" class="body">
                 <article>
-                    <h1 class="entry-title"><a href="/panic-flushing-and-compromise.html">"Panic, flushing and compromise"</a></h1>
+                    <h1 class="entry-title"><a href="http://callumscar.github.io/panic-flushing-and-compromise.html">"Panic, flushing and compromise"</a></h1>
 <footer class="post-info">
         <abbr class="published" title="2016-02-15T14:22:00+11:00">
                 Published: Mon 15 February 2016
         </abbr>
 
         <address class="vcard author">
-                By                         <a class="url fn" href="/author/russell-currey.html">Russell Currey</a>
+                By                         <a class="url fn" href="http://callumscar.github.io/author/russell-currey.html">Russell Currey</a>
         </address>
-<p>In <a href="/category/openpower.html">OpenPower</a>.</p>
-<p>tags: <a href="/tag/openpower.html">openpower</a> </p>
+<p>In <a href="http://callumscar.github.io/category/openpower.html">OpenPower</a>.</p>
+<p>tags: <a href="http://callumscar.github.io/tag/openpower.html">openpower</a> </p>
 </footer><!-- /.post-info --><p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
 <p>The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely <a href="https://github.com/open-power/skiboot">skiboot</a>, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that <a href="https://github.com/open-power/skiboot/blob/master/core/opal.c">skiboot exposes</a>, <code>opal_poll_events()</code> (which then calls <code>opal_run_pollers()</code>), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.</p>
 <p>Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.</p>
@@ -125,7 +126,7 @@
 
             <li><article class="hentry">
                 <header>
-                    <h1><a href="/running-ppc64le_hello-on-real-hardware.html" rel="bookmark"
+                    <h1><a href="http://callumscar.github.io/running-ppc64le_hello-on-real-hardware.html" rel="bookmark"
                            title="Permalink to "Running ppc64le_hello on real hardware"">"Running ppc64le_hello on real hardware"</a></h1>
                 </header>
 
@@ -136,37 +137,33 @@
         </abbr>
 
         <address class="vcard author">
-                By                         <a class="url fn" href="/author/daniel-axtens.html">Daniel Axtens</a>
+                By                         <a class="url fn" href="http://callumscar.github.io/author/daniel-axtens.html">Daniel Axtens</a>
         </address>
-<p>In <a href="/category/openpower.html">OpenPower</a>.</p>
-<p>tags: <a href="/tag/openpower.html">openpower</a> <a href="/tag/power.html">power</a> <a href="/tag/p8.html">p8</a> </p>
+<p>In <a href="http://callumscar.github.io/category/openpower.html">OpenPower</a>.</p>
+<p>tags: <a href="http://callumscar.github.io/tag/openpower.html">openpower</a> <a href="http://callumscar.github.io/tag/power.html">power</a> <a href="http://callumscar.github.io/tag/p8.html">p8</a> </p>
 </footer><!-- /.post-info -->                <p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
 <p>Firstly, clone the repo, and, as mentioned in ...</p>
-                <a class="readmore" href="/running-ppc64le_hello-on-real-hardware.html">read more</a>
+                <a class="readmore" href="http://callumscar.github.io/running-ppc64le_hello-on-real-hardware.html">read more</a>
                 </div><!-- /.entry-content -->
             </article></li>
                 </ol><!-- /#posts-list -->
 <p class="paginator">
     Page 1 / 2
-        <a href="/category/openpower2.html">&raquo;</a>
+        <a href="http://callumscar.github.io/category/openpower2.html">&raquo;</a>
 </p>
                 </section><!-- /#content -->
         <section id="extras" class="body">
                 <div class="blogroll">
                         <h2>blogroll</h2>
                         <ul>
-                            <li><a href="http://getpelican.com/">Pelican</a></li>
-                            <li><a href="http://python.org/">Python.org</a></li>
-                            <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
-                            <li><a href="#">You can modify those links in your config file</a></li>
+                            <li><a href="http://openpowerfoundation.org/">OpenPower</a></li>
                         </ul>
                 </div><!-- /.blogroll -->
                 <div class="social">
                         <h2>social</h2>
                         <ul>
+                            <li><a href="http://callumscar.github.io/atom.xml" type="application/atom+xml" rel="alternate">atom feed</a></li>
 
-                            <li><a href="#">You can add links in your config file</a></li>
-                            <li><a href="#">Another social link</a></li>
                         </ul>
                 </div><!-- /.social -->
         </section><!-- /#extras -->
