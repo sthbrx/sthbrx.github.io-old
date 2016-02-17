@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
         <meta charset="utf-8" />
-        <title>"Running ppc64le_hello on real hardware"</title>
+        <title>Store Half Byte-Reverse Indexed - openpower power p8</title>
         <link rel="stylesheet" href="/theme/css/main.css" />
 
         <!--[if IE]>
@@ -24,15 +24,10 @@
                     <li><a href="/category/petitboot-power-p8-openpower-goodposts-autoboot-realcontent-kexec-kernel.html">petitboot power p8 openpower goodposts autoboot realcontent kexec kernel</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
-<section id="content" class="body">
-  <article>
-    <header>
-      <h1 class="entry-title">
-        <a href="/running-ppc64le_hello-on-real-hardware.html" rel="bookmark"
-           title="Permalink to "Running ppc64le_hello on real hardware"">"Running ppc64le_hello on real hardware"</a></h1>
-    </header>
 
-    <div class="entry-content">
+            <aside id="featured" class="body">
+                <article>
+                    <h1 class="entry-title"><a href="/running-ppc64le_hello-on-real-hardware.html">"Running ppc64le_hello on real hardware"</a></h1>
 <footer class="post-info">
         <abbr class="published" title="2015-06-03T12:16:57+10:00">
                 Published: Wed 03 June 2015
@@ -43,7 +38,7 @@
         </address>
 <p>In <a href="/category/openpower-power-p8.html">openpower power p8</a>.</p>
 
-</footer><!-- /.post-info -->      <p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
+</footer><!-- /.post-info --><p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
 <p>Firstly, clone the repo, and, as mentioned in the README, comment out <code>mambo_write</code>. Build it.</p>
 <p>Grab <a href="https://github.com/open-power/op-build">op-build</a>, and build a Habanero defconfig. To save yourself a fair bit of time, first edit <code>openpower/configs/habanero_defconfig</code> to answer <code>n</code> about a custom kernel source. That'll save you hours of waiting for git.</p>
 <p>This will build you a PNOR that will boot a linux kernel with Petitboot. This is almost what you want: you need Skiboot, Hostboot and a bunch of the POWER specific bits and bobs, but you don't actually want the Linux boot kernel.</p>
@@ -204,11 +199,8 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
 
 
 <p>That may be easy to fix, but again I haven't had time to trace it.</p>
-<p>All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!</p>
-    </div><!-- /.entry-content -->
-
-  </article>
-</section>
+<p>All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!</p>                </article>
+            </aside><!-- /#featured -->
         <section id="extras" class="body">
                 <div class="blogroll">
                         <h2>blogroll</h2>
