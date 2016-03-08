@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Learning From the Best &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+<ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/autoboot.html">Autoboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/capi.html">CAPI</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/education-work-experience.html">Education, Work Experience</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPower</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/work-experience.html">Work Experience</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Learning From the Best</h1>
+    <p class="meta">
+<time datetime="2016-03-03T00:00:00+11:00" pubdate>Thu 03 March 2016</time>    </p>
+</header>
+
+  <div class="entry-content"><p>When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:</p>
+<p>''' C</p>
+<h1>include <stdio.h></h1>
+<h1>include <string.h></h1>
+<h1>include <curses.h></h1>
+<p>int main() {
+  printf("Hello, World! This Is cal");</p>
+<p>char first_name[] = "Callum";
+  char last_name[] = "Scarvell";
+  char name[100];</p>
+<p>/<em> testing code </em>/
+  if (strncmp(first_name, "Callum", 100) != 0) return 1;
+  if (strncmp(last_name, "Scarvell",100) != 0) return 1;</p>
+<p>last_name[0] = 'S';
+  sprintf(name, "%s %s", first_name, last_name);
+  if (strncmp(name, "Callum Scarvell", 100) == 0) {
+      printf("This is %s\n",name);
+  }
+/<em>printf("actual string is -%s-\n",name);</em>/
+  return 0;
+}</p>
+<p>void Name_Rec()
+{
+ int i,j,k;
+ char a[30],b[30];</p>
+<p>clrscr();
+ puts("Callum Scarvell : \n");
+ gets(a);</p>
+<p>printf("\n\ncal : \n\n%c",a[0]);
+ for(i=0;a[i]!='\0';i++)
+'''</p>
+<p>The last two lines have been left out to make it a challenge to recreate. Feel free to test your own knowledge of C to finish the program! My ultimate goal for this program is to make it generate the text 'Hello World! This is Callum Scarvell's computer. Everybody else beware!'(which is easy) then import it into the Linux kernel to the profile login screen. Then I will have my own unique copy of the kernel. And I could call myself an LSD(Linux system developer). That's just a small pet project I have been working on in my time here. Another pet project of mine is my own very altered copy of the open source game NetHack. It's written in C as well and is very easy to tinker with. I have been able to do things like set my characters starting hit points to 40, give my character awesome starting gear and keep save files even after the death of a character. These are just a couple small projects that made learning C so much easier and a lot more fun. And the whole time I was learning C, Ruby, or Python I had some of the best system developers in the world showing me the ropes. This made things even easier, and much more comprehensive. So really its no surprise that in three short weeks I managed to learn almost four different languages and how to run a blog from the raw source code. The knowledge given to me by the OzLabs team is priceless and invaluable. I will forever remember all the new faces and what they taught me. And the <em>Linux Gods</em> will answer your prayers whether e-mail or in person because they walk among us! So if you ever get an opportunity to do work experience, internship or a graduate placement take the chance to do it because you will learn many things that are not taught in school.</p>
+<p>If you would like to reveiw the source code for the blog or my work in general you can find me at <a href="https://github.com/CallumScar">CallumScar.github.com</a> or find me on facebook, <a href="https://www.facebook.com/callum.scarvell/about">Callum Scarvell</a>. 
+And a huge thankyou to the OzLabs team for taking me on for the three weeks and for teaching me so much! i am forever indebted to everyone here.   </p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Callum Scarvell
+    </span>
+  </span>
+<time datetime="2016-03-03T00:00:00+11:00" pubdate>Thu 03 March 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/education-work-experience.html'>Education, Work Experience</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/education.html">education</a>,    <a class="category" href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a class="category" href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/">Learning From the Best</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/02/25/work-experience-at-ozlabs/">Work Experience At Ozlabs</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/02/15/panic/">Panic, flushing and compromise</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/">Evolving into a systems programmer</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/autoboot.html">Autoboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/capi.html">CAPI</a></li>
+        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/education-work-experience.html">Education, Work Experience</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPower</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/work-experience.html">Work Experience</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://github.com/sthbrx/sthbrx-blog" target="_blank">GitHub</a></li>
+            <li><a href="https://plus.google.com/collections/featured" target="_blank">Google+</a></li>
+            <li><a href="https://news.ycombinator.com" target="_blank">Hacker News</a></li>
+            <li><a href="https://www.reddit.com" target="_blank">reddit</a></li>
+            <li><a href="http://twitter.com" target="_blank">Twitter</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2016  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="https://sthbrx.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/ender.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2016/03/03/learning-from-the-best/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/';
+    var disqus_title = 'Learning From the Best';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
