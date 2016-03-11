@@ -38,9 +38,6 @@
 
 <ul class="main-navigation">
       <li >
-        <a href="https://sthbrx.github.io/category/autoboot.html">Autoboot</a>
-      </li>
-      <li >
         <a href="https://sthbrx.github.io/category/capi.html">CAPI</a>
       </li>
       <li >
@@ -50,16 +47,10 @@
         <a href="https://sthbrx.github.io/category/education.html">Education</a>
       </li>
       <li >
-        <a href="https://sthbrx.github.io/category/education-work-experience.html">Education, Work Experience</a>
-      </li>
-      <li >
         <a href="https://sthbrx.github.io/category/openpower.html">OpenPower</a>
       </li>
       <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
-      </li>
-      <li >
-        <a href="https://sthbrx.github.io/category/work-experience.html">Work Experience</a>
       </li>
 </ul></nav>
   <div id="main">
@@ -68,37 +59,20 @@
   		<article>
 <header>
       <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
+        <a href="https://sthbrx.github.io/blog/2015/05/21/openpower-powers-forward/">OpenPOWER Powers Forward</a>
       </h1>
     <p class="meta">
-<time datetime="2015-11-03T15:02:00+11:00" pubdate>Tue 03 November 2015</time>    </p>
+<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time>    </p>
 </header>
 
-  <div class="entry-content"><p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as ...</p></div>
-  <footer>
-    <a rel="full-article" href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">Read On &crarr;</a>
-  </footer>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/">Docker: Just Stop Using AUFS</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-10-30T13:30:00+11:00" pubdate>Fri 30 October 2015</time>    </p>
-</header>
-
-  <div class="entry-content"><p>Docker's default storage driver on most Ubuntu installs is AUFS.</p>
-<p>Don't use it. Use Overlay instead. Here's why.</p>
-<p>First, some background. I'm testing the performance of the basic LAMP
-stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
-way.) To do more reliable ...</p></div>
-  <footer>
-    <a rel="full-article" href="https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/">Read On &crarr;</a>
-  </footer>
+  <div class="entry-content"><p>I wrote this blog post late last year, it is very relevant for this blog though so I'll repost it here.</p>
+<p>With the launch of <a href="http://www.tyan.com/campaign/openpower/">TYAN's OpenPOWER reference system</a> now is a good time to reflect on the team responsible for so much of the research, design and development behind this very first ground breaking step of <a href="http://openpowerfoundation.org/">OpenPOWER</a> with their start to finish involvement of this new Power platform.</p>
+<p>ADL Canberra have been integral to the success of this launch providing the Open Power Abstraction Layer (OPAL) firmware. OPAL breathes new life into Linux on Power finally allowing Linux to run on directly on the hardware.
+While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to sit on top and take direct control of IBMs new Power8 processor without needing to negotiate with a hypervisor. With all the Linux expertise present at ADL Canberra it's no wonder that a Linux based bootloader was developed to make this system work. Petitboot leverage's all the resources of the Linux kernel to create a light, fast and yet extremely versatile bootloader. Petitboot provides a massive amount of tools for debugging and system configuration without the need to load an operating system.</p>
+<p>TYAN have developed great and highly customisable hardware. ADL Canberra have been there since day 1 performing vital platform enablement (bringup) of this new hardware. ADL Canberra have put all the work into the entire software stack, low level work to get OPAL and Linux to talk to the new BMC chip as well as the higher level, enabling to run Linux in either endian and Linux is even now capable of virtualising KVM guests in either endian irrespective of host endian. Furthermore a subset of ADL Canberra have been key to getting the Coherent Accelerator Processor Interface (CAPI) off the ground, enabling more almost endless customisation and greater diversity within the OpenPOWER ecosystem.</p>
+<p>ADL Canberra is the home for Linux on Power and the beginning of the OpenPOWER hardware sees much of the hard work by ADL Canberra come to fruition.</p></div>
   		</article>
 <div class="pagination">
-    <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
 
     <a class="next" href="https://sthbrx.github.io/index2.html">Newer &rarr;</a>
   <br />
@@ -128,14 +102,11 @@ way.) To do more reliable ...</p></div>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
-        <li><a href="https://sthbrx.github.io/category/autoboot.html">Autoboot</a></li>
         <li><a href="https://sthbrx.github.io/category/capi.html">CAPI</a></li>
         <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
-        <li><a href="https://sthbrx.github.io/category/education-work-experience.html">Education, Work Experience</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPower</a></li>
         <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
-        <li><a href="https://sthbrx.github.io/category/work-experience.html">Work Experience</a></li>
     </ul>
   </section>
  
@@ -148,11 +119,9 @@ way.) To do more reliable ...</p></div>
     <section>
         <h1>Social</h1>
         <ul>
-            <li><a href="https://github.com/sthbrx/sthbrx-blog" target="_blank">GitHub</a></li>
-            <li><a href="https://plus.google.com/collections/featured" target="_blank">Google+</a></li>
-            <li><a href="https://news.ycombinator.com" target="_blank">Hacker News</a></li>
-            <li><a href="https://www.reddit.com" target="_blank">reddit</a></li>
-            <li><a href="http://twitter.com" target="_blank">Twitter</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
         </ul>
     </section>
     <section>
