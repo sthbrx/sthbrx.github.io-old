@@ -38,7 +38,7 @@
 
 <ul class="main-navigation">
       <li >
-        <a href="https://sthbrx.github.io/category/capi.html">CAPI</a>
+        <a href="https://sthbrx.github.io/category/capi.html">Capi</a>
       </li>
       <li >
         <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
@@ -47,7 +47,7 @@
         <a href="https://sthbrx.github.io/category/education.html">Education</a>
       </li>
       <li >
-        <a href="https://sthbrx.github.io/category/openpower.html">OpenPower</a>
+        <a href="https://sthbrx.github.io/category/openpower.html">Openpower</a>
       </li>
       <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
@@ -56,6 +56,69 @@
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2015/06/02/autoboot/">Petitboot Autoboot Changes</a>
+      </h1>
+    <p class="meta">
+<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>    </p>
+</header>
+
+  <div class="entry-content"><p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
+<h2>Old &amp; Busted</h2>
+<p>For some context, here is the old (or current depending on what you're running) section of the configuration screen.</p>
+<p><img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg" /></p>
+<p>This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.</p>
+<p>A side note about default options: it is important to note that not all boot options are valid <em>autoboot</em> options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.</p>
+<h2>New Hotness</h2>
+<p>Below is the new autoboot configuration.</p>
+<p><img alt="New Autoboot" src="/images/sammj/newstyle.jpg" /></p>
+<p>The new design allows you to specify an ordered list of autoboot options.
+The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).</p>
+<p>Selecting the first button, 'Add Device' brings up the following screen:</p>
+<p><img alt="Device Selection" src="/images/sammj/devices.jpg" /></p>
+<p>From here you can select any device or <em>class</em> of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').</p>
+<p>This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
+You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).</p>
+<p>Presently you can add any option into the list and order them how you like - which means you can do silly things like this:</p>
+<p><img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg" /></p>
+<h2>IPMI</h2>
+<p>Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!</p>
+<p>If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:</p>
+<p><img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg" /></p>
+<hr />
+<p>That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2015/05/27/joining-the-capi-project/">Joining the CAPI project</a>
+      </h1>
+    <p class="meta">
+<time datetime="2015-05-27T15:08:00+10:00" pubdate>Wed 27 May 2015</time>    </p>
+</header>
+
+  <div class="entry-content"><p>(I wrote this blog post a couple of months ago, but it's still quite relevant.)</p>
+<p>Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you an idea of what this is, and what I'll be up to in the future!</p>
+<h2>What even is CAPI?</h2>
+<p>To help you understand CAPI, think back to the time before computers. We had a variety of machines: machines to build things, to check things, to count things, but they were all specialised --- good at one and only one thing.</p>
+<p>Specialised machines, while great at their intended task, are really expensive to develop. Not only that, it's often impossible to change how they operate, even in very small ways.</p>
+<p>Computer processors, on the other hand, are generalists. They are cheap. They can do a lot of things. If you can break a task down into simple steps, it's easy to get them to do it. The trade-off is that computer processors are incredibly inefficient at everything.</p>
+<p>Now imagine, if you will, that a specialised machine is a highly trained and experienced professional, a computer processor is a hungover university student.</p>
+<p>Over the years, we've tried lots of things to make student faster. Firstly, we gave the student lots of caffeine to make them go as fast as they can. That worked for a while, but you can only give someone so much caffeine before they become unreliable. Then we tried teaming the student up with another student, so they can do two things at once. That worked, so we added more and more students. Unfortunately, lots of tasks can only be done by one person at a time, and team-work is complicated to co-ordinate. We've also recently noticed that some tasks come up often, so we've given them some tools for those specific tasks. Sadly, the tools are only useful for those specific situations.</p>
+<p>Sometimes, what you really need is a professional.</p>
+<p>However, there are a few difficulties in getting a professional to work with uni students. They don't speak the same way; they don't think the same way, and they don't work the same way. You need to teach the uni students how to work with the professional, and vice versa.</p>
+<p>Previously, developing this interface – this connection between a generalist processor and a specialist machine – has been particularly difficult. The interface between processors and these specialised machines – known as <em>accelerators</em> – has also tended to suffer from bottlenecks and inefficiencies.</p>
+<p>This is the problem CAPI solves. CAPI provides a simpler and more optimised way to interface specialised hardware accelerators with IBM's most recent line of processors, POWER8. It's a common 'language' that the processor and the accelerator talk, that makes it much easier to build the hardware side and easier to program the software side. In our Canberra lab, we're working primarily on the operating system side of this. We are working with some external companies who are building CAPI devices and the optimised software products which use them.</p>
+<p>From a technical point of view, CAPI provides <em>coherent</em> access to system memory and processor caches, eliminating a major bottleneck in using external devices as accelerators. This is illustrated really well by the following graphic from <a href="https://www.youtube.com/watch?v=4ZyXc12J6FA">an IBM promotional video</a>. In the non-CAPI case, you can see there's a lot of data (the little boxes) stalled in the PCIe subsystem, whereas with CAPI, the accelerator has direct access to the memory subsystem, which makes everything go faster.</p>
+<p><img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png" /></p>
+<h2>Uses of CAPI</h2>
+<p>CAPI technology is already powering a few really cool products.</p>
+<p>Firstly, we have an implementation of Redis that sits on top of flash storage connected over CAPI. Or, to take out the buzzwords, CAPI lets us do really, really fast NoSQL databases. There's <a href="https://www.youtube.com/watch?v=cCmFc_0xsvA">a video online</a> giving more details.</p>
+<p>Secondly, our partner <a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;mtag=connectx_4_vpi_card">Mellanox</a> is using CAPI to make network cards that run at speeds of up to 100Gb/s.</p>
+<p>CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!</p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -82,6 +145,12 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/">linux.conf.au 2016: A set of brief thoughts</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/">Learning From the Best</a>
       </li>
       <li class="post">
@@ -89,12 +158,6 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/02/15/panic/">Panic, flushing and compromise</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/">Evolving into a systems programmer</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
       </li>
     </ul>
   </section>
@@ -105,7 +168,7 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
         <li><a href="https://sthbrx.github.io/category/capi.html">CAPI</a></li>
         <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
-        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPower</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
         <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
     </ul>
   </section>
@@ -113,7 +176,7 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
 
 
     <section>
