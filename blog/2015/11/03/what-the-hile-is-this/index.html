@@ -71,7 +71,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...</p>
 <p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
 <p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
 <p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
-<div class="highlight"><pre><span class="cp">#define FIXUP_ENDIAN</span>
+<div class="highlight"><pre><span></span><span class="cp">#define FIXUP_ENDIAN</span>
     <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
     <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
@@ -150,6 +150,9 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/">No Network For You</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
       </li>
       <li class="post">
@@ -160,9 +163,6 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/02/25/work-experience-at-ozlabs/">Work Experience At Ozlabs</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/02/15/panic/">Panic, flushing and compromise</a>
       </li>
     </ul>
   </section>
@@ -181,7 +181,7 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>  </section>
 
 
     <section>
