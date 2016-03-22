@@ -1,5 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-03-22T13:53:00+11:00</updated><entry><title>The Elegance of the Plaintext Patch</title><link href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/" rel="alternate"></link><updated>2016-03-22T13:53:00+11:00</updated><author><name>Russell Currey</name></author><id>tag:sthbrx.github.io,2016-03-22:blog/2016/03/22/the-elegance-of-the-plaintext-patch/</id><summary type="html">&lt;p&gt;I've only been working on the Linux kernel for a few months.  Before that, I worked with proprietary source control at work and common tools like GitHub at home.  The concept of the mailing list seemed obtuse to me.  If I noticed a problem with some program, I'd be willing to open an issue on GitHub but not to send an email to a mailing list.  Who still uses those, anyway?&lt;/p&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-03-22T18:00:00+11:00</updated><entry><title>Getting logs out of things</title><link href="https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/" rel="alternate"></link><updated>2016-03-22T18:00:00+11:00</updated><author><name>Andrew Donnellan</name></author><id>tag:sthbrx.github.io,2016-03-22:blog/2016/03/22/getting-logs-out-of-things/</id><summary type="html">&lt;p&gt;Here at OzLabs, we have an unfortunate habit of making our shiny Power computers very sad, which is a common problem in systems programming and kernel hacking. When this happens, we like having logs. In particular, we like to have the kernel log and the OPAL firmware log, which are, very surprisingly, rather helpful when debugging kernel and firmware issues.&lt;/p&gt;
+&lt;p&gt;Here's how to get them.&lt;/p&gt;
+&lt;h2&gt;From userspace&lt;/h2&gt;
+&lt;p&gt;You're lucky enough that your machine is still up, yay! As every Linux sysadmin knows, you can just grab the kernel log using &lt;code&gt;dmesg&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;As for the OPAL log: we can simply ask OPAL to tell us where its log is located in memory, copy it from there, and hand it over to userspace. In Linux, as per standard Unix conventions, we do this by exposing the log as a file, which can be found in &lt;code&gt;/sys/firmware/opal/msglog&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Annoyingly, the &lt;code&gt;msglog&lt;/code&gt; file reports itself as size 0 (I'm not sure exactly why, but I &lt;em&gt;think&lt;/em&gt; it's due to limitations in sysfs), so if you try to copy the file with &lt;code&gt;cp&lt;/code&gt;, you end up with just a blank file. However, you can read it with &lt;code&gt;cat&lt;/code&gt; or &lt;code&gt;less&lt;/code&gt;.&lt;/p&gt;
+&lt;h2&gt;From &lt;code&gt;xmon&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;xmon&lt;/code&gt; is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with &lt;code&gt;kgdb&lt;/code&gt;. On our development systems, we often configure &lt;code&gt;xmon&lt;/code&gt; to automatically begin debugging whenever we hit an oops or panic (using &lt;code&gt;xmon=on&lt;/code&gt; on the kernel command line, or the &lt;code&gt;XMON_DEFAULT&lt;/code&gt; Kconfig option). It can also be manually triggered:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
+sysrq: SysRq : Entering xmon
+cpu 0x7: Vector: 0  at [c000000fcd717a80]
+pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+sp: c000000fcd717be0
+msr: 9000000000009033
+current = 0xc000000fcd689200
+paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
+pid   = 7127, comm = bash
+Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
+enter ? for help
+7:mon&amp;gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;From &lt;code&gt;xmon&lt;/code&gt;, simply type &lt;code&gt;dl&lt;/code&gt; to dump out the kernel log. If you'd like to page through the log rather than dump the entire thing at once, use &lt;code&gt;#&amp;lt;n&amp;gt;&lt;/code&gt; to split it into groups of &lt;code&gt;n&lt;/code&gt; lines.&lt;/p&gt;
+&lt;p&gt;Until recently, it wasn't as easy to extract the OPAL log without knowing magic offsets. A couple of months ago, I was debugging a nasty CAPI issue and got rather frustrated by this, so one day when I had a couple of hours free I &lt;a href="http://patchwork.ozlabs.org/patch/581775/"&gt;refactored&lt;/a&gt; the existing sysfs interface and &lt;a href="http://patchwork.ozlabs.org/patch/581774/"&gt;added&lt;/a&gt; the &lt;code&gt;do&lt;/code&gt; command to &lt;code&gt;xmon&lt;/code&gt;. These patches will be included from kernel 4.6-rc1 onwards.&lt;/p&gt;
+&lt;p&gt;When you're done, &lt;code&gt;x&lt;/code&gt; will attempt to recover the machine and continue, &lt;code&gt;zr&lt;/code&gt; will reboot, and &lt;code&gt;zh&lt;/code&gt; will halt.&lt;/p&gt;
+&lt;h2&gt;From the FSP&lt;/h2&gt;
+&lt;p&gt;Sometimes, not even &lt;code&gt;xmon&lt;/code&gt; will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)&lt;/p&gt;
+&lt;p&gt;This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is &lt;a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2"&gt;documented&lt;/a&gt; in IBM Power Systems user manuals.&lt;/p&gt;
+&lt;p&gt;How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a &lt;a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c"&gt;Memory Dump Store Table&lt;/a&gt; which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690088026&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Max&lt;/span&gt; &lt;span class="n"&gt;entries&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="nl"&gt;table&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;256&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690090666&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Addr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mh"&gt;0x31000000&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nl"&gt;size&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mh"&gt;0x100000&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;added&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="n"&gt;table&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690093767&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Addr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mh"&gt;0x31100000&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nl"&gt;size&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mh"&gt;0x100000&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;added&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="n"&gt;table&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2750378890&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Table&lt;/span&gt; &lt;span class="n"&gt;updated&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;11199672771&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Addr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mh"&gt;0x1fff772780&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nl"&gt;size&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mh"&gt;0x200000&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;added&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="n"&gt;table&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;11215193760&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Table&lt;/span&gt; &lt;span class="n"&gt;updated&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;28031311971&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Table&lt;/span&gt; &lt;span class="n"&gt;updated&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;28411709421&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Addr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mh"&gt;0x1fff830000&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nl"&gt;size&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mh"&gt;0x100000&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;added&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="n"&gt;table&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;28417251110&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Table&lt;/span&gt; &lt;span class="n"&gt;updated&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;In the above log, we see four entries: the skiboot/OPAL log, the &lt;a href="https://github.com/open-power/hostboot"&gt;hostboot&lt;/a&gt; runtime log, the petitboot Linux kernel log (which doesn't make it into the final dump) and the real Linux kernel log. skiboot obviously adds the OPAL and hostboot logs to the MDST early in boot, but it also exposes the &lt;a href="https://github.com/open-power/skiboot/blob/master/doc/opal-api/opal-register-dump-region-101.txt"&gt;&lt;code&gt;OPAL_REGISTER_DUMP_REGION&lt;/code&gt;&lt;/a&gt; call which can be used by the operating system to register additional regions. Linux uses this to &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal.c#L608"&gt;register the kernel log buffer&lt;/a&gt;. If you're a kernel developer, you could potentially use the OPAL call to register your own interesting bits of memory.&lt;/p&gt;
+&lt;p&gt;So, the MDST is all set up, we go about doing our business, and suddenly we checkstop. The FSP does its sysdump magic and a few minutes later it reboots the system. What now?&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;After we come back up, the FSP notifies OPAL that a new dump is available. Linux exposes the dump to userspace under &lt;code&gt;/sys/firmware/opal/dump/&lt;/code&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href="https://sourceforge.net/projects/linux-diag/files/ppc64-diag/"&gt;ppc64-diag&lt;/a&gt; is a suite of utilities that assist in manipulating FSP dumps, including the &lt;code&gt;opal_errd&lt;/code&gt; daemon. &lt;code&gt;opal_errd&lt;/code&gt; monitors new dumps and saves them in &lt;code&gt;/var/log/dump/&lt;/code&gt; for later analysis.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;opal-dump-parse&lt;/code&gt; (also in the &lt;code&gt;ppc64-diag&lt;/code&gt; suite) can be used to extract the sections we care about from the dump:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+|---------------------------------------------------------|
+|ID              SECTION                              SIZE|
+|---------------------------------------------------------|
+|1              Opal-log                           1048576|
+|2              HostBoot-Runtime-log               1048576|
+|128            printk                             1048576|
+|---------------------------------------------------------|
+List completed
+root@p86:/var/log/dump# opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file Opal-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file HostBoot-Runtime-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file printk.842EA8A.00000001.20160322063051
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;There's various other types of dumps and logs that I won't get into here. I'm probably obliged to say that if you're having problems out in the wild, you should probably contact your friendly local IBM Service Representative...&lt;/p&gt;
+&lt;h2&gt;Acknowledgements&lt;/h2&gt;
+&lt;p&gt;Thanks to &lt;a href="https://flamingspork.com"&gt;Stewart Smith&lt;/a&gt; for pointing me in the right direction regarding FSP sysdumps and related tools.&lt;/p&gt;</summary><category term="debugging"></category><category term="skiboot"></category><category term="OPAL"></category><category term="FSP"></category><category term="kernel"></category><category term="development"></category><category term="OpenPOWER"></category></entry><entry><title>The Elegance of the Plaintext Patch</title><link href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/" rel="alternate"></link><updated>2016-03-22T13:53:00+11:00</updated><author><name>Russell Currey</name></author><id>tag:sthbrx.github.io,2016-03-22:blog/2016/03/22/the-elegance-of-the-plaintext-patch/</id><summary type="html">&lt;p&gt;I've only been working on the Linux kernel for a few months.  Before that, I worked with proprietary source control at work and common tools like GitHub at home.  The concept of the mailing list seemed obtuse to me.  If I noticed a problem with some program, I'd be willing to open an issue on GitHub but not to send an email to a mailing list.  Who still uses those, anyway?&lt;/p&gt;
 &lt;p&gt;Starting out with the kernel meant I had to figure this email thing out.  &lt;code&gt;git format-patch&lt;/code&gt; and &lt;code&gt;git send-email&lt;/code&gt; take most of the pain out of formatting and submitting a patch, which is nice.  The patch files generated by &lt;code&gt;format-patch&lt;/code&gt; open nicely in Emacs by default, showing all whitespace and letting you pick up any irregularities.  &lt;code&gt;send-email&lt;/code&gt; means you can send it to yourself or a friend first, finding anything that looks stupid before being exposed to the public.&lt;/p&gt;
 &lt;p&gt;And then what?  You've sent an email.  It gets sent to hundreds or thousands of people.  Nowhere near that many will read it.  Some might miss it due to their mail server going down, or the list flagging your post as spam, or requiring moderation.  Some recipients will be bots that archive mail on the list, or publish information about the patch.  If you haven't formatted it correctly, someone will let you know quickly.  If your patch is important or controversial, you'll have all sorts of responses.  If your patch is small or niche, you might not ever hear anything back.&lt;/p&gt;
 &lt;p&gt;I remember when I sent my first patch.  I was talking to a former colleague who didn't understand the patch/mailing list workflow at all.  I sent him a link to my patch on a mail archive.  I explained it like a pull request - here's my code, you can find the responses.  What's missing from a GitHub-esque pull request?  We don't know what tests it passed.  We don't know if it's been merged yet, or if the maintainer has looked at it.  It takes a bit of digging around to find out who's commented on it.  If it's part of a series, that's awkward to find out as well.  What about revisions of a series?  That's another pain point.&lt;/p&gt;
@@ -21,12 +97,12 @@
 &lt;p&gt;Any of these options will cause any existing network configurations to be ignored.&lt;/p&gt;
 &lt;h2&gt;Building the Request&lt;/h2&gt;
 &lt;p&gt;Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
+&lt;div class="highlight"&gt;&lt;pre&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
     0x00 0x08 0x61 0x80
 
 Unique value that Petitboot recognises:
@@ -62,12 +138,12 @@ Gateway IP Address:
 
 
 &lt;p&gt;Clearing a network override is as simple as making a request empty aside from the header:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;You can also read back the request over IPMI with this request:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x09 0x61 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;0x00 0x09 0x61 0x00 0x00
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -96,9 +172,9 @@ Gateway IP Address:
 &lt;p&gt;I'd also really recommed &lt;a href="https://www.youtube.com/watch?v=tFmajPt0_hI"&gt;RCU Mutation Testing&lt;/a&gt;, from the kernel miniconf, also by Paul.&lt;/p&gt;
 &lt;h4&gt;What I've learned as the kernel docs maintainer&lt;/h4&gt;
 &lt;p&gt;As an extra bonus: I mention &lt;a href="https://www.youtube.com/watch?v=gsJXf6oSbAE"&gt;this talk&lt;/a&gt;, just to say "why on earth have we still not fixed the Linux kernel &lt;a href="https://www.kernel.org/doc/linux/README"&gt;README&lt;/a&gt;"?!!?&lt;/p&gt;</summary><category term="lca2016"></category><category term="conferences"></category></entry><entry><title>Learning From the Best</title><link href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/" rel="alternate"></link><updated>2016-03-03T00:00:00+11:00</updated><author><name>Callum Scarvell</name></author><id>tag:sthbrx.github.io,2016-03-03:blog/2016/03/03/learning-from-the-best/</id><summary type="html">&lt;p&gt;When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
-&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;string.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
-&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;curses.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#include &amp;lt;string.h&amp;gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#include &amp;lt;curses.h&amp;gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
   &lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;Hello, World! This Is cal&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
@@ -143,7 +219,7 @@ Gateway IP Address:
 &lt;p&gt;Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.&lt;/p&gt;
 &lt;p&gt;Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.&lt;/p&gt;
 &lt;p&gt;There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the &lt;code&gt;opal_cec_reboot()&lt;/code&gt; function.  So all we need to do is flush out the console buffer:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;int64&lt;/span&gt; &lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;int64&lt;/span&gt; &lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
     &lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OPAL: Reboot request...&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 
@@ -163,7 +239,7 @@ Gateway IP Address:
 &lt;p&gt;Oh, wait.  That will never get accepted upstream, ever.  Let's try again.&lt;/p&gt;
 &lt;p&gt;Well, there are &lt;code&gt;#ifdef&lt;/code&gt;s in the code that are architecture specific, for s390 and SPARC.  I could add an &lt;code&gt;#ifdef&lt;/code&gt; to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from &lt;code&gt;arch/powerpc&lt;/code&gt;, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.&lt;/p&gt;
 &lt;p&gt;As a kernel noob, I found myself digging into what every function called by &lt;code&gt;panic()&lt;/code&gt; actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    &lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -171,7 +247,7 @@ Gateway IP Address:
 &lt;p&gt;Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call &lt;code&gt;opal_poll_events()&lt;/code&gt; a whole bunch of times, right?  That &lt;em&gt;would&lt;/em&gt; work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.&lt;/p&gt;
 &lt;p&gt;Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.&lt;/p&gt;
 &lt;p&gt;In the end, it looks like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
 &lt;span class="cm"&gt; * Console output is controlled by OPAL firmware.  The kernel regularly calls&lt;/span&gt;
 &lt;span class="cm"&gt; * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,&lt;/span&gt;
 &lt;span class="cm"&gt; * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message&lt;/span&gt;
@@ -279,7 +355,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...&lt;/p&gt;
 &lt;p&gt;Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.&lt;/p&gt;
 &lt;p&gt;When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.&lt;/p&gt;
 &lt;p&gt;The solution to this is an amazing little snippet of code in &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65"&gt;arch/powerpc/boot/ppc_asm.h&lt;/a&gt; (follow the link to see some helpful commenting):&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
     &lt;span class="n"&gt;tdi&lt;/span&gt;   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mh"&gt;0x48&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
     &lt;span class="n"&gt;b&lt;/span&gt;     &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;36&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
     &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x05009f42&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
@@ -485,17 +561,17 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Replace the &lt;code&gt;-bootkernel&lt;/code&gt; arguement with the path to ppc64le_hello, e.g.: &lt;code&gt;-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Don't forget to move it into place! &lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+&lt;div class="highlight"&gt;&lt;pre&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
+&lt;div class="highlight"&gt;&lt;pre&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+&lt;div class="highlight"&gt;&lt;pre&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
 Hello OPAL!
            _start = 0x20010000
                               _bss   = 0x20017E28
@@ -526,7 +602,7 @@ Hello OPAL!
 
 
 &lt;p&gt;Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to &lt;code&gt;cpu_init&lt;/code&gt; in main.c to test for a PowerPC POWER8:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
     &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
         &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/PowerPC,POWER8@20&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
     &lt;span class="p"&gt;}&lt;/span&gt;
@@ -539,7 +615,7 @@ Hello OPAL!
 
 &lt;p&gt;This is definitely the &lt;em&gt;wrong&lt;/em&gt; way to do this, but it works for now.&lt;/p&gt;
 &lt;p&gt;Now, correcting for weird wrapping, we get:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Hello OPAL!
+&lt;div class="highlight"&gt;&lt;pre&gt;Hello OPAL!
 _start = 0x20010000
 _bss   = 0x20017E28
 _stack = 0x20018000
@@ -570,7 +646,7 @@ EA 0x20048000 -&amp;gt; hash 0x20048 -&amp;gt; pteg 0x240 = RA 0x20048000
 
 &lt;p&gt;The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.&lt;/p&gt;
 &lt;p&gt;Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Choices: (MMU = disabled):
+&lt;div class="highlight"&gt;&lt;pre&gt;Choices: (MMU = disabled):
    (d) 5s delay
    (e) test exception
    (n) test nested exception
@@ -632,7 +708,7 @@ EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
 
 &lt;p&gt;I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a &lt;em&gt;lot&lt;/em&gt;. The delay seems to correspond well with real time as well.&lt;/p&gt;
 &lt;p&gt;It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;1.41801|ERRL|Dumping errors reported prior to registration
+&lt;div class="highlight"&gt;&lt;pre&gt;1.41801|ERRL|Dumping errors reported prior to registration
   2.89873|Ignoring boot flags, incorrect version 0x0
 &lt;/pre&gt;&lt;/div&gt;
 

@@ -38,7 +38,7 @@
 
 <ul class="main-navigation">
       <li >
-        <a href="https://sthbrx.github.io/category/capi.html">CAPI</a>
+        <a href="https://sthbrx.github.io/category/capi.html">Capi</a>
       </li>
       <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
@@ -50,7 +50,7 @@
         <a href="https://sthbrx.github.io/category/education.html">Education</a>
       </li>
       <li >
-        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+        <a href="https://sthbrx.github.io/category/openpower.html">Openpower</a>
       </li>
       <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
@@ -59,6 +59,58 @@
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/">Learning From the Best</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-03-03T00:00:00+11:00" pubdate>Thu 03 March 2016</time>    </p>
+</header>
+
+  <div class="entry-content"><p>When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:</p>
+<div class="highlight"><pre><span class="cp">#include &lt;stdio.h&gt;</span>
+<span class="cp">#include &lt;string.h&gt;</span>
+<span class="cp">#include &lt;curses.h&gt;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s">&quot;Hello, World! This Is cal&quot;</span><span class="p">);</span>
+
+<span class="kt">char</span> <span class="n">first_name</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;Callum&quot;</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">last_name</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;Scarvell&quot;</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">name</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+  <span class="cm">/* testing code */</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">first_name</span><span class="p">,</span> <span class="s">&quot;Callum&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">last_name</span><span class="p">,</span> <span class="s">&quot;Scarvell&quot;</span><span class="p">,</span><span class="mi">100</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+
+  <span class="n">last_name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sc">&#39;S&#39;</span><span class="p">;</span>
+  <span class="n">sprintf</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s">&quot;%s %s&quot;</span><span class="p">,</span> <span class="n">first_name</span><span class="p">,</span> <span class="n">last_name</span><span class="p">);</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s">&quot;Callum Scarvell&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">printf</span><span class="p">(</span><span class="s">&quot;This is %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="n">name</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="cm">/*printf(&quot;actual string is -%s-\n&quot;,name);*/</span>
+  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="nf">Name_Rec</span><span class="p">()</span>
+<span class="p">{</span>
+ <span class="kt">int</span> <span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">;</span>
+ <span class="kt">char</span> <span class="n">a</span><span class="p">[</span><span class="mi">30</span><span class="p">],</span><span class="n">b</span><span class="p">[</span><span class="mi">30</span><span class="p">];</span>
+
+ <span class="n">clrscr</span><span class="p">();</span>
+ <span class="n">puts</span><span class="p">(</span><span class="s">&quot;Callum Scarvell : </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+ <span class="n">gets</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+
+ <span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">cal : </span><span class="se">\n\n</span><span class="s">%c&quot;</span><span class="p">,</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+ <span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">!=</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</pre></div>
+
+
+<p>The last two lines have been left out to make it a challenge to recreate. Feel free to test your own knowledge of C to finish the program! My ultimate goal for this program is to make it generate the text 'Hello World! This is Callum Scarvell's computer. Everybody else beware!'(which is easy) then import it into the Linux kernel to the profile login screen. Then I will have my own unique copy of the kernel. And I could call myself an LSD(Linux system developer). That's just a small pet project I have been working on in my time here. Another pet project of mine is my own very altered copy of the open source game NetHack. It's written in C as well and is very easy to tinker with. I have been able to do things like set my characters starting hit points to 40, give my character awesome starting gear and keep save files even after the death of a character. These are just a couple small projects that made learning C so much easier and a lot more fun. And the whole time I was learning C, Ruby, or Python I had some of the best system developers in the world showing me the ropes. This made things even easier, and much more comprehensive. So really its no surprise that in three short weeks I managed to learn almost four different languages and how to run a blog from the raw source code. The knowledge given to me by the OzLabs team is priceless and invaluable. I will forever remember all the new faces and what they taught me. And the <em>Linux Gods</em> will answer your prayers whether e-mail or in person because they walk among us! So if you ever get an opportunity to do work experience, internship or a graduate placement take the chance to do it because you will learn many things that are not taught in school.</p>
+<p>If you would like to reveiw the source code for the blog or my work in general you can find me at <a href="https://github.com/CallumScar">CallumScar.github.com</a> or find me on facebook, <a href="https://www.facebook.com/callum.scarvell/about">Callum Scarvell</a>. </p>
+<p>And a huge thankyou to the OzLabs team for taking me on for the three weeks and for teaching me so much! I am forever indebted to everyone here.   </p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -86,7 +138,7 @@
 <p>Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.</p>
 <p>Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.</p>
 <p>There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the <code>opal_cec_reboot()</code> function.  So all we need to do is flush out the console buffer:</p>
-<div class="highlight"><pre><span></span><span class="k">static</span> <span class="n">int64</span> <span class="nf">opal_cec_reboot</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<div class="highlight"><pre><span class="k">static</span> <span class="n">int64</span> <span class="nf">opal_cec_reboot</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
     <span class="n">printf</span><span class="p">(</span><span class="s">&quot;OPAL: Reboot request...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 
@@ -106,7 +158,7 @@
 <p>Oh, wait.  That will never get accepted upstream, ever.  Let's try again.</p>
 <p>Well, there are <code>#ifdef</code>s in the code that are architecture specific, for s390 and SPARC.  I could add an <code>#ifdef</code> to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from <code>arch/powerpc</code>, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.</p>
 <p>As a kernel noob, I found myself digging into what every function called by <code>panic()</code> actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:</p>
-<div class="highlight"><pre><span></span>    <span class="n">kmsg_dump</span><span class="p">(</span><span class="n">KMSG_DUMP_PANIC</span><span class="p">);</span>
+<div class="highlight"><pre>    <span class="n">kmsg_dump</span><span class="p">(</span><span class="n">KMSG_DUMP_PANIC</span><span class="p">);</span>
 </pre></div>
 
 
@@ -114,7 +166,7 @@
 <p>Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call <code>opal_poll_events()</code> a whole bunch of times, right?  That <em>would</em> work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.</p>
 <p>Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.</p>
 <p>In the end, it looks like this:</p>
-<div class="highlight"><pre><span></span><span class="cm">/*</span>
+<div class="highlight"><pre><span class="cm">/*</span>
 <span class="cm"> * Console output is controlled by OPAL firmware.  The kernel regularly calls</span>
 <span class="cm"> * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,</span>
 <span class="cm"> * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message</span>
@@ -244,7 +296,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...</p>
 <p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
 <p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
 <p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
-<div class="highlight"><pre><span></span><span class="cp">#define FIXUP_ENDIAN</span>
+<div class="highlight"><pre><span class="cp">#define FIXUP_ENDIAN</span>
     <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
     <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
@@ -298,87 +350,6 @@ and cannot be modified after system initialization.</p>
 <p>Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is <a href="https://github.com/open-power/skiboot">right here</a>. In particular we can see here the OPAL call to <a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702">opal_reinit_cpus</a> which among other things resets the HILE bit.<br />
 This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the <a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53">final patch to support PowerNV machines.</a></p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/">Docker: Just Stop Using AUFS</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-10-30T13:30:00+11:00" pubdate>Fri 30 October 2015</time>    </p>
-</header>
-
-  <div class="entry-content"><p>Docker's default storage driver on most Ubuntu installs is AUFS.</p>
-<p>Don't use it. Use Overlay instead. Here's why.</p>
-<p>First, some background. I'm testing the performance of the basic LAMP
-stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
-way.) To do more reliable and repeatable tests, I do my builds and
-tests in Docker containers. (See <a href="/blog/2015/10/12/a-tale-of-two-dockers/">my previous post</a> for more info.)</p>
-<p>Each test downloads the source of Apache, MariaDB and PHP, and builds
-them. This should be quick: the POWER8 system I'm building on has 160
-hardware threads and 128 GB of memory. But I was finding that it was
-only just keeping pace with a 2 core Intel VM on BlueMix.</p>
-<p>Why? Well, my first point of call was to observe a compilation under
-<code>top</code>. The header is below.</p>
-<p><img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /></p>
-<p>Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
-deeper.</p>
-<p>My next port of call for analysis of CPU-bound workloads is
-<code>perf</code>. <code>perf top</code> reports astounding quantities of time in
-spin-locks:</p>
-<p><img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /></p>
-<p><code>perf top -g</code> gives us some more information: the time is in system
-calls. <code>open()</code> and <code>stat()</code> are the key culprits, and we can see a
-number of file system functions are in play in the call-chains of the
-spinlocks.</p>
-<p><img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /></p>
-<p>Why are open and stat slow? Well, I know that the files are on an AUFS
-mount. (<code>docker info</code> will tell you what you're using if you're not
-sure.) So, being something of a kernel hacker, I set out to find out
-why. This did not go well. AUFS isn't upstream, it's a separate patch
-set. Distros have been trying to deprecate it for years. Indeed, RHEL
-doesn't ship it. (To it's credit, Docker seems to be trying to move
-away from it.)</p>
-<p>Wanting to avoid the minor nightmare that is an out-of-tree patchset,
-I looked at other storage drivers for Docker. <a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html">This presentation is particularly good.</a>
-My choices are pretty simple: AUFS, btrfs, device-mapper or
-Overlay. Overlay was an obvious choice: it doesn't need me to set up
-device mapper on a cloud VM, or reformat things as btrfs.</p>
-<p>It's also easy to set up on Ubuntu:</p>
-<ul>
-<li>
-<p>export/save any docker containers you care about.</p>
-</li>
-<li>
-<p>add <code>--storage-driver=overlay</code> option to <code>DOCKER_OPTS</code> in <code>/etc/default/docker</code>, and restart docker (<code>service docker restart</code>)</p>
-</li>
-<li>
-<p>import/load the containters you exported</p>
-</li>
-<li>
-<p>verify that things work, then clear away your old storage directory (<code>/var/lib/docker/aufs</code>). </p>
-</li>
-</ul>
-<p>Having moved my base container across, I set off another build.</p>
-<p>The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:</p>
-<p><img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /></p>
-<p>The compiles went from taking painfully long to astonishingly fast. Winning.</p>
-<p>So in conclusion:</p>
-<ul>
-<li>
-<p>If you use Docker for something that involves open()ing or stat()ing files</p>
-</li>
-<li>
-<p>If you want your machine to do real work, rather than spin in spinlocks</p>
-</li>
-<li>
-<p>If you want to use code that's upstream and thus much better supported</p>
-</li>
-<li>
-<p>If you want something less disruptive than the btrfs or dm storage drivers</p>
-</li>
-</ul>
-<p>...then drop AUFS and switch to Overlay today.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -390,6 +361,9 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/">Getting logs out of things</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/">The Elegance of the Plaintext Patch</a>
       </li>
       <li class="post">
@@ -400,9 +374,6 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/">linux.conf.au 2016: A set of brief thoughts</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/">Learning From the Best</a>
       </li>
     </ul>
   </section>
@@ -422,7 +393,7 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">OpenPOWER</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
 
 
     <section>

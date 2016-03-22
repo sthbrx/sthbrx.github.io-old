@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Getting logs out of things &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+<ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/capi.html">Capi</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/openpower.html">Openpower</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Getting logs out of things</h1>
+    <p class="meta">
+<time datetime="2016-03-22T18:00:00+11:00" pubdate>Tue 22 March 2016</time>    </p>
+</header>
+
+  <div class="entry-content"><p>Here at OzLabs, we have an unfortunate habit of making our shiny Power computers very sad, which is a common problem in systems programming and kernel hacking. When this happens, we like having logs. In particular, we like to have the kernel log and the OPAL firmware log, which are, very surprisingly, rather helpful when debugging kernel and firmware issues.</p>
+<p>Here's how to get them.</p>
+<h2>From userspace</h2>
+<p>You're lucky enough that your machine is still up, yay! As every Linux sysadmin knows, you can just grab the kernel log using <code>dmesg</code>.</p>
+<p>As for the OPAL log: we can simply ask OPAL to tell us where its log is located in memory, copy it from there, and hand it over to userspace. In Linux, as per standard Unix conventions, we do this by exposing the log as a file, which can be found in <code>/sys/firmware/opal/msglog</code>.</p>
+<p>Annoyingly, the <code>msglog</code> file reports itself as size 0 (I'm not sure exactly why, but I <em>think</em> it's due to limitations in sysfs), so if you try to copy the file with <code>cp</code>, you end up with just a blank file. However, you can read it with <code>cat</code> or <code>less</code>.</p>
+<h2>From <code>xmon</code></h2>
+<p><code>xmon</code> is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with <code>kgdb</code>. On our development systems, we often configure <code>xmon</code> to automatically begin debugging whenever we hit an oops or panic (using <code>xmon=on</code> on the kernel command line, or the <code>XMON_DEFAULT</code> Kconfig option). It can also be manually triggered:</p>
+<div class="highlight"><pre>root@p86:~# echo x &gt; /proc/sysrq-trigger
+sysrq: SysRq : Entering xmon
+cpu 0x7: Vector: 0  at [c000000fcd717a80]
+pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+sp: c000000fcd717be0
+msr: 9000000000009033
+current = 0xc000000fcd689200
+paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
+pid   = 7127, comm = bash
+Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
+enter ? for help
+7:mon&gt;
+</pre></div>
+
+
+<p>From <code>xmon</code>, simply type <code>dl</code> to dump out the kernel log. If you'd like to page through the log rather than dump the entire thing at once, use <code>#&lt;n&gt;</code> to split it into groups of <code>n</code> lines.</p>
+<p>Until recently, it wasn't as easy to extract the OPAL log without knowing magic offsets. A couple of months ago, I was debugging a nasty CAPI issue and got rather frustrated by this, so one day when I had a couple of hours free I <a href="http://patchwork.ozlabs.org/patch/581775/">refactored</a> the existing sysfs interface and <a href="http://patchwork.ozlabs.org/patch/581774/">added</a> the <code>do</code> command to <code>xmon</code>. These patches will be included from kernel 4.6-rc1 onwards.</p>
+<p>When you're done, <code>x</code> will attempt to recover the machine and continue, <code>zr</code> will reboot, and <code>zh</code> will halt.</p>
+<h2>From the FSP</h2>
+<p>Sometimes, not even <code>xmon</code> will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)</p>
+<p>This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is <a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2">documented</a> in IBM Power Systems user manuals.</p>
+<p>How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a <a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c">Memory Dump Store Table</a> which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:</p>
+<div class="highlight"><pre><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
+<span class="p">[</span><span class="mi">2690090666</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31000000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">2690093767</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31100000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">2750378890</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">11199672771</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x1fff772780</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x200000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">11215193760</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">28031311971</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">28411709421</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x1fff830000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">28417251110</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+</pre></div>
+
+
+<p>In the above log, we see four entries: the skiboot/OPAL log, the <a href="https://github.com/open-power/hostboot">hostboot</a> runtime log, the petitboot Linux kernel log (which doesn't make it into the final dump) and the real Linux kernel log. skiboot obviously adds the OPAL and hostboot logs to the MDST early in boot, but it also exposes the <a href="https://github.com/open-power/skiboot/blob/master/doc/opal-api/opal-register-dump-region-101.txt"><code>OPAL_REGISTER_DUMP_REGION</code></a> call which can be used by the operating system to register additional regions. Linux uses this to <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal.c#L608">register the kernel log buffer</a>. If you're a kernel developer, you could potentially use the OPAL call to register your own interesting bits of memory.</p>
+<p>So, the MDST is all set up, we go about doing our business, and suddenly we checkstop. The FSP does its sysdump magic and a few minutes later it reboots the system. What now?</p>
+<ul>
+<li>
+<p>After we come back up, the FSP notifies OPAL that a new dump is available. Linux exposes the dump to userspace under <code>/sys/firmware/opal/dump/</code>.</p>
+</li>
+<li>
+<p><a href="https://sourceforge.net/projects/linux-diag/files/ppc64-diag/">ppc64-diag</a> is a suite of utilities that assist in manipulating FSP dumps, including the <code>opal_errd</code> daemon. <code>opal_errd</code> monitors new dumps and saves them in <code>/var/log/dump/</code> for later analysis.</p>
+</li>
+<li>
+<p><code>opal-dump-parse</code> (also in the <code>ppc64-diag</code> suite) can be used to extract the sections we care about from the dump:</p>
+<div class="highlight"><pre>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+|---------------------------------------------------------|
+|ID              SECTION                              SIZE|
+|---------------------------------------------------------|
+|1              Opal-log                           1048576|
+|2              HostBoot-Runtime-log               1048576|
+|128            printk                             1048576|
+|---------------------------------------------------------|
+List completed
+root@p86:/var/log/dump# opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file Opal-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file HostBoot-Runtime-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file printk.842EA8A.00000001.20160322063051
+</pre></div>
+
+
+</li>
+</ul>
+<p>There's various other types of dumps and logs that I won't get into here. I'm probably obliged to say that if you're having problems out in the wild, you should probably contact your friendly local IBM Service Representative...</p>
+<h2>Acknowledgements</h2>
+<p>Thanks to <a href="https://flamingspork.com">Stewart Smith</a> for pointing me in the right direction regarding FSP sysdumps and related tools.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        Andrew Donnellan
+    </span>
+  </span>
+<time datetime="2016-03-22T18:00:00+11:00" pubdate>Tue 22 March 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/openpower.html'>OpenPOWER</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a class="category" href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a class="category" href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a class="category" href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a class="category" href="https://sthbrx.github.io/tag/development.html">development</a>,    <a class="category" href="https://sthbrx.github.io/tag/openpower.html">OpenPOWER</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/">Getting logs out of things</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/">The Elegance of the Plaintext Patch</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/">No Network For You</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/">linux.conf.au 2016: A set of brief thoughts</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/capi.html">CAPI</a></li>
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">OpenPOWER</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2016  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="https://sthbrx.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/ender.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2016/03/22/getting-logs-out-of-things/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/';
+    var disqus_title = 'Getting logs out of things';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
