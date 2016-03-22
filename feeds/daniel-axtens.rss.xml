@@ -176,17 +176,17 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Replace the &lt;code&gt;-bootkernel&lt;/code&gt; arguement with the path to ppc64le_hello, e.g.: &lt;code&gt;-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Don't forget to move it into place! &lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+&lt;div class="highlight"&gt;&lt;pre&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
+&lt;div class="highlight"&gt;&lt;pre&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+&lt;div class="highlight"&gt;&lt;pre&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
 Hello OPAL!
            _start = 0x20010000
                               _bss   = 0x20017E28
@@ -217,7 +217,7 @@ Hello OPAL!
 
 
 &lt;p&gt;Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to &lt;code&gt;cpu_init&lt;/code&gt; in main.c to test for a PowerPC POWER8:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
     &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
         &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/PowerPC,POWER8@20&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
     &lt;span class="p"&gt;}&lt;/span&gt;
@@ -230,7 +230,7 @@ Hello OPAL!
 
 &lt;p&gt;This is definitely the &lt;em&gt;wrong&lt;/em&gt; way to do this, but it works for now.&lt;/p&gt;
 &lt;p&gt;Now, correcting for weird wrapping, we get:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Hello OPAL!
+&lt;div class="highlight"&gt;&lt;pre&gt;Hello OPAL!
 _start = 0x20010000
 _bss   = 0x20017E28
 _stack = 0x20018000
@@ -261,7 +261,7 @@ EA 0x20048000 -&amp;gt; hash 0x20048 -&amp;gt; pteg 0x240 = RA 0x20048000
 
 &lt;p&gt;The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.&lt;/p&gt;
 &lt;p&gt;Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Choices: (MMU = disabled):
+&lt;div class="highlight"&gt;&lt;pre&gt;Choices: (MMU = disabled):
    (d) 5s delay
    (e) test exception
    (n) test nested exception
@@ -323,7 +323,7 @@ EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
 
 &lt;p&gt;I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a &lt;em&gt;lot&lt;/em&gt;. The delay seems to correspond well with real time as well.&lt;/p&gt;
 &lt;p&gt;It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;1.41801|ERRL|Dumping errors reported prior to registration
+&lt;div class="highlight"&gt;&lt;pre&gt;1.41801|ERRL|Dumping errors reported prior to registration
   2.89873|Ignoring boot flags, incorrect version 0x0
 &lt;/pre&gt;&lt;/div&gt;
 

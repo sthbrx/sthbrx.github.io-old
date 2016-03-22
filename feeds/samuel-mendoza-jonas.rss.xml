@@ -12,12 +12,12 @@
 &lt;p&gt;Any of these options will cause any existing network configurations to be ignored.&lt;/p&gt;
 &lt;h2&gt;Building the Request&lt;/h2&gt;
 &lt;p&gt;Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
+&lt;div class="highlight"&gt;&lt;pre&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
     0x00 0x08 0x61 0x80
 
 Unique value that Petitboot recognises:
@@ -53,12 +53,12 @@ Gateway IP Address:
 
 
 &lt;p&gt;Clearing a network override is as simple as making a request empty aside from the header:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;You can also read back the request over IPMI with this request:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x09 0x61 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;0x00 0x09 0x61 0x00 0x00
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -69,7 +69,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...&lt;/p&gt;
 &lt;p&gt;Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.&lt;/p&gt;
 &lt;p&gt;When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.&lt;/p&gt;
 &lt;p&gt;The solution to this is an amazing little snippet of code in &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65"&gt;arch/powerpc/boot/ppc_asm.h&lt;/a&gt; (follow the link to see some helpful commenting):&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
     &lt;span class="n"&gt;tdi&lt;/span&gt;   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mh"&gt;0x48&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
     &lt;span class="n"&gt;b&lt;/span&gt;     &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;36&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
     &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x05009f42&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
