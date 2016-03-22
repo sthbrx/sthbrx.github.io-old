@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/daniel-axtens.rss.xml" rel="self"></atom:link><lastBuildDate>Tue, 15 Mar 2016 11:30:00 +1100</lastBuildDate><item><title>And now for something completely different: approximate computing</title><link>https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/</link><description>&lt;p&gt;In early February I had the opportunity to go the the NICTA Systems Summer School, where Cyril and I were invited to represent IBM. There were a number of excellent talks across a huge range of systems related subjects, but the one that has stuck with me the most was a talk given by &lt;a href="http://homes.cs.washington.edu/~luisceze/"&gt;Luis Ceze&lt;/a&gt;  on a topic called approximate computing. So here, in hopes that you too find it interesting, is a brief run-down on what I learned.&lt;/p&gt;
+&lt;p&gt;Approximate computing is fundamentally about trading off accuracy for something else - often speed or power consumption. Initially this sounded like a very weird proposition: computers do things like 'running your operating system' and 'reading from and writing to disks': things you need to always be absolutely correct if you want anything vaguely resembling reliability. It turns out that this is actually not as big a roadblock as I had assumed - you can work around it fairly easily.&lt;/p&gt;
+&lt;p&gt;The model proposed for approximate computing is as follows. You divide your computation up into two classes: 'precise', and 'approximate'. You use 'precise' computations when you need to get exact answers: so for example if you are constructing a JPEG file, you want the JPEG header to be exact. Then you have approximate computations: so for example the contents of your image can be approximate.&lt;/p&gt;
+&lt;p&gt;For correctness, you have to establish some boundaries: you say that precise data can be used in approximate calculations, but that approximate data isn't allowed to cross back over and pollute precise calculations. This, while intuitively correct, poses some problems in practise: when you want to write out your approximate JPEG data, you need an operation that allows you to 'bless' (or in their terms 'endorse') some approximate data so it can be used in the precise file system operations.&lt;/p&gt;
+&lt;p&gt;In the talk we were shown an implementation of this model in Java, called &lt;a href="http://sampa.cs.washington.edu/research/approximation/enerj.html"&gt;EnerJ&lt;/a&gt;. EnerJ allows you to label variables with either &lt;code&gt;@Precise&lt;/code&gt; if you're dealing with precise data, or &lt;code&gt;@Approx&lt;/code&gt; if you're dealing with approximate data. The compiler was modified so that it would do all sorts of weird things when it knew it was dealing with approximate data: for example, drop loop iterations entirely, do things in entirely non-determistic ways - all sorts of fun stuff. It turns out this works surprisingly well.&lt;/p&gt;
+&lt;p&gt;However, the approximate computing really shines when you can bring it all the way down to the hardware level. The first thing they tried was a CPU with both 'approximate' and precise execution engines, but this turned out not to have the power savings hoped for. What seemed to work really well was a model where some approximate calculations could be identified ahead of time, and then replaced with neural networks in hardware. These neural networks approximated the calculations, but did so at significantly lower power levels. This sounded like a really promising concept, and it will be interesting to see if this goes anywhere over the next few years.&lt;/p&gt;
+&lt;p&gt;There's a lot of work evaluating the quality of the approximate result, for cases where the set of inputs is known, and when the inputs is not known. This is largely beyond my understanding, so I'll simply refer you to some of the papers &lt;a href="http://sampa.cs.washington.edu/research/approximation/enerj.html"&gt;listed on the website&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;The final thing covered in the talk was bringing approximate computing into current paradigms by just being willing to accept higher user-visible error rates. For example, they hacked up a network stack to accept packets with invalid checksums. This has had mixed results so far. A question I had (but didn't get around to asking!) would be whether the mathematical properties of checksums (i.e. that they can correct a certain number of bit errors) could be used to correct some of the errors, rather than just accepting/rejecting them blindly. Perhaps by first attempting to correct errors using the checksums, we will be able to fix the simpler errors, reducing the error rate visible to the user.&lt;/p&gt;
+&lt;p&gt;Overall, I found the NICTA Systems Summer School to be a really interesting experience (and I hope to blog more about it soon). If you're a university student in Australia, or an academic, see if you can make it in 2017!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-03-15:blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/</guid><category>nicta</category><category>conferences</category></item><item><title>linux.conf.au 2016: A set of brief thoughts</title><link>https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</link><description>&lt;p&gt;Recently most of us attended LCA2016. This is one set of reflections on what we heard and what we've thought since. (Hopefully not the only set of reflections that will be posted on this blog either!)&lt;/p&gt;
+&lt;p&gt;LCA was 2 days of miniconferences plus 3 days of talks. Here, I've picked some of the more interesting talks I attended, and I've written down some thoughts. If you find the thoughts interesting, you can click through and watch the whole talk video, because LCA is awesome like that.&lt;/p&gt;
+&lt;h4&gt;Life is better with Rust's community automation&lt;/h4&gt;
+&lt;p&gt;&lt;a href="https://www.youtube.com/watch?v=dIageYT0Vgg"&gt;This talk&lt;/a&gt; is probably the one that's had the biggest impact on our team so far. We were really impressed by the community automation that Rust has: the way they can respond to pull requests from new community members in a way that lets them keep their code quality high and be nice to everyone at the same time.&lt;/p&gt;
+&lt;p&gt;The system that they've developed is fascinating (and seems fantastic). However, their system uses pull requests, while we use mailing lists. Pull requests are easy, because github has good hook support, but how do we link mailing lists to an automatic test system?&lt;/p&gt;
+&lt;p&gt;As it turns out, this is something we're working on: we already have &lt;a href="http://patchwork.ozlabs.org/"&gt;Patchwork&lt;/a&gt;, and &lt;a href="https://openpower.xyz/"&gt;Jenkins&lt;/a&gt;: how do we link them? We have something brewing, which we'll open source real soon now - stay tuned!&lt;/p&gt;
+&lt;h4&gt;Usable formal methods - are we there yet?&lt;/h4&gt;
+&lt;p&gt;I liked &lt;a href="https://www.youtube.com/watch?v=RxHjhBVOCSU"&gt;this talk&lt;/a&gt;, as I have a soft spot for formal methods (as I have a soft spot for maths). It covers applying a bunch of static analysis and some of the less intrusive formal methods (in particular &lt;a href="http://www.cprover.org/cbmc/"&gt;cbmc&lt;/a&gt;) to an operating system kernel. They were looking at eChronos rather than Linux, but it's still quite an interesting set of results.&lt;/p&gt;
+&lt;p&gt;We've also tried to increase our use of static analysis, which has already found a &lt;a href="http://patchwork.ozlabs.org/patch/580629/"&gt;real bug&lt;/a&gt;. We're hoping to scale this up, especially the use of sparse and cppcheck, but we're a bit short on developer cycles for it at the moment.&lt;/p&gt;
+&lt;h4&gt;Adventures in OpenPower Firmware&lt;/h4&gt;
+&lt;p&gt;Stewart Smith - another OzLabber - gave &lt;a href="https://www.youtube.com/watch?v=a4XGvssR-ag"&gt;this talk&lt;/a&gt; about, well, OpenPOWER firmware. This is a large part of our lives in OzLabs, so it's a great way to get a picture of what we do each day. It's also a really good explanation of the open source stack we have: a POWER8 CPU runs open-source from the first cycle.&lt;/p&gt;
+&lt;h4&gt;What Happens When 4096 Cores &lt;code&gt;All Do synchronize_rcu_expedited()&lt;/code&gt;?&lt;/h4&gt;
+&lt;p&gt;Paul McKenney is a parallel programming genius - he literally &lt;a href="https://www.kernel.org/pub/linux/kernel/people/paulmck/perfbook/perfbook.html"&gt;'wrote the book'&lt;/a&gt; (or at least, wrote &lt;em&gt;a&lt;/em&gt; book!) on it. &lt;a href="https://www.youtube.com/watch?v=1nfpjHTWaUc"&gt;His talk&lt;/a&gt; is - as always - a brain-stretching look at parallel programming within the RCU subsystem of the Linux kernel. In particular, the tree structure for locking that he presents is really interesting and quite a clever way of scaling what at first seems to be a necessarily global lock.&lt;/p&gt;
+&lt;p&gt;I'd also really recommed &lt;a href="https://www.youtube.com/watch?v=tFmajPt0_hI"&gt;RCU Mutation Testing&lt;/a&gt;, from the kernel miniconf, also by Paul.&lt;/p&gt;
+&lt;h4&gt;What I've learned as the kernel docs maintainer&lt;/h4&gt;
+&lt;p&gt;As an extra bonus: I mention &lt;a href="https://www.youtube.com/watch?v=gsJXf6oSbAE"&gt;this talk&lt;/a&gt;, just to say "why on earth have we still not fixed the Linux kernel &lt;a href="https://www.kernel.org/doc/linux/README"&gt;README&lt;/a&gt;"?!!?&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-03-15:blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</guid><category>lca2016</category><category>conferences</category></item><item><title>Docker: Just Stop Using AUFS</title><link>https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/</link><description>&lt;p&gt;Docker's default storage driver on most Ubuntu installs is AUFS.&lt;/p&gt;
+&lt;p&gt;Don't use it. Use Overlay instead. Here's why.&lt;/p&gt;
+&lt;p&gt;First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See &lt;a href="/blog/2015/10/12/a-tale-of-two-dockers/"&gt;my previous post&lt;/a&gt; for more info.)&lt;/p&gt;
+&lt;p&gt;Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.&lt;/p&gt;
+&lt;p&gt;Why? Well, my first point of call was to observe a compilation under
+&lt;code&gt;top&lt;/code&gt;. The header is below.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.&lt;/p&gt;
+&lt;p&gt;My next port of call for analysis of CPU-bound workloads is
+&lt;code&gt;perf&lt;/code&gt;. &lt;code&gt;perf top&lt;/code&gt; reports astounding quantities of time in
+spin-locks:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;perf top -g&lt;/code&gt; gives us some more information: the time is in system
+calls. &lt;code&gt;open()&lt;/code&gt; and &lt;code&gt;stat()&lt;/code&gt; are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (&lt;code&gt;docker info&lt;/code&gt; will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)&lt;/p&gt;
+&lt;p&gt;Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. &lt;a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html"&gt;This presentation is particularly good.&lt;/a&gt;
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
+&lt;p&gt;It's also easy to set up on Ubuntu:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;export/save any docker containers you care about.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;add &lt;code&gt;--storage-driver=overlay&lt;/code&gt; option to &lt;code&gt;DOCKER_OPTS&lt;/code&gt; in &lt;code&gt;/etc/default/docker&lt;/code&gt;, and restart docker (&lt;code&gt;service docker restart&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;import/load the containters you exported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;verify that things work, then clear away your old storage directory (&lt;code&gt;/var/lib/docker/aufs&lt;/code&gt;). &lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Having moved my base container across, I set off another build.&lt;/p&gt;
+&lt;p&gt;The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /&gt;&lt;/p&gt;
+&lt;p&gt;The compiles went from taking painfully long to astonishingly fast. Winning.&lt;/p&gt;
+&lt;p&gt;So in conclusion:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;If you use Docker for something that involves open()ing or stat()ing files&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want your machine to do real work, rather than spin in spinlocks&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want to use code that's upstream and thus much better supported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want something less disruptive than the btrfs or dm storage drivers&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;...then drop AUFS and switch to Overlay today.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Fri, 30 Oct 2015 13:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2015-10-30:blog/2015/10/30/docker-just-stop-using-aufs/</guid><category>docker</category><category>aufs</category><category>overlay</category><category>performance</category><category>power</category></item><item><title>A tale of two Dockers</title><link>https://sthbrx.github.io/blog/2015/10/12/a-tale-of-two-dockers/</link><description>&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
+&lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
+&lt;p&gt;Docker: what is it?&lt;/p&gt;
+&lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
+&lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
+&lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
+&lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
+&lt;p&gt;What Docker does well is not something novel, but the engineering feat of bringing together fine-grained control, isolation and immutability, and – importantly – a tool-chain that is easier to use than any of the alternatives. Docker's tool-chain eases a lot of pain points with regards to building containers: it's vastly simpler than chroots, and easier to customise than most VM setups. Docker also has a number of engineering tricks to reduce the disk space overhead of isolation.&lt;/p&gt;
+&lt;p&gt;So, to summarise: Docker provides a toolkit for isolated, immutable, finely controlled containers to run executables and services.&lt;/p&gt;
+&lt;h2&gt;Docker in development: why?&lt;/h2&gt;
+&lt;p&gt;I don't run network services at work; I do performance work. So how do I use Docker?&lt;/p&gt;
+&lt;p&gt;There are two things I do with Docker: I build PHP 5, and do performance regression testing on PHP 7. They're good case studies of how isolation and immutability provide real benefits in development and testing, and how the Docker tool chain makes life a lot nicer that previous solutions.&lt;/p&gt;
+&lt;h3&gt;PHP 5 builds&lt;/h3&gt;
+&lt;p&gt;I use the &lt;em&gt;isolation&lt;/em&gt; that Docker provides to make building PHP 5 easier. PHP 5 depends on an old version of Bison, version 2. Ubuntu and Debian long since moved to version 3. There are a few ways I could have solved this:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;I could just install the old version directly on my system in &lt;code&gt;/usr/local/&lt;/code&gt;, and hope everything still works and nothing else picks up Bison 2 when it needs Bison 3. Or I could install it somewhere else and remember to change my path correctly before I build PHP 5.&lt;/li&gt;
+&lt;li&gt;I could roll a chroot by hand. Even with tools like debootstrap and schroot, working in chroots is a painful process.&lt;/li&gt;
+&lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4" rel="footnote"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
+&lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
+&lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
+&lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
+&lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5" rel="footnote"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png" /&gt;&lt;/p&gt;
+&lt;h2&gt;Docker pain points&lt;/h2&gt;
+&lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Docker was apparently written by people who had no concept that platforms other than x86 exist. This leads to major issues for cross-architectural setups. For instance, Docker identifies images by a name and a revision. For example, &lt;code&gt;ubuntu&lt;/code&gt; is the name of an image, and &lt;code&gt;15.04&lt;/code&gt; is a revision. There's no ability to specify an architecture. So, how you do specify that you want, say, a 64-bit, little-endian PowerPC build of an image versus an x86 build? There have been a couple of approaches, both of which are pretty bad. You could name the image differently: say &lt;code&gt;ubuntu_ppc64le&lt;/code&gt;. You can also just cheat and override the &lt;code&gt;ubuntu&lt;/code&gt; name with an architecture specific version. Both of these break some assumptions in the Docker ecosystem and are a pain to work with.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Image building is incredibly inflexible. If you have one system that requires a proxy, and one that does not, you need different Dockerfiles. As far as I can tell, there are no simple ways to hook in any changes between systems into a generic Dockerfile. This is largely by design, but it's still really annoying when you have one system behind a firewall and one system out on the public cloud (as I do in the PHP 7 setup).&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6" rel="footnote"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Final words&lt;/h2&gt;
+&lt;p&gt;Docker provides me with a lot of useful tools in software development: both in terms of building and testing. Making use of it requires a certain amount of careful design thought, but when applied thoughtfully it can make life significantly easier.&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id="fn:1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 12 Oct 2015 14:14:00 +1100</pubDate><guid>tag:sthbrx.github.io,2015-10-12:blog/2015/10/12/a-tale-of-two-dockers/</guid><category>docker</category><category>php</category><category>peformance</category></item><item><title>Running ppc64le_hello on real hardware</title><link>https://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/</link><description>&lt;p&gt;So today I saw &lt;a href="https://github.com/andreiw/ppc64le_hello"&gt;Freestanding “Hello World” for OpenPower&lt;/a&gt; on &lt;a href="https://news.ycombinator.com/item?id=9649490"&gt;Hacker News&lt;/a&gt;. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.&lt;/p&gt;
+&lt;p&gt;Firstly, clone the repo, and, as mentioned in the README, comment out &lt;code&gt;mambo_write&lt;/code&gt;. Build it.&lt;/p&gt;
+&lt;p&gt;Grab &lt;a href="https://github.com/open-power/op-build"&gt;op-build&lt;/a&gt;, and build a Habanero defconfig. To save yourself a fair bit of time, first edit &lt;code&gt;openpower/configs/habanero_defconfig&lt;/code&gt; to answer &lt;code&gt;n&lt;/code&gt; about a custom kernel source. That'll save you hours of waiting for git.&lt;/p&gt;
+&lt;p&gt;This will build you a PNOR that will boot a linux kernel with Petitboot. This is almost what you want: you need Skiboot, Hostboot and a bunch of the POWER specific bits and bobs, but you don't actually want the Linux boot kernel.&lt;/p&gt;
+&lt;p&gt;Then, based on &lt;code&gt;op-build/openpower/package/openpower-pnor/openpower-pnor.mk&lt;/code&gt;, we look through the output of &lt;code&gt;op-build&lt;/code&gt; for a  &lt;code&gt;create_pnor_image.pl&lt;/code&gt; command, something like this monstrosity:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Replace the &lt;code&gt;-bootkernel&lt;/code&gt; arguement with the path to ppc64le_hello, e.g.: &lt;code&gt;-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Don't forget to move it into place! &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+Hello OPAL!
+           _start = 0x20010000
+                              _bss   = 0x20017E28
+                                                 _stack = 0x20018000
+                                                                    _end   = 0x2001A000
+                                                                                       KPCR   = 0x20017E50
+                                                                                                          OPAL   = 0x30000000
+                                                                                                                             FDT    = 0x3044DB68
+                                                                                                                                                CPU0 not found?
+
+                                                                                                                                                               Pick your poison:
+                                                                                                                                                                                Choices: (MMU = disabled):
+                                                                                                                                                                                                             (d) 5s delay
+                                                                                                                                                                                                                            (e) test exception
+    (n) test nested exception
+                                (f) dump FDT
+                                               (M) enable MMU
+                                                                (m) disable MMU
+                                                                                  (t) test MMU
+                                                                                                 (u) test non-priviledged code
+                                                                                                                                 (I) enable ints
+                                                                                                                                                   (i) disable ints
+                                                                                                                                                                      (H) enable HV dec
+                                                                                                                                                                                          (h) disable HV dec
+                                                                                                                                                                                                               (q) poweroff
+                                                                                                                                                                                                                             1.42486|ERRL|Dumping errors reported prior to registration
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to &lt;code&gt;cpu_init&lt;/code&gt; in main.c to test for a PowerPC POWER8:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/PowerPC,POWER8@20&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;CPU0 not found?&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This is definitely the &lt;em&gt;wrong&lt;/em&gt; way to do this, but it works for now.&lt;/p&gt;
+&lt;p&gt;Now, correcting for weird wrapping, we get:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Hello OPAL!
+_start = 0x20010000
+_bss   = 0x20017E28
+_stack = 0x20018000
+_end   = 0x2001A000
+KPCR   = 0x20017E50
+OPAL   = 0x30000000
+FDT    = 0x3044DB68
+Assuming default SLB size
+SLB size = 0x20
+TB freq = 512000000
+[13205442015,3] OPAL: Trying a CPU re-init with flags: 0x2
+Unrecoverable exception stack top @ 0x20019EC8
+HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
+SLB entries:
+1: E 0x8000000 V 0x4000000000000400
+EA 0x20040000 -&amp;gt; hash 0x20040 -&amp;gt; pteg 0x200 = RA 0x20040000
+EA 0x20041000 -&amp;gt; hash 0x20041 -&amp;gt; pteg 0x208 = RA 0x20041000
+EA 0x20042000 -&amp;gt; hash 0x20042 -&amp;gt; pteg 0x210 = RA 0x20042000
+EA 0x20043000 -&amp;gt; hash 0x20043 -&amp;gt; pteg 0x218 = RA 0x20043000
+EA 0x20044000 -&amp;gt; hash 0x20044 -&amp;gt; pteg 0x220 = RA 0x20044000
+EA 0x20045000 -&amp;gt; hash 0x20045 -&amp;gt; pteg 0x228 = RA 0x20045000
+EA 0x20046000 -&amp;gt; hash 0x20046 -&amp;gt; pteg 0x230 = RA 0x20046000
+EA 0x20047000 -&amp;gt; hash 0x20047 -&amp;gt; pteg 0x238 = RA 0x20047000
+EA 0x20048000 -&amp;gt; hash 0x20048 -&amp;gt; pteg 0x240 = RA 0x20048000
+...
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.&lt;/p&gt;
+&lt;p&gt;Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Choices: (MMU = disabled):
+   (d) 5s delay
+   (e) test exception
+   (n) test nested exception
+   (f) dump FDT
+   (M) enable MMU
+   (m) disable MMU
+   (t) test MMU
+   (u) test non-priviledged code
+   (I) enable ints
+   (i) disable ints
+   (H) enable HV dec
+   (h) disable HV dec
+   (q) poweroff
+&amp;lt;press e&amp;gt;
+Testing exception handling...
+sc(feed) =&amp;gt; 0xFEEDFACE
+Choices: (MMU = disabled):
+   (d) 5s delay
+   (e) test exception
+   (n) test nested exception
+   (f) dump FDT
+   (M) enable MMU
+   (m) disable MMU
+   (t) test MMU
+   (u) test non-priviledged code
+   (I) enable ints
+   (i) disable ints
+   (H) enable HV dec
+   (h) disable HV dec
+   (q) poweroff
+&amp;lt;press t&amp;gt;
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = RA 0x20010000
+mapped 0xFFFFFFF000 to 0x20010000 correctly
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = RA 0x20011000
+mapped 0xFFFFFFF000 to 0x20011000 incorrectly
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
+Choices: (MMU = disabled):
+   (d) 5s delay
+   (e) test exception
+   (n) test nested exception
+   (f) dump FDT
+   (M) enable MMU
+   (m) disable MMU
+   (t) test MMU
+   (u) test non-priviledged code
+   (I) enable ints
+   (i) disable ints
+   (H) enable HV dec
+   (h) disable HV dec
+   (q) poweroff
+&amp;lt;press u&amp;gt;
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = RA 0x20080000
+returning to user code
+returning to kernel code
+EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a &lt;em&gt;lot&lt;/em&gt;. The delay seems to correspond well with real time as well.&lt;/p&gt;
+&lt;p&gt;It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;1.41801|ERRL|Dumping errors reported prior to registration
+  2.89873|Ignoring boot flags, incorrect version 0x0
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;That may be easy to fix, but again I haven't had time to trace it.&lt;/p&gt;
+&lt;p&gt;All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 03 Jun 2015 12:16:00 +1000</pubDate><guid>tag:sthbrx.github.io,2015-06-03:blog/2015/06/03/ppc64le-hello-on-real-hardware/</guid><category>openpower</category><category>power</category><category>p8</category></item><item><title>Joining the CAPI project</title><link>https://sthbrx.github.io/blog/2015/05/27/joining-the-capi-project/</link><description>&lt;p&gt;(I wrote this blog post a couple of months ago, but it's still quite relevant.)&lt;/p&gt;
+&lt;p&gt;Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you an idea of what this is, and what I'll be up to in the future!&lt;/p&gt;
+&lt;h2&gt;What even is CAPI?&lt;/h2&gt;
+&lt;p&gt;To help you understand CAPI, think back to the time before computers. We had a variety of machines: machines to build things, to check things, to count things, but they were all specialised --- good at one and only one thing.&lt;/p&gt;
+&lt;p&gt;Specialised machines, while great at their intended task, are really expensive to develop. Not only that, it's often impossible to change how they operate, even in very small ways.&lt;/p&gt;
+&lt;p&gt;Computer processors, on the other hand, are generalists. They are cheap. They can do a lot of things. If you can break a task down into simple steps, it's easy to get them to do it. The trade-off is that computer processors are incredibly inefficient at everything.&lt;/p&gt;
+&lt;p&gt;Now imagine, if you will, that a specialised machine is a highly trained and experienced professional, a computer processor is a hungover university student.&lt;/p&gt;
+&lt;p&gt;Over the years, we've tried lots of things to make student faster. Firstly, we gave the student lots of caffeine to make them go as fast as they can. That worked for a while, but you can only give someone so much caffeine before they become unreliable. Then we tried teaming the student up with another student, so they can do two things at once. That worked, so we added more and more students. Unfortunately, lots of tasks can only be done by one person at a time, and team-work is complicated to co-ordinate. We've also recently noticed that some tasks come up often, so we've given them some tools for those specific tasks. Sadly, the tools are only useful for those specific situations.&lt;/p&gt;
+&lt;p&gt;Sometimes, what you really need is a professional.&lt;/p&gt;
+&lt;p&gt;However, there are a few difficulties in getting a professional to work with uni students. They don't speak the same way; they don't think the same way, and they don't work the same way. You need to teach the uni students how to work with the professional, and vice versa.&lt;/p&gt;
+&lt;p&gt;Previously, developing this interface – this connection between a generalist processor and a specialist machine – has been particularly difficult. The interface between processors and these specialised machines – known as &lt;em&gt;accelerators&lt;/em&gt; – has also tended to suffer from bottlenecks and inefficiencies.&lt;/p&gt;
+&lt;p&gt;This is the problem CAPI solves. CAPI provides a simpler and more optimised way to interface specialised hardware accelerators with IBM's most recent line of processors, POWER8. It's a common 'language' that the processor and the accelerator talk, that makes it much easier to build the hardware side and easier to program the software side. In our Canberra lab, we're working primarily on the operating system side of this. We are working with some external companies who are building CAPI devices and the optimised software products which use them.&lt;/p&gt;
+&lt;p&gt;From a technical point of view, CAPI provides &lt;em&gt;coherent&lt;/em&gt; access to system memory and processor caches, eliminating a major bottleneck in using external devices as accelerators. This is illustrated really well by the following graphic from &lt;a href="https://www.youtube.com/watch?v=4ZyXc12J6FA"&gt;an IBM promotional video&lt;/a&gt;. In the non-CAPI case, you can see there's a lot of data (the little boxes) stalled in the PCIe subsystem, whereas with CAPI, the accelerator has direct access to the memory subsystem, which makes everything go faster.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png" /&gt;&lt;/p&gt;
+&lt;h2&gt;Uses of CAPI&lt;/h2&gt;
+&lt;p&gt;CAPI technology is already powering a few really cool products.&lt;/p&gt;
+&lt;p&gt;Firstly, we have an implementation of Redis that sits on top of flash storage connected over CAPI. Or, to take out the buzzwords, CAPI lets us do really, really fast NoSQL databases. There's &lt;a href="https://www.youtube.com/watch?v=cCmFc_0xsvA"&gt;a video online&lt;/a&gt; giving more details.&lt;/p&gt;
+&lt;p&gt;Secondly, our partner &lt;a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;amp;mtag=connectx_4_vpi_card"&gt;Mellanox&lt;/a&gt; is using CAPI to make network cards that run at speeds of up to 100Gb/s.&lt;/p&gt;
+&lt;p&gt;CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 27 May 2015 15:08:00 +1000</pubDate><guid>tag:sthbrx.github.io,2015-05-27:blog/2015/05/27/joining-the-capi-project/</guid><category>capi</category><category>open-power</category></item></channel></rss>

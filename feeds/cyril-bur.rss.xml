@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/cyril-bur.rss.xml" rel="self"></atom:link><lastBuildDate>Fri, 06 Nov 2015 11:13:00 +1100</lastBuildDate><item><title>Evolving into a systems programmer</title><link>https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/</link><description>&lt;p&gt;In a previous life I tutored first year computing. The university I
+attended had a policy of using C to introduce first years to programming.
+One of the most rewarding aspects of teaching is opening doors of
+possibility to people by sharing my knowledge.&lt;/p&gt;
+&lt;p&gt;Over the years I had a mixture of computer science or computer engineering
+students as well as other disciplines of engineering who were required to
+learn the basics (notably electrical and mechanical). Each class was
+different and the initial knowledge always varied greatly. The beauty of
+teaching C meant that there was never someone who truly knew it all, heck,
+I didn't and still don't. The other advantage of teaching C is that I could
+very quickly spot the hackers, the shy person at the back of the room who's
+eyes light up when you know you've correctly explained pointers (to them
+anyway) or when asked "What happens if you use a negative index into an
+array" and the smile they would make upon hearing "What do you think happens".&lt;/p&gt;
+&lt;p&gt;Right there I would see the makings of a hacker, and this post is dedicated
+to you or to anyone who wants to be a hacker. I've been asked "What did you
+do to get where you are?", "How do I get into Linux?" (vague much) at
+careers fairs. I never quite know what to say, here goes a braindump.&lt;/p&gt;
+&lt;p&gt;Start with the basics, one of the easiest way we tested the first years was
+to tell them they can't use parts of libc. That was a great exam, taking
+aside those who didn't read the question and used &lt;code&gt;strlen()&lt;/code&gt; when they were
+explicitly told they couldn't &lt;code&gt;#include &amp;lt;string.h&amp;gt;&lt;/code&gt; a true hacker doesn't
+need libc, understand it won't always be there. I thought of this example
+because only two weeks ago I was writing code in an environment where I
+didn't have libc. Ok sure, if you've got it, use it, just don't crumble
+when you don't. Oh how I wish I could have told those students who argued
+that it was a pointless question that they were objectively wrong.&lt;/p&gt;
+&lt;p&gt;Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
+a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
+it's intense but perhaps understand the beauty of GCC, know what it's doing
+for you. There is a variety of little 8 bit processors you can play with
+these days.&lt;/p&gt;
+&lt;p&gt;At all levels of my teaching I saw almost everyone get something which
+'worked', and that's fine, it probably does but I'm here to tell you that
+it doesn't work until you know why it works. I'm all for the 'try it and
+see' approach but once you've tried it you have to explain why the
+behaviour changed otherwise you didn't fix it. As an extension to that,
+know how your tools work, I don't think anyone would expect you to be able
+to write tools to the level of complexity of GCC or GDB or Valgrind but
+have a rough idea as to how they achieve their goals.&lt;/p&gt;
+&lt;p&gt;A hacker is paranoid, yes, &lt;code&gt;malloc()&lt;/code&gt; fails. Linux might just decide now
+isn't a good time for you to &lt;code&gt;open()&lt;/code&gt; and your &lt;code&gt;fopen()&lt;/code&gt; calling function had
+better be cool with that. A hacker also doesn't rely on the kindness of the
+operating system theres an &lt;code&gt;munmap()&lt;/code&gt; for a reason. Nor should you even
+completely trust it, what are you leaving around in memory?&lt;/p&gt;
+&lt;p&gt;Above all do a it for the fun of it, so many of my students asked how I
+knew everything I knew (I was only a year ahead of them in my first year of
+teaching) and put simply, write code on a Saturday night.&lt;/p&gt;
+&lt;p&gt;None of these things do or don't make you a hacker, being a hacker is a
+frame of mind and a way of thinking but all of the above helps.&lt;/p&gt;
+&lt;p&gt;Unfortunately there isn't a single path, I might even say it is a path that
+chooses you. Odds are you're here because you approached me at some point
+and asked me one of those questions I never quite know how to answer.
+Perhaps this is the path, at the very least you're asking questions and
+approaching people. I'm hope I did on the day, but once again, all the very
+best with your endeavours into the future&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Cyril Bur</dc:creator><pubDate>Fri, 06 Nov 2015 11:13:00 +1100</pubDate><guid>tag:sthbrx.github.io,2015-11-06:blog/2015/11/06/evolving-into-a-systems-programmer/</guid><category>education</category><category>offtopic</category></item><item><title>OpenPOWER Powers Forward</title><link>https://sthbrx.github.io/blog/2015/05/21/openpower-powers-forward/</link><description>&lt;p&gt;I wrote this blog post late last year, it is very relevant for this blog though so I'll repost it here.&lt;/p&gt;
+&lt;p&gt;With the launch of &lt;a href="http://www.tyan.com/campaign/openpower/"&gt;TYAN's OpenPOWER reference system&lt;/a&gt; now is a good time to reflect on the team responsible for so much of the research, design and development behind this very first ground breaking step of &lt;a href="http://openpowerfoundation.org/"&gt;OpenPOWER&lt;/a&gt; with their start to finish involvement of this new Power platform.&lt;/p&gt;
+&lt;p&gt;ADL Canberra have been integral to the success of this launch providing the Open Power Abstraction Layer (OPAL) firmware. OPAL breathes new life into Linux on Power finally allowing Linux to run on directly on the hardware.
+While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to sit on top and take direct control of IBMs new Power8 processor without needing to negotiate with a hypervisor. With all the Linux expertise present at ADL Canberra it's no wonder that a Linux based bootloader was developed to make this system work. Petitboot leverage's all the resources of the Linux kernel to create a light, fast and yet extremely versatile bootloader. Petitboot provides a massive amount of tools for debugging and system configuration without the need to load an operating system.&lt;/p&gt;
+&lt;p&gt;TYAN have developed great and highly customisable hardware. ADL Canberra have been there since day 1 performing vital platform enablement (bringup) of this new hardware. ADL Canberra have put all the work into the entire software stack, low level work to get OPAL and Linux to talk to the new BMC chip as well as the higher level, enabling to run Linux in either endian and Linux is even now capable of virtualising KVM guests in either endian irrespective of host endian. Furthermore a subset of ADL Canberra have been key to getting the Coherent Accelerator Processor Interface (CAPI) off the ground, enabling more almost endless customisation and greater diversity within the OpenPOWER ecosystem.&lt;/p&gt;
+&lt;p&gt;ADL Canberra is the home for Linux on Power and the beginning of the OpenPOWER hardware sees much of the hard work by ADL Canberra come to fruition.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Cyril Bur</dc:creator><pubDate>Thu, 21 May 2015 11:29:00 +1000</pubDate><guid>tag:sthbrx.github.io,2015-05-21:blog/2015/05/21/openpower-powers-forward/</guid><category>open-power</category></item></channel></rss>

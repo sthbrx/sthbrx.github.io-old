@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/samuel-mendoza-jonas.rss.xml" rel="self"></atom:link><lastBuildDate>Mon, 21 Mar 2016 15:23:00 +1100</lastBuildDate><item><title>No Network For You</title><link>https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/</link><description>&lt;p&gt;In POWER land &lt;a href="https://en.wikipedia.org/wiki/Intelligent_Platform_Management_Interface"&gt;IPMI&lt;/a&gt; is mostly known as the method to access the machine's console and start interacting with Petitboot. However it also has a plethora of other features, handily described in the 600ish page &lt;a href="http://www.intel.com/content/www/us/en/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html"&gt;IPMI specification&lt;/a&gt; (which you can go read yourself).&lt;/p&gt;
+&lt;p&gt;One especially relevant feature to Petitboot however is the 'chassis bootdev' command, which you can use to tell Petitboot to ignore any existing boot order, and only consider boot options of the type you specify (eg. 'network', 'disk', or 'setup' to not boot at all). Support for this has been in Petitboot for a while and should work on just about any machine you can get your hands on.&lt;/p&gt;
+&lt;h2&gt;Network Overrides&lt;/h2&gt;
+&lt;p&gt;Over in OpenPOWER&lt;sup&gt;1&lt;/sup&gt; land however, someone took this idea and pushed it further - why not allow the network configuration to be overwritten too? This isn't in the IPMI spec, but if you cast your gaze down to page 398 where the spec lays out the entire format of the IPMI request, there is a certain field named "OEM Parameters". This is an optional amount of space set aside for whatever you like, which in this case is going to be data describing an override of the network config.&lt;/p&gt;
+&lt;p&gt;This allows a user to tell Petitboot over IPMI to either;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Disable the network completely,&lt;/li&gt;
+&lt;li&gt;Set a particular interface to use DHCP, or&lt;/li&gt;
+&lt;li&gt;Set a particular interface to use a specific static configuration.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Any of these options will cause any existing network configurations to be ignored.&lt;/p&gt;
+&lt;h2&gt;Building the Request&lt;/h2&gt;
+&lt;p&gt;Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
+    0x00 0x08 0x61 0x80
+
+Unique value that Petitboot recognises:
+    0x21 0x70 0x62 0x21
+
+Version field (1)
+    0x00 0x01 ..   ..
+
+Size of the hardware address (6):
+    ..   ..   0x06 ..
+
+Size of the IP address (IPv4/IPv6):
+    ..   ..   ..   0x04
+
+Hardware (MAC) address:
+    0xf4 0x52 0x14 0xf3
+    0x01 0xdf ..   ..
+
+&amp;#39;Ignore flag&amp;#39; and DHCP/Static flag (DHCP is 0)
+    ..   ..   0x00 0x01
+
+(Below fields only required if setting a static IP)
+
+IP Address:
+    0x0a 0x3d 0xa1 0x42
+
+Subnet Mask (eg, /16):
+    0x10 ..   ..   ..
+Gateway IP Address:
+    ..   0x0a 0x3d 0x02
+    0x01
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Clearing a network override is as simple as making a request empty aside from the header:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;You can also read back the request over IPMI with this request:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x09 0x61 0x00 0x00
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;That's it! Ideally this is something you would be scripting rather than bashing out on the keyboard - the main use case at the moment is as a way to force a machine to netboot against a known good source, rather than whatever may be available on its other interfaces.&lt;/p&gt;
+&lt;p&gt;[1] The reason this is only available on OpenPOWER machines at the moment is that support for the IPMI command itself depends on the BMC firmware, and non-OpenPOWER machines use an FSP which is a different platform.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Samuel Mendoza-Jonas</dc:creator><pubDate>Mon, 21 Mar 2016 15:23:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-03-21:blog/2016/03/21/no-network-for-you/</guid><category>petitboot</category><category>power</category><category>p8</category><category>openpower</category><category>goodposts</category><category>realcontent</category><category>ipmi</category><category>bmc</category><category>based16</category></item><item><title>What the HILE is this?</title><link>https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/</link><description>&lt;p&gt;One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as making support for vendor tools easier.
+So it should just be a matter of compiling Petitboot LE right? Well...&lt;/p&gt;
+&lt;h3&gt;Switching Endianess&lt;/h3&gt;
+&lt;p&gt;Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.&lt;/p&gt;
+&lt;p&gt;When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.&lt;/p&gt;
+&lt;p&gt;The solution to this is an amazing little snippet of code in &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65"&gt;arch/powerpc/boot/ppc_asm.h&lt;/a&gt; (follow the link to see some helpful commenting):&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
+    &lt;span class="n"&gt;tdi&lt;/span&gt;   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mh"&gt;0x48&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;b&lt;/span&gt;     &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;36&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x05009f42&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa602487d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x1c004a39&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa600607d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x01006b69&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa6035a7d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0xa6037b7d&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x2400004c&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;By some amazing coincidence if you take the opcode for &lt;code&gt;tdi 0, 0, 0x48&lt;/code&gt; and flip the order of the bytes it forms the opcode for &lt;code&gt;b . + 8&lt;/code&gt;. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR&lt;sub&gt;LE&lt;/sub&gt; being set to 1.&lt;/p&gt;
+&lt;p&gt;When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...&lt;/p&gt;
+&lt;h3&gt;Petitboot's Secret Sauce&lt;/h3&gt;
+&lt;p&gt;The main feature of Petitboot is that it is a full (but small!) Linux kernel and userspace which scans all available devices and presents possible boot options. To boot an available operating system Petitboot needs to start executing the OS's kernel, which it accomplishes via &lt;a href="https://en.wikipedia.org/wiki/Kexec"&gt;kexec&lt;/a&gt;. Simply speaking kexec loads the target kernel into memory, shuts the current system down most of the way, and at the last moment sets the instruction pointer to the start of the target kernel. From there it's like booting any other kernel, including the FIXUP_ENDIAN section above.&lt;/p&gt;
+&lt;h3&gt;We've Booted! Wait...&lt;/h3&gt;
+&lt;p&gt;So our LE Petitboot kernel boots fine thanks to FIXUP_ENDIAN, we kexec into some other kernel.. and everything falls to pieces.&lt;br /&gt;
+The problem is we've unwittingly changed one of the assumptions of booting a kernel; namely that MSR&lt;sub&gt;LE&lt;/sub&gt; defaults to zero. When kexec-ing from an LE kernel we start executing the next kernel in LE mode. This itself is ok, the FIXUP_ENDIAN macro will handle the switch if needed. The problem is that the FIXUP_ENDIAN macro is relatively recent, first entering the kernel in early 2014. So if we're booting, say, an old Fedora 19 install with a v3.9 kernel - things go very bad, very quickly.&lt;/p&gt;
+&lt;h3&gt;Fix #1&lt;/h3&gt;
+&lt;p&gt;The solution seems pretty straightforward: find where we jump into the next kernel, and just before that make sure we reset the LE bit in the MSR. That's exactly what &lt;a href="https://github.com/antonblanchard/kexec-lite/commit/150b14e76a4b51f865b929ad9a9bf4133e2d3af7"&gt;this patch&lt;/a&gt; to kexec-lite does.&lt;br /&gt;
+That worked up until I tested on a machine with more than one CPU. Remembering that the MSR is processor-specific, we also have to &lt;a href="https://github.com/torvalds/linux/commit/ffebf5f391dfa9da3e086abad3eef7d3e5300249"&gt;reset the endianess of each secondary CPU&lt;/a&gt;&lt;br /&gt;
+Now things are looking good! All the CPUs are reset to big-endian, the target kernel boots fine, and then... 'recursive interrupts?!'&lt;/p&gt;
+&lt;h3&gt;HILE&lt;/h3&gt;
+&lt;p&gt;Skipping the debugging process that led to this (hint: &lt;a href="https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/"&gt;mambo&lt;/a&gt; is actually a pretty cool tool), these were the sequence of steps leading up to the problem:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Little-endian Petitboot kexecs into a big-endian kernel&lt;/li&gt;
+&lt;li&gt;All CPUs are reset to big-endian&lt;/li&gt;
+&lt;li&gt;The big-endian kernel begins to boot successfully&lt;/li&gt;
+&lt;li&gt;Somewhere in the device-tree parsing code we take an exception&lt;/li&gt;
+&lt;li&gt;Execution jumps to the exception handler at &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/kernel/exceptions-64s.S#L199"&gt;0x300&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;I notice that MSR&lt;sub&gt;LE&lt;/sub&gt; is set to 1&lt;/li&gt;
+&lt;li&gt;WHAT WHY IS THE LE BIT IN THE MSR SET TO 1&lt;/li&gt;
+&lt;li&gt;We fail to read the first instruction at 0x300 because it's written in big-endian, so we jump to the exception handler at 0x300... oh no.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;And then we very busily execute nothing until the machine is killed. I spend some time staring incredulously at my screen, then appeal to a &lt;a href="https://github.com/torvalds/linux/blob/master/MAINTAINERS"&gt;higher authority&lt;/a&gt; who replies with "What is the HILE set to?"  &lt;/p&gt;
+&lt;p&gt;..the WHAT?&lt;br /&gt;
+Cracking open the &lt;a href="https://www.power.org/documentation/power-isa-v-2-07b/"&gt;PowerISA&lt;/a&gt; reveals this tidbit:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The Hypervisor Interrupt Little-Endian (HILE) bit is a bit
+in an implementation-dependent register or similar
+mechanism. The contents of the HILE bit are copied
+into MSR&lt;sub&gt;LE&lt;/sub&gt; by interrupts that set MSR&lt;sub&gt;HV&lt;/sub&gt; to 1 (see Section
+6.5), to establish the Endian mode for the interrupt
+handler. The HILE bit is set, by an implementation-dependent
+method, during system initialization,
+and cannot be modified after system initialization.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;To be fair, there are use cases for taking exceptions in a different endianess. The problem is that while HILE gets switched on when setting MSR&lt;sub&gt;LE&lt;/sub&gt; to 1, it &lt;em&gt;doesn't&lt;/em&gt; get turned off when MSR&lt;sub&gt;LE&lt;/sub&gt; is set to zero. In particular the line "...cannot be modified after system initialization." led to a fair amount of hand wringing from myself and whoever would listen; if we can't reset the HILE bit, we simply can't use little-endian kernels for Petitboot.  &lt;/p&gt;
+&lt;p&gt;Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is &lt;a href="https://github.com/open-power/skiboot"&gt;right here&lt;/a&gt;. In particular we can see here the OPAL call to &lt;a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702"&gt;opal_reinit_cpus&lt;/a&gt; which among other things resets the HILE bit.&lt;br /&gt;
+This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the &lt;a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53"&gt;final patch to support PowerNV machines.&lt;/a&gt;&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Samuel Mendoza-Jonas</dc:creator><pubDate>Tue, 03 Nov 2015 15:02:00 +1100</pubDate><guid>tag:sthbrx.github.io,2015-11-03:blog/2015/11/03/what-the-hile-is-this/</guid><category>petitboot</category><category>power</category><category>p8</category><category>openpower</category><category>goodposts</category><category>autoboot</category><category>realcontent</category><category>kexec</category><category>kernel</category></item><item><title>Petitboot Autoboot Changes</title><link>https://sthbrx.github.io/blog/2015/06/02/autoboot/</link><description>&lt;p&gt;The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.&lt;/p&gt;
+&lt;h2&gt;Old &amp;amp; Busted&lt;/h2&gt;
+&lt;p&gt;For some context, here is the old (or current depending on what you're running) section of the configuration screen.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.&lt;/p&gt;
+&lt;p&gt;A side note about default options: it is important to note that not all boot options are valid &lt;em&gt;autoboot&lt;/em&gt; options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.&lt;/p&gt;
+&lt;h2&gt;New Hotness&lt;/h2&gt;
+&lt;p&gt;Below is the new autoboot configuration.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="New Autoboot" src="/images/sammj/newstyle.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;The new design allows you to specify an ordered list of autoboot options.
+The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).&lt;/p&gt;
+&lt;p&gt;Selecting the first button, 'Add Device' brings up the following screen:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Device Selection" src="/images/sammj/devices.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;From here you can select any device or &lt;em&gt;class&lt;/em&gt; of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').&lt;/p&gt;
+&lt;p&gt;This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
+You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).&lt;/p&gt;
+&lt;p&gt;Presently you can add any option into the list and order them how you like - which means you can do silly things like this:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg" /&gt;&lt;/p&gt;
+&lt;h2&gt;IPMI&lt;/h2&gt;
+&lt;p&gt;Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!&lt;/p&gt;
+&lt;p&gt;If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg" /&gt;&lt;/p&gt;
+&lt;hr /&gt;
+&lt;p&gt;That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Samuel Mendoza-Jonas</dc:creator><pubDate>Tue, 02 Jun 2015 08:11:00 +1000</pubDate><guid>tag:sthbrx.github.io,2015-06-02:blog/2015/06/02/autoboot/</guid><category>petitboot</category><category>power</category><category>p8</category><category>openpower</category><category>goodposts</category><category>autoboot</category><category>realcontent</category></item></channel></rss>

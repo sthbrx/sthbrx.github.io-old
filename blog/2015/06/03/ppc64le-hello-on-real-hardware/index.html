@@ -7,6 +7,8 @@
   <title>Running ppc64le_hello on real hardware &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
 
 
 
@@ -35,6 +37,7 @@
     <h2>A Power Technical Blog</h2>
 </hgroup></header>
   <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
 </ul>
 
 
@@ -76,17 +79,17 @@
 <p><code>PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt</code></p>
 <p>Replace the <code>-bootkernel</code> arguement with the path to ppc64le_hello, e.g.: <code>-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello</code></p>
 <p>Don't forget to move it into place! </p>
-<div class="highlight"><pre>mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+<div class="highlight"><pre><span></span>mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
 </pre></div>
 
 
 <p>Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.</p>
-<div class="highlight"><pre>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &lt;path to&gt;/habanero.pnor
+<div class="highlight"><pre><span></span>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &lt;path to&gt;/habanero.pnor
 </pre></div>
 
 
 <p>It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:</p>
-<div class="highlight"><pre>[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+<div class="highlight"><pre><span></span>[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
 Hello OPAL!
            _start = 0x20010000
                               _bss   = 0x20017E28
@@ -117,7 +120,7 @@ Hello OPAL!
 
 
 <p>Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to <code>cpu_init</code> in main.c to test for a PowerPC POWER8:</p>
-<div class="highlight"><pre>    <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span>
+<div class="highlight"><pre><span></span>    <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">cpu0_node</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
         <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/PowerPC,POWER8@20&quot;</span><span class="p">);</span>
     <span class="p">}</span>
@@ -130,7 +133,7 @@ Hello OPAL!
 
 <p>This is definitely the <em>wrong</em> way to do this, but it works for now.</p>
 <p>Now, correcting for weird wrapping, we get:</p>
-<div class="highlight"><pre>Hello OPAL!
+<div class="highlight"><pre><span></span>Hello OPAL!
 _start = 0x20010000
 _bss   = 0x20017E28
 _stack = 0x20018000
@@ -161,7 +164,7 @@ EA 0x20048000 -&gt; hash 0x20048 -&gt; pteg 0x240 = RA 0x20048000
 
 <p>The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.</p>
 <p>Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.</p>
-<div class="highlight"><pre>Choices: (MMU = disabled):
+<div class="highlight"><pre><span></span>Choices: (MMU = disabled):
    (d) 5s delay
    (e) test exception
    (n) test nested exception
@@ -223,7 +226,7 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
 
 <p>I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a <em>lot</em>. The delay seems to correspond well with real time as well.</p>
 <p>It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:</p>
-<div class="highlight"><pre>1.41801|ERRL|Dumping errors reported prior to registration
+<div class="highlight"><pre><span></span>1.41801|ERRL|Dumping errors reported prior to registration
   2.89873|Ignoring boot flags, incorrect version 0x0
 </pre></div>
 
@@ -288,12 +291,13 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">OpenPOWER</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">OpenPOWER</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>  </section>
 
 
     <section>
         <h1>Social</h1>
         <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
             <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
             <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
             <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
@@ -306,11 +310,6 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
         </ul>
     </section>
 
-    <section>
-        <h1>Disclaimer</h1>
-        <div>
-This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
-    </section>
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
