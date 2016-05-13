@@ -77,8 +77,8 @@ right", "How do I read this as a float", and "<del>redacted</del> you're the eng
 you do it". My interest piqued, I headed over to his desk to enquire about the
 great un-solvable mystery of the double and its hex representation. The number
 which would consume me for the rest of the morning: 0xc00000001568fba0.</p>
-<h1>That's a Perfectly Valid hex Number!</h1>
-<p>I hear you say. And you're right, if we were to simply treat this as a long it
+<h2>That's a Perfectly Valid hex Number!</h2>
+<p>I hear you say. And you're right, if we were to treat this as a long it
 would simply be 13835058055641365408 (or -4611686018068186208 if we assume
 a signed value). But we happen to know that this particular piece of data which
 we have printed is supposed to represent a double (-2 to be precise). "Well
@@ -88,25 +88,25 @@ print statement. The only problem is that in kernel land (where we use printk)
 we are limited to printing fixed point numbers, hence why our only <em>easy</em>
 option was to print our double in it's raw hex format.</p>
 <p>This is the point where we all think back to that university course where
-number representations were covered in depth, and terms like mantissa and
-exponent surface in our minds. Of course as we rack our brains we realise
+number representations were covered in depth, and terms like 'mantissa' and
+'exponent' surface in our minds. Of course as we rack our brains we realise
 there's no way that we're going to remember exactly how a double is represented
 and bring up the <a href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format">IEEE 754 Wikipedia page</a>.</p>
-<h1>What is a Double?</h1>
-<p>Taking a step back for a second a double (or a double-precision floating-point)
+<h2>What is a Double?</h2>
+<p>Taking a step back for a second, a double (or a double-precision floating-point)
 is a number format used to represent floating-point numbers (those with a
 decimal component). They are made up of a sign bit, an exponent and a fraction
 (or mantissa):</p>
-<p><img alt="Double Format" src="/images/surajjs/doubles_in_hex/double.png" title="https://en.wikipedia.org/wiki/Double-precision_floating-point_format" /></p>
+<p><img alt="Double Format" src="/images/surajjs/doubles_in_hex/double.png" /></p>
 <p>Where the number they represent is defined by:</p>
-<p><img alt="Double Formula" src="/images/surajjs/doubles_in_hex/formula.png" title="https://en.wikipedia.org/wiki/Double-precision_floating-point_format" /></p>
+<p><img alt="Double Formula" src="/images/surajjs/doubles_in_hex/formula.png" /></p>
 <p>So this means that a 1 in the MSB (sign bit) represents a negative number, and
 we have some decimal component (the fraction) which we multiply by some power
 of 2 (as determined by the exponent) to get our value.</p>
-<h1>Alright, so what's 0xc00000001568fba0?</h1>
+<h2>Alright, so what's 0xc00000001568fba0?</h2>
 <p>The reason we're all here to be begin with, so what's 0xc00000001568fba0 if we
 treat it as a double? We can first split it into the three components:</p>
-<h3>0xc00000001568fba0:</h3>
+<h5>0xc00000001568fba0:</h5>
 <p>Sign bit: 1             -&gt; Negative<br>
 Exponent: 0x400         -&gt; 2<sup>(1024 - 1023)</sup><br>
 Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
@@ -145,23 +145,23 @@ enough decimal places to see the full result, so update our print statement to:<
 </blockquote>
 <p>Much better... But still where did this number come from and why wasn't it the
 -2 that we were expecting?</p>
-<h1>Kernel Pointers</h1>
+<h2>Kernel Pointers</h2>
 <p>At this point suspicions had been raised that what was being printed by my
 colleague was not what he expected and that this was in fact a Kernel pointer.
 How do you know? Lets take a step back for a second...</p>
 <p>In the PowerPC architecture, the address space which can be seen by an
 application is known as the <em>effective</em> address space. We can take this
-and translate it into a <em>virtual</em> address which when passed through the
-HPT gives us a <em>real</em> address (or the hardware memory address).</p>
+and translate it into a <em>virtual</em> address which when mapped through the
+HPT (hash page table) gives us a <em>real</em> address (or the hardware memory address).</p>
 <p>The <em>effective</em> address space is divided into 5 regions:</p>
-<p><a href="/images/surajjs/doubles_in_hex/effective_address.png">02</a></p>
+<p><img alt="Effective Address Table" src="/images/surajjs/doubles_in_hex/effective_address.png" /></p>
 <p>As you may notice, Kernel addresses begin with 0xc. This has the advantage that
 we can map a <em>virtual</em> address without the need for a table by simply
 masking the top nibble.</p>
 <p>Thus it would be reasonable to assume that our value (0xc00000001568fba0) was
 indeed a pointer to a Kernel address (and further code investigation confirmed
 this).</p>
-<h1>But What is -2 as a Double in hex?</h1>
+<h2>But What is -2 as a Double in hex?</h2>
 <p>Well lets modify the above program and find out:</p>
 <div class="highlight"><pre><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 
@@ -179,26 +179,26 @@ this).</p>
 <p>"val: 0xc000000000000000"</p>
 </blockquote>
 <p>Now that sounds much better. Lets take a closer look:</p>
-<h3>0xc000000000000000:</h3>
+<h5>0xc000000000000000:</h5>
 <p>Sign Bit: 1     -&gt; Negative<br>
 Exponent: 0x400 -&gt; 2<sup>(1024 - 1023)</sup><br>
 Fraction: 0x0   -&gt; Zero<br></p>
 <p>So if you remember from above, we have:</p>
 <p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>0</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup> = -2</p>
 <p>What about -1? -3?</p>
-<h2>-1:</h2>
-<h3>0xbff0000000000000:</h3>
+<h4>-1:</h4>
+<h5>0xbff0000000000000:</h5>
 <p>Sign Bit: 1     -&gt; Negative<br>
 Exponent: 0x3ff -&gt; 2<sup>(1023 - 1023)</sup><br>
 Fraction: 0x0   -&gt; Zero<br></p>
 <p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>0</strong></em> x 2<sup><strong>(1023 - 1023)</strong></sup> = -1</p>
-<h2>-3:</h2>
-<h3>0xc008000000000000:</h3>
+<h4>-3:</h4>
+<h5>0xc008000000000000:</h5>
 <p>Sign Bit: 1                     -&gt; Negative<br>
 Exponent: 0x400                 -&gt; 2<sup>(1024 - 1023)</sup><br>
 Fraction: 0x8000000000000       -&gt; 0.5<br></p>
 <p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>5</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup> = -3</p>
-<h1>So What Have We Learnt?</h1>
+<h2>So What Have We Learnt?</h2>
 <p><strong>Firstly</strong>, make sure that what you're printing is what you think you're printing.</p>
 <p><strong>Secondly</strong>, if it looks like a Kernel pointer then you're probably not printing
 what you think you're printing.</p>
