@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Doubles in hex and why Kernel addresses ~= -2 &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/capi.html">CAPI</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
+      </li>
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Doubles in hex and why Kernel addresses ~= -2</h1>
+    <p class="meta">
+<time datetime="2016-05-12T22:22:00+10:00" pubdate>Thu 12 May 2016</time>    </p>
+</header>
+
+  <div class="entry-content"><p>It started off a regular Wednesday morning when I hear from my desk a colleague
+muttering about doubles and their hex representation. "But that doesn't look
+right", "How do I read this as a float", and "<del>redacted</del> you're the engineer,
+you do it". My interest piqued, I headed over to his desk to enquire about the
+great un-solvable mystery of the double and its hex representation. The number
+which would consume me for the rest of the morning: 0xc00000001568fba0.</p>
+<h1>That's a Perfectly Valid hex Number!</h1>
+<p>I hear you say. And you're right, if we were to simply treat this as a long it
+would simply be 13835058055641365408 (or -4611686018068186208 if we assume
+a signed value). But we happen to know that this particular piece of data which
+we have printed is supposed to represent a double (-2 to be precise). "Well
+print it as a double" I hear from the back, and once again we <em>should</em> all know
+that this can be achieved rather easily by using the %f/%e/%g specifiers in our
+print statement. The only problem is that in kernel land (where we use printk)
+we are limited to printing fixed point numbers, hence why our only <em>easy</em>
+option was to print our double in it's raw hex format.</p>
+<p>This is the point where we all think back to that university course where
+number representations were covered in depth, and terms like mantissa and
+exponent surface in our minds. Of course as we rack our brains we realise
+there's no way that we're going to remember exactly how a double is represented
+and bring up the <a href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format">IEEE 754 Wikipedia page</a>.</p>
+<h1>What is a Double?</h1>
+<p>Taking a step back for a second a double (or a double-precision floating-point)
+is a number format used to represent floating-point numbers (those with a
+decimal component). They are made up of a sign bit, an exponent and a fraction
+(or mantissa):</p>
+<p><img alt="Double Format" src="/images/surajjs/doubles_in_hex/double.png" title="https://en.wikipedia.org/wiki/Double-precision_floating-point_format" /></p>
+<p>Where the number they represent is defined by:</p>
+<p><img alt="Double Formula" src="/images/surajjs/doubles_in_hex/formula.png" title="https://en.wikipedia.org/wiki/Double-precision_floating-point_format" /></p>
+<p>So this means that a 1 in the MSB (sign bit) represents a negative number, and
+we have some decimal component (the fraction) which we multiply by some power
+of 2 (as determined by the exponent) to get our value.</p>
+<h1>Alright, so what's 0xc00000001568fba0?</h1>
+<p>The reason we're all here to be begin with, so what's 0xc00000001568fba0 if we
+treat it as a double? We can first split it into the three components:</p>
+<h3>0xc00000001568fba0:</h3>
+<p>Sign bit: 1             -&gt; Negative<br>
+Exponent: 0x400         -&gt; 2<sup>(1024 - 1023)</sup><br>
+Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
+<p>And then use the formula above to get our number:</p>
+<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>something</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup></p>
+<p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
+userspace (where we are capable of printing floats) and we can save ourselves
+<em>most</em> of the trouble.</p>
+<div class="highlight"><pre><span class="cp">#include &lt;stdio.h&gt;</span>
+
+<span class="kt">void</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">long</span> <span class="n">val</span> <span class="o">=</span> <span class="mh">0xc00000001568fba0</span><span class="p">;</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>So all we're doing is taking our hex value and storing it in a long (val), then
+getting a pointer to val, casting it to a double pointer, and dereferencing it
+and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer is?</p>
+<blockquote>
+<p>"val: -2.000000"</p>
+</blockquote>
+<p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
+bit strange that this is exactly -2. Well it may be that we are not printing
+enough decimal places to see the full result, so update our print statement to:</p>
+<div class="highlight"><pre><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+</pre></div>
+
+
+<p>And now we get:</p>
+<blockquote>
+<p>"val: -2.0000001595175973534423974342644214630126953125000000"</p>
+</blockquote>
+<p>Much better... But still where did this number come from and why wasn't it the
+-2 that we were expecting?</p>
+<h1>Kernel Pointers</h1>
+<p>At this point suspicions had been raised that what was being printed by my
+colleague was not what he expected and that this was in fact a Kernel pointer.
+How do you know? Lets take a step back for a second...</p>
+<p>In the PowerPC architecture, the address space which can be seen by an
+application is known as the <em>effective</em> address space. We can take this
+and translate it into a <em>virtual</em> address which when passed through the
+HPT gives us a <em>real</em> address (or the hardware memory address).</p>
+<p>The <em>effective</em> address space is divided into 5 regions:</p>
+<p><a href="/images/surajjs/doubles_in_hex/effective_address.png" title="https://www.kernel.org/doc/ols/2001/ppc64.pdf">02</a></p>
+<p>As you may notice, Kernel addresses begin with 0xc. This has the advantage that
+we can map a <em>virtual</em> address without the need for a table by simply
+masking the top nibble.</p>
+<p>Thus it would be reasonable to assume that our value (0xc00000001568fba0) was
+indeed a pointer to a Kernel address (and further code investigation confirmed
+this).</p>
+<h1>But What is -2 as a Double in hex?</h1>
+<p>Well lets modify the above program and find out:</p>
+<div class="highlight"><pre><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+
+<span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="kt">double</span> <span class="n">val</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span><span class="p">;</span>
+
+        <span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: 0x%lx</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">long</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>Result?</p>
+<blockquote>
+<p>"val: 0xc000000000000000"</p>
+</blockquote>
+<p>Now that sounds much better. Lets take a closer look:</p>
+<h3>0xc000000000000000:</h3>
+<p>Sign Bit: 1     -&gt; Negative<br>
+Exponent: 0x400 -&gt; 2<sup>(1024 - 1023)</sup><br>
+Fraction: 0x0   -&gt; Zero<br></p>
+<p>So if you remember from above, we have:</p>
+<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>0</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup> = -2</p>
+<p>What about -1? -3?</p>
+<h2>-1:</h2>
+<h3>0xbff0000000000000:</h3>
+<p>Sign Bit: 1     -&gt; Negative<br>
+Exponent: 0x3ff -&gt; 2<sup>(1023 - 1023)</sup><br>
+Fraction: 0x0   -&gt; Zero<br></p>
+<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>0</strong></em> x 2<sup><strong>(1023 - 1023)</strong></sup> = -1</p>
+<h2>-3:</h2>
+<h3>0xc008000000000000:</h3>
+<p>Sign Bit: 1                     -&gt; Negative<br>
+Exponent: 0x400                 -&gt; 2<sup>(1024 - 1023)</sup><br>
+Fraction: 0x8000000000000       -&gt; 0.5<br></p>
+<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>5</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup> = -3</p>
+<h1>So What Have We Learnt?</h1>
+<p><strong>Firstly</strong>, make sure that what you're printing is what you think you're printing.</p>
+<p><strong>Secondly</strong>, if it looks like a Kernel pointer then you're probably not printing
+what you think you're printing.</p>
+<p><strong>Thirdly</strong>, all Kernel pointers ~= -2 if you treat them as a double.</p>
+<p>And <strong>Finally</strong>, <em>with my morning gone</em>, I can say for certain that if we treat it as
+a double, 0xc00000001568fba0 =
+-2.0000001595175973534423974342644214630126953125.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a>
+    </span>
+  </span>
+<time datetime="2016-05-12T22:22:00+10:00" pubdate>Thu 12 May 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/education.html'>Education</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/double.html">double</a>,    <a class="category" href="https://sthbrx.github.io/tag/float.html">float</a>,    <a class="category" href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a class="category" href="https://sthbrx.github.io/tag/kernel.html">kernel</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/">Getting logs out of things</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/">The Elegance of the Plaintext Patch</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/">No Network For You</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/capi.html">CAPI</a></li>
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">OpenPOWER</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2016  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="https://sthbrx.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/ender.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/';
+    var disqus_title = 'Doubles in hex and why Kernel addresses ~= -2';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
