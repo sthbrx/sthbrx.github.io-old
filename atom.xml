@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-05-12T22:22:00+10:00</updated><entry><title>Doubles in hex and why Kernel addresses ~= -2</title><link href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/" rel="alternate"></link><published>2016-05-12T22:22:00+10:00</published><author><name>Suraj Jitindar Singh</name></author><id>tag:sthbrx.github.io,2016-05-12:blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/</id><summary type="html">&lt;p&gt;It started off a regular Wednesday morning when I hear from my desk a colleague
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-05-13T15:23:00+10:00</updated><entry><title>Tell Me About Petitboot</title><link href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/" rel="alternate"></link><published>2016-05-13T15:23:00+10:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2016-05-13:blog/2016/05/13/tell-me-about-petitboot/</id><summary type="html">&lt;p&gt;A Google search for 'Petitboot' brings up results from a number of places, some describing its use on &lt;a href="https://www.ibm.com/support/knowledgecenter/linuxonibm/liabp/liabppetitboot.htm"&gt;POWER servers&lt;/a&gt;, others talking about how to use it on the &lt;a href="http://jk.ozlabs.org/projects/petitboot/"&gt;PS3&lt;/a&gt;, in varying levels of detail. I tend to get a lot of general questions about Petitboot and its behaviour, and have had a few requests for a broad "Welcome to Petitboot" blog, suggesting that existing docs deal with more specific topics.. or that people just aren't reading them :)&lt;/p&gt;
+&lt;p&gt;So today we're going to take a bit of a crash course in the what, why, and possibly how of Petitboot. I won't delve too much into technical details, and this will be focussed on Petitboot in POWER land since that's where I spend most of my time.
+Here we go!&lt;/p&gt;
+&lt;h2&gt;What&lt;/h2&gt;
+&lt;p&gt;Aside from a whole lot of firmware and kernel logs flying past, the first thing you'll see when booting a POWER server&lt;sup&gt;In OPAL mode at least...&lt;/sup&gt; is Petitboot's main menu:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Main Menu" src="/images/sammj/mainmenu.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Petitboot is the first interact-able component a user will see. The word 'BIOS' gets thrown around a lot when discussing this area, but that is wrong, and the people using that word are wrong.&lt;/p&gt;
+&lt;p&gt;When the OPAL firmware layer &lt;a href="https://github.com/open-power/skiboot"&gt;Skiboot&lt;/a&gt; has finished its own set up, it loads a certain binary (stored on the BMC) into memory and jumps into it. This could hypothetically be anything, but for any POWER server right now it is 'Skiroot'. Skiroot is a full Linux kernel and userspace, which runs Petitboot. People often say Petitboot when they mean Skiroot - technically Petitboot is the server and UI processes that happen to run within Skiroot, and Skiroot is the full kernel and rootfs package. This is more obvious when you look at the &lt;a href="https://github.com/open-power/op-build"&gt;op-build&lt;/a&gt; project - Petitboot is a package built as part of the kernel and rootfs created by Buildroot.&lt;/p&gt;
+&lt;p&gt;Petitboot is made of two major parts - the UI processes (one for each available console), and the 'discover' server. The discover server updates the UI processes, manages and scans available disks and network devices, and performs the actual booting of host operating systems. The UI, running in ncurses, displays these options, allows the user to edit boot options and system configuration, and tells the server which boot option to kexec.&lt;/p&gt;
+&lt;h2&gt;Why&lt;/h2&gt;
+&lt;p&gt;The 'why' delves into some of the major architectural differences between a POWER machine and your average x86 machine which, as always, could spread over several blog posts and/or a textbook.&lt;/p&gt;
+&lt;p&gt;POWER processors don't boot themselves, instead the attached Baseboard Management Controller (BMC) does a lot of low-level poking that gets the primary processor into a state where it is ready to execute instructions. PowerVM systems would then jump directly into the PHYP hypervisor - any subsequent OS, be it AIX or Linux, would then run as a 'partition' under this hypervisor.&lt;/p&gt;
+&lt;p&gt;What we all really want though is to run Linux directly on the hardware, which meant a new boot process would have to be thought up while still maintaining compatibility with PowerVM so systems could be booted in either mode. Thus became OPAL, and its implementation &lt;a href="https://github.com/open-power/skiboot"&gt;Skiboot&lt;/a&gt;. Skipping over &lt;em&gt;so much&lt;/em&gt; detail, the system ends up booting into Skiboot which acts as our firmware layer. Skiboot isn't interactive and doesn't really care about things like disks, so it loads another binary into memory and executes it - Skiroot!&lt;/p&gt;
+&lt;p&gt;Skiroot exists as an alternative to writing a whole new bootloader just for POWER in OPAL mode, or going through the effort to port an existing bootloader to understand the specifics of POWER. Why do all that when Linux already exists and already knows how to handle disks, network interfaces, and a thousand other things? Not to mention that when Linux gains support for fancy new devices so do we, and adding new features of our own is as simple as writing your average Linux program.&lt;/p&gt;
+&lt;p&gt;Skiroot itself (not including Skiboot) is roughly comparable to UEFI, or at least much more so than legacy BIOS implementations. But whereas UEFI tends to be a monolithic blob of fairly platform-specific code (in practice), Skiroot is simply a small Linux environment that anyone could put together with Buildroot.&lt;/p&gt;
+&lt;p&gt;A much better insight into the development and motivation behind Skiroot and Petitboot is available in Jeremy's &lt;a href="https://www.youtube.com/watch?v=oxmMJMibZQ8"&gt;LCA2013 talk&lt;/a&gt;&lt;/p&gt;
+&lt;h2&gt;Back to Petitboot&lt;/h2&gt;
+&lt;p&gt;Petitboot is the part of the 'bootloader' that &lt;em&gt;did&lt;/em&gt; need to be written, because users probably wouldn't be too thrilled if they had to manually mount disks and kexec their kernels every time they booted the machine. The Petitboot server process mounts any available disk devices and scans them for available operating systems. That's not to say that it scans the entire disk, because otherwise you could be waiting for quite some time, but rather it looks in a list of common locations for bootloader configuration files. This is handy because it means the operating system doesn't need to have any knowledge of Petitboot - it just uses its usual install scripts and Petitboot reads them to know what is available.
+At the same time Petitboot makes PXE requests on configured network interfaces so we can netboot, and allows these various sources to be given relative priorities for auto-boot, plus a number of other ways to specially configure booting behaviour.&lt;/p&gt;
+&lt;p&gt;A particularly neat feature of existing in a Linux environment is the ability to easily recover from boot problems; whereas on another system you might need to use a Live CD to fix a misconfiguration or recover a broken filesystem, in Skiroot you can just drop to the shell and fix the issue right there.&lt;/p&gt;
+&lt;p&gt;In summary, Petitboot/Skiroot is a small but capable Linux environment that every OPAL POWER machine boots into, gathering up all the various local and remote boot possibilities, and presenting them to you in a state-of-the-art ncurses interface. Petitboot updates all the time, and if you come across a feature that you think Petitboot is missing, patches are very welcome at &lt;a href="mailto:petitboot@lists.ozlabs.org"&gt;petitboot@lists.ozlabs.org&lt;/a&gt; (or hassle me on IRC)!&lt;/p&gt;</summary><category term="petitboot"></category><category term="power"></category><category term="p8"></category><category term="openpower"></category><category term="goodposts"></category><category term="realcontent"></category></entry><entry><title>Doubles in hex and why Kernel addresses ~= -2</title><link href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/" rel="alternate"></link><published>2016-05-12T22:22:00+10:00</published><author><name>Suraj Jitindar Singh</name></author><id>tag:sthbrx.github.io,2016-05-12:blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/</id><summary type="html">&lt;p&gt;It started off a regular Wednesday morning when I hear from my desk a colleague
 muttering about doubles and their hex representation. "But that doesn't look
 right", "How do I read this as a float", and "&lt;del&gt;redacted&lt;/del&gt; you're the engineer,
 you do it". My interest piqued, I headed over to his desk to enquire about the
@@ -43,7 +63,7 @@ Fraction: 0x1568fba0    -&amp;gt; 1.&lt;em&gt;something&lt;/em&gt;&lt;br&gt;&lt;
 &lt;p&gt;&lt;strong&gt;But there's a much easier way!&lt;/strong&gt; Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 &lt;em&gt;most&lt;/em&gt; of the trouble.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -63,7 +83,7 @@ and printing it as a float. &lt;em&gt;&lt;strong&gt;Drum Roll&lt;/strong&gt;&lt;
 &lt;p&gt;"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;val: %.64lf&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="kt"&gt;double&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;val&lt;/span&gt;&lt;span class="p"&gt;));&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;val: %.64lf&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="kt"&gt;double&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;val&lt;/span&gt;&lt;span class="p"&gt;));&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -91,7 +111,7 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).&lt;/p&gt;
 &lt;h2&gt;But What is -2 as a Double in hex?&lt;/h2&gt;
 &lt;p&gt;Well lets modify the above program and find out:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;include&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;stdio&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;h&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;include&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;stdio&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;h&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -141,7 +161,7 @@ a double, 0xc00000001568fba0 =
 &lt;p&gt;Annoyingly, the &lt;code&gt;msglog&lt;/code&gt; file reports itself as size 0 (I'm not sure exactly why, but I &lt;em&gt;think&lt;/em&gt; it's due to limitations in sysfs), so if you try to copy the file with &lt;code&gt;cp&lt;/code&gt;, you end up with just a blank file. However, you can read it with &lt;code&gt;cat&lt;/code&gt; or &lt;code&gt;less&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;From &lt;code&gt;xmon&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;&lt;code&gt;xmon&lt;/code&gt; is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with &lt;code&gt;kgdb&lt;/code&gt;. On our development systems, we often configure &lt;code&gt;xmon&lt;/code&gt; to automatically begin debugging whenever we hit an oops or panic (using &lt;code&gt;xmon=on&lt;/code&gt; on the kernel command line, or the &lt;code&gt;XMON_DEFAULT&lt;/code&gt; Kconfig option). It can also be manually triggered:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
 sysrq: SysRq : Entering xmon
 cpu 0x7: Vector: 0  at [c000000fcd717a80]
 pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
@@ -164,7 +184,7 @@ enter ? for help
 &lt;p&gt;Sometimes, not even &lt;code&gt;xmon&lt;/code&gt; will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)&lt;/p&gt;
 &lt;p&gt;This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is &lt;a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2"&gt;documented&lt;/a&gt; in IBM Power Systems user manuals.&lt;/p&gt;
 &lt;p&gt;How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a &lt;a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c"&gt;Memory Dump Source Table&lt;/a&gt; which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690088026&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Max&lt;/span&gt; &lt;span class="n"&gt;entries&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="nl"&gt;table&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;256&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690088026&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Max&lt;/span&gt; &lt;span class="n"&gt;entries&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="nl"&gt;table&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;256&lt;/span&gt;
 &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690090666&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Addr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mh"&gt;0x31000000&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nl"&gt;size&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mh"&gt;0x100000&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;added&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="n"&gt;table&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
 &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2690093767&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Addr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mh"&gt;0x31100000&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nl"&gt;size&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mh"&gt;0x100000&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;added&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;MDST&lt;/span&gt; &lt;span class="n"&gt;table&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
 &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2750378890&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="nl"&gt;MDST&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Table&lt;/span&gt; &lt;span class="n"&gt;updated&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
@@ -187,7 +207,7 @@ enter ? for help
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;code&gt;opal-dump-parse&lt;/code&gt; (also in the &lt;code&gt;ppc64-diag&lt;/code&gt; suite) can be used to extract the sections we care about from the dump:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
 |---------------------------------------------------------|
 |ID              SECTION                              SIZE|
 |---------------------------------------------------------|
@@ -231,12 +251,12 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 &lt;p&gt;Any of these options will cause any existing network configurations to be ignored.&lt;/p&gt;
 &lt;h2&gt;Building the Request&lt;/h2&gt;
 &lt;p&gt;Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;ipmitool -I lanplus -H &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;yourbmc&lt;/span&gt;&lt;span class="x"&gt; -U &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;user&lt;/span&gt;&lt;span class="x"&gt; -P &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="x"&gt; raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
     0x00 0x08 0x61 0x80
 
 Unique value that Petitboot recognises:
@@ -272,12 +292,12 @@ Gateway IP Address:
 
 
 &lt;p&gt;Clearing a network override is as simple as making a request empty aside from the header:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;You can also read back the request over IPMI with this request:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;0x00 0x09 0x61 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x09 0x61 0x00 0x00
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -306,9 +326,9 @@ Gateway IP Address:
 &lt;p&gt;I'd also really recommed &lt;a href="https://www.youtube.com/watch?v=tFmajPt0_hI"&gt;RCU Mutation Testing&lt;/a&gt;, from the kernel miniconf, also by Paul.&lt;/p&gt;
 &lt;h4&gt;What I've learned as the kernel docs maintainer&lt;/h4&gt;
 &lt;p&gt;As an extra bonus: I mention &lt;a href="https://www.youtube.com/watch?v=gsJXf6oSbAE"&gt;this talk&lt;/a&gt;, just to say "why on earth have we still not fixed the Linux kernel &lt;a href="https://www.kernel.org/doc/linux/README"&gt;README&lt;/a&gt;"?!!?&lt;/p&gt;</summary><category term="lca2016"></category><category term="conferences"></category></entry><entry><title>Learning From the Best</title><link href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/" rel="alternate"></link><published>2016-03-03T00:00:00+11:00</published><author><name>Callum Scarvell</name></author><id>tag:sthbrx.github.io,2016-03-03:blog/2016/03/03/learning-from-the-best/</id><summary type="html">&lt;p&gt;When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
-&lt;span class="cp"&gt;#include &amp;lt;string.h&amp;gt;&lt;/span&gt;
-&lt;span class="cp"&gt;#include &amp;lt;curses.h&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;string.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;curses.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
   &lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;Hello, World! This Is cal&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
@@ -353,7 +373,7 @@ Gateway IP Address:
 &lt;p&gt;Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.&lt;/p&gt;
 &lt;p&gt;Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.&lt;/p&gt;
 &lt;p&gt;There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the &lt;code&gt;opal_cec_reboot()&lt;/code&gt; function.  So all we need to do is flush out the console buffer:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;int64&lt;/span&gt; &lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;int64&lt;/span&gt; &lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
     &lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OPAL: Reboot request...&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 
@@ -373,7 +393,7 @@ Gateway IP Address:
 &lt;p&gt;Oh, wait.  That will never get accepted upstream, ever.  Let's try again.&lt;/p&gt;
 &lt;p&gt;Well, there are &lt;code&gt;#ifdef&lt;/code&gt;s in the code that are architecture specific, for s390 and SPARC.  I could add an &lt;code&gt;#ifdef&lt;/code&gt; to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from &lt;code&gt;arch/powerpc&lt;/code&gt;, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.&lt;/p&gt;
 &lt;p&gt;As a kernel noob, I found myself digging into what every function called by &lt;code&gt;panic()&lt;/code&gt; actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    &lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -381,7 +401,7 @@ Gateway IP Address:
 &lt;p&gt;Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call &lt;code&gt;opal_poll_events()&lt;/code&gt; a whole bunch of times, right?  That &lt;em&gt;would&lt;/em&gt; work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.&lt;/p&gt;
 &lt;p&gt;Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.&lt;/p&gt;
 &lt;p&gt;In the end, it looks like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
 &lt;span class="cm"&gt; * Console output is controlled by OPAL firmware.  The kernel regularly calls&lt;/span&gt;
 &lt;span class="cm"&gt; * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,&lt;/span&gt;
 &lt;span class="cm"&gt; * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message&lt;/span&gt;
@@ -489,7 +509,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...&lt;/p&gt;
 &lt;p&gt;Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.&lt;/p&gt;
 &lt;p&gt;When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.&lt;/p&gt;
 &lt;p&gt;The solution to this is an amazing little snippet of code in &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65"&gt;arch/powerpc/boot/ppc_asm.h&lt;/a&gt; (follow the link to see some helpful commenting):&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#define FIXUP_ENDIAN&lt;/span&gt;
     &lt;span class="n"&gt;tdi&lt;/span&gt;   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mh"&gt;0x48&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
     &lt;span class="n"&gt;b&lt;/span&gt;     &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;36&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
     &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt; &lt;span class="mh"&gt;0x05009f42&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
@@ -695,17 +715,17 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Replace the &lt;code&gt;-bootkernel&lt;/code&gt; arguement with the path to ppc64le_hello, e.g.: &lt;code&gt;-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;Don't forget to move it into place! &lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &amp;lt;path to&amp;gt;/habanero.pnor
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
 Hello OPAL!
            _start = 0x20010000
                               _bss   = 0x20017E28
@@ -736,7 +756,7 @@ Hello OPAL!
 
 
 &lt;p&gt;Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to &lt;code&gt;cpu_init&lt;/code&gt; in main.c to test for a PowerPC POWER8:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/cpu@0&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
     &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
         &lt;span class="n"&gt;cpu0_node&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;fdt_path_offset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;fdt&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;/cpus/PowerPC,POWER8@20&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
     &lt;span class="p"&gt;}&lt;/span&gt;
@@ -749,7 +769,7 @@ Hello OPAL!
 
 &lt;p&gt;This is definitely the &lt;em&gt;wrong&lt;/em&gt; way to do this, but it works for now.&lt;/p&gt;
 &lt;p&gt;Now, correcting for weird wrapping, we get:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;Hello OPAL!
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Hello OPAL!
 _start = 0x20010000
 _bss   = 0x20017E28
 _stack = 0x20018000
@@ -780,7 +800,7 @@ EA 0x20048000 -&amp;gt; hash 0x20048 -&amp;gt; pteg 0x240 = RA 0x20048000
 
 &lt;p&gt;The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.&lt;/p&gt;
 &lt;p&gt;Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;Choices: (MMU = disabled):
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Choices: (MMU = disabled):
    (d) 5s delay
    (e) test exception
    (n) test nested exception
@@ -842,7 +862,7 @@ EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
 
 &lt;p&gt;I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a &lt;em&gt;lot&lt;/em&gt;. The delay seems to correspond well with real time as well.&lt;/p&gt;
 &lt;p&gt;It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;1.41801|ERRL|Dumping errors reported prior to registration
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;1.41801|ERRL|Dumping errors reported prior to registration
   2.89873|Ignoring boot flags, incorrect version 0x0
 &lt;/pre&gt;&lt;/div&gt;
 

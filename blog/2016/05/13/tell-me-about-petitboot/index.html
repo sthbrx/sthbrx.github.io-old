@@ -4,7 +4,7 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Petitboot Autoboot Changes &mdash; Store Half Byte-Reverse Indexed</title>
+  <title>Tell Me About Petitboot &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
@@ -66,35 +66,32 @@
 <div>
   <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">Petitboot Autoboot Changes</h1>
+      <h1 class="entry-title">Tell Me About Petitboot</h1>
     <p class="meta">
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>    </p>
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
 </header>
 
-  <div class="entry-content"><p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
-<h2>Old &amp; Busted</h2>
-<p>For some context, here is the old (or current depending on what you're running) section of the configuration screen.</p>
-<p><img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg" /></p>
-<p>This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.</p>
-<p>A side note about default options: it is important to note that not all boot options are valid <em>autoboot</em> options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.</p>
-<h2>New Hotness</h2>
-<p>Below is the new autoboot configuration.</p>
-<p><img alt="New Autoboot" src="/images/sammj/newstyle.jpg" /></p>
-<p>The new design allows you to specify an ordered list of autoboot options.
-The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).</p>
-<p>Selecting the first button, 'Add Device' brings up the following screen:</p>
-<p><img alt="Device Selection" src="/images/sammj/devices.jpg" /></p>
-<p>From here you can select any device or <em>class</em> of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').</p>
-<p>This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
-You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).</p>
-<p>Presently you can add any option into the list and order them how you like - which means you can do silly things like this:</p>
-<p><img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg" /></p>
-<h2>IPMI</h2>
-<p>Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!</p>
-<p>If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:</p>
-<p><img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg" /></p>
-<hr />
-<p>That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.</p></div>
+  <div class="entry-content"><p>A Google search for 'Petitboot' brings up results from a number of places, some describing its use on <a href="https://www.ibm.com/support/knowledgecenter/linuxonibm/liabp/liabppetitboot.htm">POWER servers</a>, others talking about how to use it on the <a href="http://jk.ozlabs.org/projects/petitboot/">PS3</a>, in varying levels of detail. I tend to get a lot of general questions about Petitboot and its behaviour, and have had a few requests for a broad "Welcome to Petitboot" blog, suggesting that existing docs deal with more specific topics.. or that people just aren't reading them :)</p>
+<p>So today we're going to take a bit of a crash course in the what, why, and possibly how of Petitboot. I won't delve too much into technical details, and this will be focussed on Petitboot in POWER land since that's where I spend most of my time.
+Here we go!</p>
+<h2>What</h2>
+<p>Aside from a whole lot of firmware and kernel logs flying past, the first thing you'll see when booting a POWER server<sup>In OPAL mode at least...</sup> is Petitboot's main menu:</p>
+<p><img alt="Main Menu" src="/images/sammj/mainmenu.png" /></p>
+<p>Petitboot is the first interact-able component a user will see. The word 'BIOS' gets thrown around a lot when discussing this area, but that is wrong, and the people using that word are wrong.</p>
+<p>When the OPAL firmware layer <a href="https://github.com/open-power/skiboot">Skiboot</a> has finished its own set up, it loads a certain binary (stored on the BMC) into memory and jumps into it. This could hypothetically be anything, but for any POWER server right now it is 'Skiroot'. Skiroot is a full Linux kernel and userspace, which runs Petitboot. People often say Petitboot when they mean Skiroot - technically Petitboot is the server and UI processes that happen to run within Skiroot, and Skiroot is the full kernel and rootfs package. This is more obvious when you look at the <a href="https://github.com/open-power/op-build">op-build</a> project - Petitboot is a package built as part of the kernel and rootfs created by Buildroot.</p>
+<p>Petitboot is made of two major parts - the UI processes (one for each available console), and the 'discover' server. The discover server updates the UI processes, manages and scans available disks and network devices, and performs the actual booting of host operating systems. The UI, running in ncurses, displays these options, allows the user to edit boot options and system configuration, and tells the server which boot option to kexec.</p>
+<h2>Why</h2>
+<p>The 'why' delves into some of the major architectural differences between a POWER machine and your average x86 machine which, as always, could spread over several blog posts and/or a textbook.</p>
+<p>POWER processors don't boot themselves, instead the attached Baseboard Management Controller (BMC) does a lot of low-level poking that gets the primary processor into a state where it is ready to execute instructions. PowerVM systems would then jump directly into the PHYP hypervisor - any subsequent OS, be it AIX or Linux, would then run as a 'partition' under this hypervisor.</p>
+<p>What we all really want though is to run Linux directly on the hardware, which meant a new boot process would have to be thought up while still maintaining compatibility with PowerVM so systems could be booted in either mode. Thus became OPAL, and its implementation <a href="https://github.com/open-power/skiboot">Skiboot</a>. Skipping over <em>so much</em> detail, the system ends up booting into Skiboot which acts as our firmware layer. Skiboot isn't interactive and doesn't really care about things like disks, so it loads another binary into memory and executes it - Skiroot!</p>
+<p>Skiroot exists as an alternative to writing a whole new bootloader just for POWER in OPAL mode, or going through the effort to port an existing bootloader to understand the specifics of POWER. Why do all that when Linux already exists and already knows how to handle disks, network interfaces, and a thousand other things? Not to mention that when Linux gains support for fancy new devices so do we, and adding new features of our own is as simple as writing your average Linux program.</p>
+<p>Skiroot itself (not including Skiboot) is roughly comparable to UEFI, or at least much more so than legacy BIOS implementations. But whereas UEFI tends to be a monolithic blob of fairly platform-specific code (in practice), Skiroot is simply a small Linux environment that anyone could put together with Buildroot.</p>
+<p>A much better insight into the development and motivation behind Skiroot and Petitboot is available in Jeremy's <a href="https://www.youtube.com/watch?v=oxmMJMibZQ8">LCA2013 talk</a></p>
+<h2>Back to Petitboot</h2>
+<p>Petitboot is the part of the 'bootloader' that <em>did</em> need to be written, because users probably wouldn't be too thrilled if they had to manually mount disks and kexec their kernels every time they booted the machine. The Petitboot server process mounts any available disk devices and scans them for available operating systems. That's not to say that it scans the entire disk, because otherwise you could be waiting for quite some time, but rather it looks in a list of common locations for bootloader configuration files. This is handy because it means the operating system doesn't need to have any knowledge of Petitboot - it just uses its usual install scripts and Petitboot reads them to know what is available.
+At the same time Petitboot makes PXE requests on configured network interfaces so we can netboot, and allows these various sources to be given relative priorities for auto-boot, plus a number of other ways to specially configure booting behaviour.</p>
+<p>A particularly neat feature of existing in a Linux environment is the ability to easily recover from boot problems; whereas on another system you might need to use a Live CD to fix a misconfiguration or recover a broken filesystem, in Skiroot you can just drop to the shell and fix the issue right there.</p>
+<p>In summary, Petitboot/Skiroot is a small but capable Linux environment that every OPAL POWER machine boots into, gathering up all the various local and remote boot possibilities, and presenting them to you in a state-of-the-art ncurses interface. Petitboot updates all the time, and if you come across a feature that you think Petitboot is missing, patches are very welcome at <a href="mailto:petitboot@lists.ozlabs.org">petitboot@lists.ozlabs.org</a> (or hassle me on IRC)!</p></div>
     <footer>
 <p class="meta">
   <span class="byline author vcard">
@@ -102,11 +99,11 @@ You can retain the original behaviour by only putting one option into the list (
         <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
     </span>
   </span>
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>  <span class="categories">
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>  <span class="categories">
     <a class='category' href='https://sthbrx.github.io/category/petitboot.html'>Petitboot</a>
   </span>
   <span class="categories">
-    <a class="category" href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/power.html">power</a>,    <a class="category" href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a class="category" href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a class="category" href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a class="category" href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>  </span>
+    <a class="category" href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/power.html">power</a>,    <a class="category" href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a class="category" href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a class="category" href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a class="category" href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>  </span>
 </p><div class="sharing">
 </div>    </footer>
   </article>
@@ -183,9 +180,9 @@ You can retain the original behaviour by only putting one option into the list (
   <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
   <script type="text/javascript">
     var disqus_shortname = 'sthbrx';
-    var disqus_identifier = '/blog/2015/06/02/autoboot/';
-    var disqus_url = 'https://sthbrx.github.io/blog/2015/06/02/autoboot/';
-    var disqus_title = 'Petitboot Autoboot Changes';
+    var disqus_identifier = '/blog/2016/05/13/tell-me-about-petitboot/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/';
+    var disqus_title = 'Tell Me About Petitboot';
     (function() {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
       dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
