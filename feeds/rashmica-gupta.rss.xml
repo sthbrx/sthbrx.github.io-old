@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/rashmica-gupta.rss.xml" rel="self"></atom:link><lastBuildDate>Thu, 12 May 2016 22:22:00 +1000</lastBuildDate><item><title>SROP Mitigation ~= -2</title><link>https://sthbrx.github.io/blog/2016/05/12/srop-mitigation-2/</link><description>&lt;h2&gt;What is SROP?&lt;/h2&gt;
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/rashmica-gupta.rss.xml" rel="self"></atom:link><lastBuildDate>Thu, 12 May 2016 22:22:00 +1000</lastBuildDate><item><title>SROP Mitigation</title><link>https://sthbrx.github.io/blog/2016/05/12/srop-mitigation/</link><description>&lt;h2&gt;What is SROP?&lt;/h2&gt;
 &lt;p&gt;Sigreturn Oriented Programming - a general technique that can be used as an exploit, or as a backdoor to exploit another vulnerability.&lt;/p&gt;
 &lt;h2&gt;Okay, but what is it?&lt;/h2&gt;
 &lt;p&gt;Yeah... Let me take you through some relevant background info, where I skimp on the details and give you the general picture.&lt;/p&gt;
@@ -80,4 +80,4 @@
 &lt;/pre&gt;&lt;/div&gt;
 
 
-&lt;p&gt;For a more in-depth explanation of SROP, click &lt;a href="https://lwn.net/Articles/676803/"&gt;here&lt;/a&gt;.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Rashmica Gupta</dc:creator><pubDate>Thu, 12 May 2016 22:22:00 +1000</pubDate><guid>tag:sthbrx.github.io,2016-05-12:blog/2016/05/12/srop-mitigation-2/</guid><category>SROP</category><category>mitigation</category><category>powerpc</category><category>kernel</category></item></channel></rss>
+&lt;p&gt;For a more in-depth explanation of SROP, click &lt;a href="https://lwn.net/Articles/676803/"&gt;here&lt;/a&gt;.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Rashmica Gupta</dc:creator><pubDate>Thu, 12 May 2016 22:22:00 +1000</pubDate><guid>tag:sthbrx.github.io,2016-05-12:blog/2016/05/12/srop-mitigation/</guid><category>SROP</category><category>mitigation</category><category>powerpc</category><category>kernel</category></item></channel></rss>
