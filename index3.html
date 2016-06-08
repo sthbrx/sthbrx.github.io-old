@@ -65,6 +65,27 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/02/25/work-experience-at-ozlabs/">Work Experience At Ozlabs</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-02-25T00:00:00+11:00" pubdate>Thu 25 February 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a>
+    </span>
+  </span>
+<time datetime="2016-02-25T00:00:00+11:00" pubdate>Thu 25 February 2016</time></div>
+
+  <div class="entry-content"><p>As a recent year twelve graduate my knowledge of computer science was very limited and my ability to write working programs was all but none. So you can imagine my excitement when I heard of an opening for work experience with IBM's internationally renowned Ozlabs team, or as I knew them the <em>Linux Gods</em>. My first day of working at Ozlabs I learnt more about programing then in six years of secondary education. I met most of the Ozlabs team and made connections that will certainly help with my pursuit of a career in IT. Because in business its who you know more than what you know, and now I know the guys at Ozlabs I know how to write code and run it on my own Linux Distro. And on top of all the extremely valuable knowledge I am on a first name basis with the <em>Linux Gods</em> at the LTC.</p>
+<p>After my first week at Ozlabs I cloned this blog from Octopress and reformatted it for pelican static site generator.For those who don't know Octopress is a ruby based static site generator so converting the embedded ruby gems to pelicans python code was no easy task for this newbie. Luckily I had a team of some of the best software developers in the world to help and teach me their ways. After we sorted the change from ruby to python and I was able to understand both languages, I presented my work to the team. They then decided to throw me a curve ball as they did not like any of pelicans default themes, instead they wanted the original Octopress theme on the new blog. This is how I learnt GitHub is my bestest friend, because some kind soul had already converted the ruby theme into python and it ran perfectly!</p>
+<p>Now it was a simple task of re-formatting the ruby-gem text files into markdown which is pelican compatible(which is why we chose pelican in the first place). So now we had a working pelican blog on the Octopress theme, one issue it was very annoying to navigate. Using my newly learned skills and understanding of python I inserted tags, categories, web-links, navigation bar and I started learning how to code C. And it all worked fine! That was what I a newbie could accomplish in one week. I still have two more weeks left here and I have plenty of really interesting work left to do. This has been one of the greatest learning experiences of my life and I would do it again if I could! So if you are looking for experience in it or software development look no further because you could be learning to code from the people who wrote the language itself. The <em>Linux Gods</em>.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/02/15/panic/">Panic, flushing and compromise</a>
       </h1>
     <p class="meta">
@@ -84,7 +105,7 @@
 <p>Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.</p>
 <p>Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.</p>
 <p>There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the <code>opal_cec_reboot()</code> function.  So all we need to do is flush out the console buffer:</p>
-<div class="highlight"><pre><span class="k">static</span> <span class="n">int64</span> <span class="nf">opal_cec_reboot</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><span class="k">static</span> <span class="n">int64</span> <span class="nf">opal_cec_reboot</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
     <span class="n">printf</span><span class="p">(</span><span class="s">&quot;OPAL: Reboot request...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 
@@ -104,7 +125,7 @@
 <p>Oh, wait.  That will never get accepted upstream, ever.  Let's try again.</p>
 <p>Well, there are <code>#ifdef</code>s in the code that are architecture specific, for s390 and SPARC.  I could add an <code>#ifdef</code> to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from <code>arch/powerpc</code>, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.</p>
 <p>As a kernel noob, I found myself digging into what every function called by <code>panic()</code> actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:</p>
-<div class="highlight"><pre>    <span class="n">kmsg_dump</span><span class="p">(</span><span class="n">KMSG_DUMP_PANIC</span><span class="p">);</span>
+<div class="highlight"><pre><span></span>    <span class="n">kmsg_dump</span><span class="p">(</span><span class="n">KMSG_DUMP_PANIC</span><span class="p">);</span>
 </pre></div>
 
 
@@ -112,7 +133,7 @@
 <p>Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call <code>opal_poll_events()</code> a whole bunch of times, right?  That <em>would</em> work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.</p>
 <p>Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.</p>
 <p>In the end, it looks like this:</p>
-<div class="highlight"><pre><span class="cm">/*</span>
+<div class="highlight"><pre><span></span><span class="cm">/*</span>
 <span class="cm"> * Console output is controlled by OPAL firmware.  The kernel regularly calls</span>
 <span class="cm"> * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,</span>
 <span class="cm"> * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message</span>
@@ -258,7 +279,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...</p>
 <p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
 <p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
 <p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
-<div class="highlight"><pre><span class="cp">#define FIXUP_ENDIAN</span>
+<div class="highlight"><pre><span></span><span class="cp">#define FIXUP_ENDIAN</span>
     <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
     <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
@@ -401,101 +422,6 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
 </ul>
 <p>...then drop AUFS and switch to Overlay today.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/10/12/a-tale-of-two-dockers/">A tale of two Dockers</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-10-12T14:14:00+11:00" pubdate>Mon 12 October 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2015-10-12T14:14:00+11:00" pubdate>Mon 12 October 2015</time></div>
-
-  <div class="entry-content"><p>(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)</p>
-<p>Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.</p>
-<p>Docker: what is it?</p>
-<p>Docker is essentially a set of tools to deal with <em>containers</em> and <em>images</em>. </p>
-<p>To make up an artificial example, say you are developing a web app. You first build an <em>image</em>: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.<sup id="fnref:1"><a class="footnote-ref" href="#fn:1" rel="footnote">1</a></sup> You then run the image inside an isolated environment called a <em>container</em>.</p>
-<p>You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of <em>immutability</em>. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.<sup id="fnref:2"><a class="footnote-ref" href="#fn:2" rel="footnote">2</a></sup> Indeed, once built, images can't be changed at all, only rebuilt from scratch.</p>
-<p>However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.</p>
-<p>Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. </p>
-<p><em>Isolation</em> makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. </p>
-<p><em>Immutability</em> also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.</p>
-<p>Finally, Docker offers a lot of <em>control</em> over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.<sup id="fnref:3"><a class="footnote-ref" href="#fn:3" rel="footnote">3</a></sup></p>
-<p>As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.</p>
-<p>Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.</p>
-<p>The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.</p>
-<p>What Docker does well is not something novel, but the engineering feat of bringing together fine-grained control, isolation and immutability, and – importantly – a tool-chain that is easier to use than any of the alternatives. Docker's tool-chain eases a lot of pain points with regards to building containers: it's vastly simpler than chroots, and easier to customise than most VM setups. Docker also has a number of engineering tricks to reduce the disk space overhead of isolation.</p>
-<p>So, to summarise: Docker provides a toolkit for isolated, immutable, finely controlled containers to run executables and services.</p>
-<h2>Docker in development: why?</h2>
-<p>I don't run network services at work; I do performance work. So how do I use Docker?</p>
-<p>There are two things I do with Docker: I build PHP 5, and do performance regression testing on PHP 7. They're good case studies of how isolation and immutability provide real benefits in development and testing, and how the Docker tool chain makes life a lot nicer that previous solutions.</p>
-<h3>PHP 5 builds</h3>
-<p>I use the <em>isolation</em> that Docker provides to make building PHP 5 easier. PHP 5 depends on an old version of Bison, version 2. Ubuntu and Debian long since moved to version 3. There are a few ways I could have solved this:</p>
-<ul>
-<li>I could just install the old version directly on my system in <code>/usr/local/</code>, and hope everything still works and nothing else picks up Bison 2 when it needs Bison 3. Or I could install it somewhere else and remember to change my path correctly before I build PHP 5.</li>
-<li>I could roll a chroot by hand. Even with tools like debootstrap and schroot, working in chroots is a painful process.</li>
-<li>I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?</li>
-</ul>
-<p>Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?</p>
-<p>Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.<sup id="fnref:4"><a class="footnote-ref" href="#fn:4" rel="footnote">4</a></sup> This means I don't have to roll a base image with <code>debootstrap</code> or the RHEL/CentOS/Fedora equivalent.</p>
-<p>Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and <em>run commands</em> in the context of the image. This is defined in a file called a <code>Dockerfile</code>, and is kicked off by a single command: <code>docker build</code>.</p>
-<p>So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.</p>
-<p>I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like <code>docker compose</code> to deal with them. They also are prone to subtle and difficult to debug permission issues.</p>
-<h3>PHP 7 performance regression testing</h3>
-<p>The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.</p>
-<p>PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.</p>
-<p>I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.<sup id="fnref:5"><a class="footnote-ref" href="#fn:5" rel="footnote">5</a></sup></p>
-<p><img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png" /></p>
-<h2>Docker pain points</h2>
-<p>Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:</p>
-<ol>
-<li>
-<p>Docker was apparently written by people who had no concept that platforms other than x86 exist. This leads to major issues for cross-architectural setups. For instance, Docker identifies images by a name and a revision. For example, <code>ubuntu</code> is the name of an image, and <code>15.04</code> is a revision. There's no ability to specify an architecture. So, how you do specify that you want, say, a 64-bit, little-endian PowerPC build of an image versus an x86 build? There have been a couple of approaches, both of which are pretty bad. You could name the image differently: say <code>ubuntu_ppc64le</code>. You can also just cheat and override the <code>ubuntu</code> name with an architecture specific version. Both of these break some assumptions in the Docker ecosystem and are a pain to work with.</p>
-</li>
-<li>
-<p>Image building is incredibly inflexible. If you have one system that requires a proxy, and one that does not, you need different Dockerfiles. As far as I can tell, there are no simple ways to hook in any changes between systems into a generic Dockerfile. This is largely by design, but it's still really annoying when you have one system behind a firewall and one system out on the public cloud (as I do in the PHP 7 setup).</p>
-</li>
-<li>
-<p>Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.</p>
-</li>
-<li>
-<p>Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.<sup id="fnref:6"><a class="footnote-ref" href="#fn:6" rel="footnote">6</a></sup></p>
-</li>
-</ol>
-<h2>Final words</h2>
-<p>Docker provides me with a lot of useful tools in software development: both in terms of building and testing. Making use of it requires a certain amount of careful design thought, but when applied thoughtfully it can make life significantly easier.</p>
-<div class="footnote">
-<hr />
-<ol>
-<li id="fn:1">
-<p>There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see <a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/">https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/</a>) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&#160;<a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-<li id="fn:2">
-<p>Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&#160;<a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text">&#8617;</a></p>
-</li>
-<li id="fn:3">
-<p>It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&#160;<a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text">&#8617;</a></p>
-</li>
-<li id="fn:4">
-<p>Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&#160;<a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text">&#8617;</a></p>
-</li>
-<li id="fn:5">
-<p>See <a href="https://github.com/php/php-src/pull/1326">https://github.com/php/php-src/pull/1326</a>&#160;<a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text">&#8617;</a></p>
-</li>
-<li id="fn:6">
-<p>I hit this last week: <a href="https://github.com/docker/docker/issues/16256">https://github.com/docker/docker/issues/16256</a>, although maybe that's my fault for running systemd on my laptop.&#160;<a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text">&#8617;</a></p>
-</li>
-</ol>
-</div></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
 
@@ -507,6 +433,9 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
       </li>
       <li class="post">
@@ -517,9 +446,6 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/">Getting logs out of things</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/">The Elegance of the Plaintext Patch</a>
       </li>
     </ul>
   </section>
@@ -539,7 +465,7 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>  </section>
+    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>  </section>
 
 
     <section>
