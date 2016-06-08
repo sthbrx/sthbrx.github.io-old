@@ -4,11 +4,13 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Tag: tools &mdash; Store Half Byte-Reverse Indexed</title>
+  <title>Interning at Ozlabs &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
         title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
 
 
 
@@ -49,7 +51,7 @@
       <li >
         <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
       </li>
-      <li >
+      <li class="active">
         <a href="https://sthbrx.github.io/category/education.html">Education</a>
       </li>
       <li >
@@ -62,35 +64,68 @@
   <div id="main">
     <div id="content">
 <div>
-	<article role="article">
-    	<header>
-    		<h1 class="entry-title">Tag: tools</h1>
-    	</header>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Interning at Ozlabs</h1>
+    <p class="meta">
+<time datetime="2016-06-08T22:22:00+10:00" pubdate>Wed 08 June 2016</time>    </p>
+</header>
 
-    	<div id="blog-archives">
-            <h2>2016</h2>
-                    <article>
-                        <h1><a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a></h1>
-                        <time datetime="2016-06-07 17:03:00+10:00" pubdate>
-                            <span class="month">Jun</span>
-                            <span class="day">07</span>
-                            <span class="year">2016</span>
-                        </time>
-                        <footer>
-                            <span class="categories">posted in
-                                <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
-                            </span>
-                        </footer>
-                    </article>
-	    </div>
-    </article>
+  <div class="entry-content"><p>I am sadly coming to the end of my six(ish) month internship with Ozlabs (funded by <a href="https://www.acs.org.au">ACS</a>). So here I am writing about my experience in the hopes that future prospective interns can read about how they should come and work with the previously dubbed Linux Gods.</p>
+<h3>What is your background?</h3>
+<p>Despite embracing being a nerd at school, my opinion of computers prior to starting my Engineering degree was that they were boring and for geeky boys who didn't want to interact with the 'real' world. However when having to choose a specialisation of Engineering I was drawn towards Computer Systems as everything else seemed obvious * but Computer Systems was this great mystical unknown. </p>
+<p>Fast forward three years, and I had seen glimpses into the workings of this magical computer world. I had learnt about transistors, logic gates and opamps; I had designed circuits that actually worked; and I had bashed my head against a wall trying to find obscure bugs. I had dabbled in a range of languages from the low levels of VHDL and embedded C, to the abstract world of Python and Java and delved into the obscure world of declarative prologs and relational reinforcement learning. Now it was time to solidify some of these concepts and get some experience under my belt so I could feel less like a monkey bashing random keys on my keyboard. Enter Ozlabs!</p>
+<h3>What did you do at Ozlabs?</h3>
+<p>After being handed a nice laptop and the root passwords, I faced the inevitable battle of getting everything setup. With the help of my mentor, the prestigious <a href="http://mpe.github.io/">Michael Ellerman</a>, and various other Ozlabs residents I picked off some low hanging fruit such as removing unused code and tidying up a few things. This allowed me to get familiar with the open-source workflow, the kernel building process, IRC, do more with Git then just push and pull, and <strong>finally</strong> come face-to-face with the seemingly impossible: Vim and virtual machines.</p>
+<p>I then got to learn about Transactional Memory (TM) - a way of making a bunch of instructions on one processor appear to be one atomic operation to other processors. I took some old TM tests from Mikey and checked that they did indeed pass and fail when they were supposed to and refurbished them a little, learning how to run kernel self-tests and a bit about powerpc assembly along the way.</p>
+<p>Eventually my fear of shell scripts was no match for my desire to be able to build and install a kernel with one command and so I finally got around to writing a build script. Accidentally rebooting a bare-metal machine instead of my VM running on it may have had a significant contribution to this...</p>
+<p>The next interesting task I got to tackle was to implement a virtual memory dump that other architectures like x86 have, so we can see how the pages in memory are laid out along with information about these pages. This involved understanding x86's implementation and relating that to POWER's memory management. At Uni I never quite understood the fuss about pages and virtual memory and so it was great to be able to build up an appreciation and play around with page tables, virtual to real addresses, and hashtable.</p>
+<p>I then moved onto <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP mitigation</a>! After a lot of reading and re-reading, I decided to first understand how to use SROP to make an exploit on POWER which meant some assembly, diving into the signal code and finally meeting and spending time with GDB.  Once again I had x86 code to port over to POWER, the main issue being making sure that I didn't break existing things - aka hours and hours of running the kernel self-tests and the Linux Test Project tests and some more scripting, with the help of <a href="http://blog.christophersmart.com/">Chris Smart</a>, to collate the results.</p>
+<p>You can judge all my submitted patches <a href="https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=67695&amp;state=*">here</a>.</p>
+<h3>What was your overall experience like at Ozlabs?</h3>
+<p>I moved to Canberra shortly after finishing exams and so hadn't had the time to ponder expectations of Ozlabs. Everyone was super friendly and despite being, not just the only female but, the only kiwi among a whoooole lot of Aussies I experienced a distinct lack of discrimination (apart from a bit of banter about accents).</p>
+<p>Could I wear my normal clothes (and not stuffy business clothes)? Check. Did I get to work on interesting things? Check. Could I do my work without having to go through lots of unnecessary hoops and what not? Check. Could I develop my own workflow and learn all the things? Check. Did I get to delve into a few different areas? Check. Was I surrounded by super smart people who were willing to help me learn? Check. </p>
+<p>All in all, I have had a great time here, learnt so much and you should definitely come and work at Ozlabs! Hopefully you'll see me back on this blog in a few months :)</p>
+<p>* <em>My pre-university, perhaps somewhat naiive, opinion: Civil and Mechanical is just physics. Chemical and Materials is just chemistry. Electrical seems interesting but who wants to work with power lines? Biomedical is just math and biology. Software is just abstract high level nonsense. But how a computer works?? That is some magical stuff.</em></p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
+    </span>
+  </span>
+<time datetime="2016-06-08T22:22:00+10:00" pubdate>Wed 08 June 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/education.html'>Education</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a class="category" href="https://sthbrx.github.io/tag/experience.html">experience</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
 </div>
 <aside class="sidebar">
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/">Interning at Ozlabs</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/">Tell Me About Petitboot</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
       </li>
     </ul>
   </section>
@@ -137,7 +172,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2016  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2016  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script src="https://sthbrx.github.io/theme/js/modernizr-2.0.js"></script>
@@ -145,6 +180,9 @@ This blog represents the views of the individual authors, and doesn't necessaril
   <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
   <script type="text/javascript">
     var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2016/06/08/interning-at-ozlabs/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/';
+    var disqus_title = 'Interning at Ozlabs';
     (function() {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
       dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
