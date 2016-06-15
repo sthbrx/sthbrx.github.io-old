@@ -4,11 +4,13 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Tag: float &mdash; Store Half Byte-Reverse Indexed</title>
+  <title>Introducing snowpatch: continuous integration for patches &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
         title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
 
 
 
@@ -58,42 +60,67 @@
       <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
       </li>
-      <li >
+      <li class="active">
         <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
       </li>
 </ul></nav>
   <div id="main">
     <div id="content">
 <div>
-	<article role="article">
-    	<header>
-    		<h1 class="entry-title">Tag: float</h1>
-    	</header>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Introducing snowpatch: continuous integration for patches</h1>
+    <p class="meta">
+<time datetime="2016-06-15T15:33:00+10:00" pubdate>Wed 15 June 2016</time>    </p>
+</header>
 
-    	<div id="blog-archives">
-            <h2>2016</h2>
-                    <article>
-                        <h1><a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a></h1>
-                        <time datetime="2016-05-12 22:22:00+10:00" pubdate>
-                            <span class="month">May</span>
-                            <span class="day">12</span>
-                            <span class="year">2016</span>
-                        </time>
-                        <footer>
-                            <span class="categories">posted in
-                                <a class='category' href='https://sthbrx.github.io/category/education.html'>Education</a>
-                            </span>
-                        </footer>
-                    </article>
-	    </div>
-    </article>
+  <div class="entry-content"><p>Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.</p>
+<p>Let's throw some spanners in the works.  What if instead of a desktop or web application, you're dealing with an operating system?  What if your tests can only be run when booted on physical hardware? What if instead of something like a GitHub pull request, code changes were sent as plain-text emails to a mailing list?  What if you didn't have control the development of this project, and you had to work with an existing, open community?</p>
+<p>These are some of the problems faced by the Linux kernel, and many other open source projects.  Mailing lists, along with tools like <code>git send-email</code>, have become core development infrastructure for many large open source projects.  The idea of sending code via a plain-text email is simple and well-defined, not reliant on a proprietary service, and uses universal, well-defined technology.  It does have shortcomings, though.  How do you take a plain-text patch, which was sent as an email to a mailing list, and accomplish the continuous integration possibilities other tools have trivially?</p>
+<p>Out of this problem birthed <a href="https://github.com/ruscur/snowpatch">snowpatch</a>, a continuous integration tool designed to enable these practices for projects that use mailing lists and plain-text patches.  By taking patch metadata organised by <a href="https://patchwork.ozlabs.org">Patchwork</a>, performing a number of <code>git</code> operations and shipping them off to <a href="https://jenkins.io">Jenkins</a>, snowpatch can enable continuous integration for any mailing list-based project.  At IBM <a href="https://ozlabs.org">OzLabs</a>, we're using snowpatch to automatically test new patches for <a href="https://github.com/linuxppc/linux/">Linux on POWER</a>, <a href="https://github.com/open-power/skiboot.git">skiboot</a>, snowpatch itself, and more.</p>
+<p>snowpatch is written in <a href="https://rust-lang.org">Rust</a>, an exciting new systems programming language with a focus on speed and safety.  Rust's amazing software ecosystem, enabled by its package manager <a href="https://crates.io">Cargo</a>, made development of snowpatch a breeze.  Using Rust has been a lot of fun, along with the practical benefits of (in our experience) faster development, and confidence in the runtime stability of our code.  It's still a young language, but it's quickly growing and has an amazing community that has always been happy to help.</p>
+<p>We still have a lot of ideas for snowpatch that haven't been implemented yet.  Once we've tested a patch and sent the results back to a patchwork instance, what if the project's maintainer (or a trusted contributor) could manually trigger some more intensive tests?  How would we handle it if the traffic on the mailing list of a project is too fast for us to test?  If we were running snowpatch on multiple machines on the same project, how would we avoid duplicating effort?  These are unsolved problems, and if you'd like to help us with these or anything else you think would be good for snowpatch, we take contributions and ideas via our mailing list, which you can subscribe to <a href="https://lists.ozlabs.org/listinfo/snowpatch">here</a>.  For more details, view our documentation on <a href="https://github.com/ruscur/snowpatch">GitHub</a>.</p>
+<p>Thanks for taking your time to learn a bit about snowpatch.  In future, we'll be talking about how we tie all these technologies together to build a continuous integration workflow for the Linux kernel and OpenPOWER firmware.  Watch this space!</p>
+<p><em>This article was originally posted on <a href="https://developer.ibm.com/open/">IBM developerWorks Open</a>.  Check that out for more open source from IBM, and look out for more content in their <a href="https://developer.ibm.com/open/snowpatch">snowpatch</a> section.</em></p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
+    </span>
+  </span>
+<time datetime="2016-06-15T15:33:00+10:00" pubdate>Wed 15 June 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/snowpatch.html'>snowpatch</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a class="category" href="https://sthbrx.github.io/tag/development.html">development</a>,    <a class="category" href="https://sthbrx.github.io/tag/tools.html">tools</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
 </div>
 <aside class="sidebar">
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
+          <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/">Interning at Ozlabs</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/">Tell Me About Petitboot</a>
       </li>
     </ul>
   </section>
@@ -141,7 +168,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2016  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2016  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script src="https://sthbrx.github.io/theme/js/modernizr-2.0.js"></script>
@@ -149,6 +176,9 @@ This blog represents the views of the individual authors, and doesn't necessaril
   <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
   <script type="text/javascript">
     var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/';
+    var disqus_title = 'Introducing snowpatch: continuous integration for patches';
     (function() {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
       dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';

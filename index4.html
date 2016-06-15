@@ -58,10 +58,90 @@
       <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
       </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
 </ul></nav>
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
+      </h1>
+    <p class="meta">
+<time datetime="2015-11-03T15:02:00+11:00" pubdate>Tue 03 November 2015</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2015-11-03T15:02:00+11:00" pubdate>Tue 03 November 2015</time></div>
+
+  <div class="entry-content"><p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as making support for vendor tools easier.
+So it should just be a matter of compiling Petitboot LE right? Well...</p>
+<h3>Switching Endianess</h3>
+<p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
+<p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
+<p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
+<div class="highlight"><pre><span></span><span class="cp">#define FIXUP_ENDIAN</span>
+    <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
+    <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa602487d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x1c004a39</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa600607d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x01006b69</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6035a7d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6037b7d</span><span class="p">;</span>
+    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x2400004c</span>
+</pre></div>
+
+
+<p>By some amazing coincidence if you take the opcode for <code>tdi 0, 0, 0x48</code> and flip the order of the bytes it forms the opcode for <code>b . + 8</code>. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR<sub>LE</sub> being set to 1.</p>
+<p>When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...</p>
+<h3>Petitboot's Secret Sauce</h3>
+<p>The main feature of Petitboot is that it is a full (but small!) Linux kernel and userspace which scans all available devices and presents possible boot options. To boot an available operating system Petitboot needs to start executing the OS's kernel, which it accomplishes via <a href="https://en.wikipedia.org/wiki/Kexec">kexec</a>. Simply speaking kexec loads the target kernel into memory, shuts the current system down most of the way, and at the last moment sets the instruction pointer to the start of the target kernel. From there it's like booting any other kernel, including the FIXUP_ENDIAN section above.</p>
+<h3>We've Booted! Wait...</h3>
+<p>So our LE Petitboot kernel boots fine thanks to FIXUP_ENDIAN, we kexec into some other kernel.. and everything falls to pieces.<br />
+The problem is we've unwittingly changed one of the assumptions of booting a kernel; namely that MSR<sub>LE</sub> defaults to zero. When kexec-ing from an LE kernel we start executing the next kernel in LE mode. This itself is ok, the FIXUP_ENDIAN macro will handle the switch if needed. The problem is that the FIXUP_ENDIAN macro is relatively recent, first entering the kernel in early 2014. So if we're booting, say, an old Fedora 19 install with a v3.9 kernel - things go very bad, very quickly.</p>
+<h3>Fix #1</h3>
+<p>The solution seems pretty straightforward: find where we jump into the next kernel, and just before that make sure we reset the LE bit in the MSR. That's exactly what <a href="https://github.com/antonblanchard/kexec-lite/commit/150b14e76a4b51f865b929ad9a9bf4133e2d3af7">this patch</a> to kexec-lite does.<br />
+That worked up until I tested on a machine with more than one CPU. Remembering that the MSR is processor-specific, we also have to <a href="https://github.com/torvalds/linux/commit/ffebf5f391dfa9da3e086abad3eef7d3e5300249">reset the endianess of each secondary CPU</a><br />
+Now things are looking good! All the CPUs are reset to big-endian, the target kernel boots fine, and then... 'recursive interrupts?!'</p>
+<h3>HILE</h3>
+<p>Skipping the debugging process that led to this (hint: <a href="https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/">mambo</a> is actually a pretty cool tool), these were the sequence of steps leading up to the problem:</p>
+<ul>
+<li>Little-endian Petitboot kexecs into a big-endian kernel</li>
+<li>All CPUs are reset to big-endian</li>
+<li>The big-endian kernel begins to boot successfully</li>
+<li>Somewhere in the device-tree parsing code we take an exception</li>
+<li>Execution jumps to the exception handler at <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/kernel/exceptions-64s.S#L199">0x300</a></li>
+<li>I notice that MSR<sub>LE</sub> is set to 1</li>
+<li>WHAT WHY IS THE LE BIT IN THE MSR SET TO 1</li>
+<li>We fail to read the first instruction at 0x300 because it's written in big-endian, so we jump to the exception handler at 0x300... oh no.</li>
+</ul>
+<p>And then we very busily execute nothing until the machine is killed. I spend some time staring incredulously at my screen, then appeal to a <a href="https://github.com/torvalds/linux/blob/master/MAINTAINERS">higher authority</a> who replies with "What is the HILE set to?"  </p>
+<p>..the WHAT?<br />
+Cracking open the <a href="https://www.power.org/documentation/power-isa-v-2-07b/">PowerISA</a> reveals this tidbit:</p>
+<blockquote>
+<p>The Hypervisor Interrupt Little-Endian (HILE) bit is a bit
+in an implementation-dependent register or similar
+mechanism. The contents of the HILE bit are copied
+into MSR<sub>LE</sub> by interrupts that set MSR<sub>HV</sub> to 1 (see Section
+6.5), to establish the Endian mode for the interrupt
+handler. The HILE bit is set, by an implementation-dependent
+method, during system initialization,
+and cannot be modified after system initialization.</p>
+</blockquote>
+<p>To be fair, there are use cases for taking exceptions in a different endianess. The problem is that while HILE gets switched on when setting MSR<sub>LE</sub> to 1, it <em>doesn't</em> get turned off when MSR<sub>LE</sub> is set to zero. In particular the line "...cannot be modified after system initialization." led to a fair amount of hand wringing from myself and whoever would listen; if we can't reset the HILE bit, we simply can't use little-endian kernels for Petitboot.  </p>
+<p>Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is <a href="https://github.com/open-power/skiboot">right here</a>. In particular we can see here the OPAL call to <a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702">opal_reinit_cpus</a> which among other things resets the HILE bit.<br />
+This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the <a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53">final patch to support PowerNV machines.</a></p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -271,17 +351,17 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
 <p><code>PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt</code></p>
 <p>Replace the <code>-bootkernel</code> arguement with the path to ppc64le_hello, e.g.: <code>-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello</code></p>
 <p>Don't forget to move it into place! </p>
-<div class="highlight"><pre>mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+<div class="highlight"><pre><span></span>mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
 </pre></div>
 
 
 <p>Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.</p>
-<div class="highlight"><pre>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &lt;path to&gt;/habanero.pnor
+<div class="highlight"><pre><span></span>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &lt;path to&gt;/habanero.pnor
 </pre></div>
 
 
 <p>It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:</p>
-<div class="highlight"><pre>[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
+<div class="highlight"><pre><span></span>[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
 Hello OPAL!
            _start = 0x20010000
                               _bss   = 0x20017E28
@@ -312,7 +392,7 @@ Hello OPAL!
 
 
 <p>Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to <code>cpu_init</code> in main.c to test for a PowerPC POWER8:</p>
-<div class="highlight"><pre>    <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span>
+<div class="highlight"><pre><span></span>    <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">cpu0_node</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
         <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/PowerPC,POWER8@20&quot;</span><span class="p">);</span>
     <span class="p">}</span>
@@ -325,7 +405,7 @@ Hello OPAL!
 
 <p>This is definitely the <em>wrong</em> way to do this, but it works for now.</p>
 <p>Now, correcting for weird wrapping, we get:</p>
-<div class="highlight"><pre>Hello OPAL!
+<div class="highlight"><pre><span></span>Hello OPAL!
 _start = 0x20010000
 _bss   = 0x20017E28
 _stack = 0x20018000
@@ -356,7 +436,7 @@ EA 0x20048000 -&gt; hash 0x20048 -&gt; pteg 0x240 = RA 0x20048000
 
 <p>The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.</p>
 <p>Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.</p>
-<div class="highlight"><pre>Choices: (MMU = disabled):
+<div class="highlight"><pre><span></span>Choices: (MMU = disabled):
    (d) 5s delay
    (e) test exception
    (n) test nested exception
@@ -418,7 +498,7 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
 
 <p>I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a <em>lot</em>. The delay seems to correspond well with real time as well.</p>
 <p>It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:</p>
-<div class="highlight"><pre>1.41801|ERRL|Dumping errors reported prior to registration
+<div class="highlight"><pre><span></span>1.41801|ERRL|Dumping errors reported prior to registration
   2.89873|Ignoring boot flags, incorrect version 0x0
 </pre></div>
 
@@ -468,43 +548,6 @@ You can retain the original behaviour by only putting one option into the list (
 <hr />
 <p>That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/05/27/joining-the-capi-project/">Joining the CAPI project</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-05-27T15:08:00+10:00" pubdate>Wed 27 May 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2015-05-27T15:08:00+10:00" pubdate>Wed 27 May 2015</time></div>
-
-  <div class="entry-content"><p>(I wrote this blog post a couple of months ago, but it's still quite relevant.)</p>
-<p>Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you an idea of what this is, and what I'll be up to in the future!</p>
-<h2>What even is CAPI?</h2>
-<p>To help you understand CAPI, think back to the time before computers. We had a variety of machines: machines to build things, to check things, to count things, but they were all specialised --- good at one and only one thing.</p>
-<p>Specialised machines, while great at their intended task, are really expensive to develop. Not only that, it's often impossible to change how they operate, even in very small ways.</p>
-<p>Computer processors, on the other hand, are generalists. They are cheap. They can do a lot of things. If you can break a task down into simple steps, it's easy to get them to do it. The trade-off is that computer processors are incredibly inefficient at everything.</p>
-<p>Now imagine, if you will, that a specialised machine is a highly trained and experienced professional, a computer processor is a hungover university student.</p>
-<p>Over the years, we've tried lots of things to make student faster. Firstly, we gave the student lots of caffeine to make them go as fast as they can. That worked for a while, but you can only give someone so much caffeine before they become unreliable. Then we tried teaming the student up with another student, so they can do two things at once. That worked, so we added more and more students. Unfortunately, lots of tasks can only be done by one person at a time, and team-work is complicated to co-ordinate. We've also recently noticed that some tasks come up often, so we've given them some tools for those specific tasks. Sadly, the tools are only useful for those specific situations.</p>
-<p>Sometimes, what you really need is a professional.</p>
-<p>However, there are a few difficulties in getting a professional to work with uni students. They don't speak the same way; they don't think the same way, and they don't work the same way. You need to teach the uni students how to work with the professional, and vice versa.</p>
-<p>Previously, developing this interface – this connection between a generalist processor and a specialist machine – has been particularly difficult. The interface between processors and these specialised machines – known as <em>accelerators</em> – has also tended to suffer from bottlenecks and inefficiencies.</p>
-<p>This is the problem CAPI solves. CAPI provides a simpler and more optimised way to interface specialised hardware accelerators with IBM's most recent line of processors, POWER8. It's a common 'language' that the processor and the accelerator talk, that makes it much easier to build the hardware side and easier to program the software side. In our Canberra lab, we're working primarily on the operating system side of this. We are working with some external companies who are building CAPI devices and the optimised software products which use them.</p>
-<p>From a technical point of view, CAPI provides <em>coherent</em> access to system memory and processor caches, eliminating a major bottleneck in using external devices as accelerators. This is illustrated really well by the following graphic from <a href="https://www.youtube.com/watch?v=4ZyXc12J6FA">an IBM promotional video</a>. In the non-CAPI case, you can see there's a lot of data (the little boxes) stalled in the PCIe subsystem, whereas with CAPI, the accelerator has direct access to the memory subsystem, which makes everything go faster.</p>
-<p><img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png" /></p>
-<h2>Uses of CAPI</h2>
-<p>CAPI technology is already powering a few really cool products.</p>
-<p>Firstly, we have an implementation of Redis that sits on top of flash storage connected over CAPI. Or, to take out the buzzwords, CAPI lets us do really, really fast NoSQL databases. There's <a href="https://www.youtube.com/watch?v=cCmFc_0xsvA">a video online</a> giving more details.</p>
-<p>Secondly, our partner <a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;mtag=connectx_4_vpi_card">Mellanox</a> is using CAPI to make network cards that run at speeds of up to 100Gb/s.</p>
-<p>CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index5.html">&larr; Older</a>
 
@@ -516,6 +559,9 @@ You can retain the original behaviour by only putting one option into the list (
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/">Interning at Ozlabs</a>
       </li>
       <li class="post">
@@ -526,9 +572,6 @@ You can retain the original behaviour by only putting one option into the list (
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/">Tell Me About Petitboot</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
       </li>
     </ul>
   </section>
@@ -542,13 +585,14 @@ You can retain the original behaviour by only putting one option into the list (
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
         <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
     </ul>
   </section>
  
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>  </section>
+    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>

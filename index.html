@@ -58,10 +58,39 @@
       <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
       </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
 </ul></nav>
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-06-15T15:33:00+10:00" pubdate>Wed 15 June 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
+    </span>
+  </span>
+<time datetime="2016-06-15T15:33:00+10:00" pubdate>Wed 15 June 2016</time></div>
+
+  <div class="entry-content"><p>Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.</p>
+<p>Let's throw some spanners in the works.  What if instead of a desktop or web application, you're dealing with an operating system?  What if your tests can only be run when booted on physical hardware? What if instead of something like a GitHub pull request, code changes were sent as plain-text emails to a mailing list?  What if you didn't have control the development of this project, and you had to work with an existing, open community?</p>
+<p>These are some of the problems faced by the Linux kernel, and many other open source projects.  Mailing lists, along with tools like <code>git send-email</code>, have become core development infrastructure for many large open source projects.  The idea of sending code via a plain-text email is simple and well-defined, not reliant on a proprietary service, and uses universal, well-defined technology.  It does have shortcomings, though.  How do you take a plain-text patch, which was sent as an email to a mailing list, and accomplish the continuous integration possibilities other tools have trivially?</p>
+<p>Out of this problem birthed <a href="https://github.com/ruscur/snowpatch">snowpatch</a>, a continuous integration tool designed to enable these practices for projects that use mailing lists and plain-text patches.  By taking patch metadata organised by <a href="https://patchwork.ozlabs.org">Patchwork</a>, performing a number of <code>git</code> operations and shipping them off to <a href="https://jenkins.io">Jenkins</a>, snowpatch can enable continuous integration for any mailing list-based project.  At IBM <a href="https://ozlabs.org">OzLabs</a>, we're using snowpatch to automatically test new patches for <a href="https://github.com/linuxppc/linux/">Linux on POWER</a>, <a href="https://github.com/open-power/skiboot.git">skiboot</a>, snowpatch itself, and more.</p>
+<p>snowpatch is written in <a href="https://rust-lang.org">Rust</a>, an exciting new systems programming language with a focus on speed and safety.  Rust's amazing software ecosystem, enabled by its package manager <a href="https://crates.io">Cargo</a>, made development of snowpatch a breeze.  Using Rust has been a lot of fun, along with the practical benefits of (in our experience) faster development, and confidence in the runtime stability of our code.  It's still a young language, but it's quickly growing and has an amazing community that has always been happy to help.</p>
+<p>We still have a lot of ideas for snowpatch that haven't been implemented yet.  Once we've tested a patch and sent the results back to a patchwork instance, what if the project's maintainer (or a trusted contributor) could manually trigger some more intensive tests?  How would we handle it if the traffic on the mailing list of a project is too fast for us to test?  If we were running snowpatch on multiple machines on the same project, how would we avoid duplicating effort?  These are unsolved problems, and if you'd like to help us with these or anything else you think would be good for snowpatch, we take contributions and ideas via our mailing list, which you can subscribe to <a href="https://lists.ozlabs.org/listinfo/snowpatch">here</a>.  For more details, view our documentation on <a href="https://github.com/ruscur/snowpatch">GitHub</a>.</p>
+<p>Thanks for taking your time to learn a bit about snowpatch.  In future, we'll be talking about how we tie all these technologies together to build a continuous integration workflow for the Linux kernel and OpenPOWER firmware.  Watch this space!</p>
+<p><em>This article was originally posted on <a href="https://developer.ibm.com/open/">IBM developerWorks Open</a>.  Check that out for more open source from IBM, and look out for more content in their <a href="https://developer.ibm.com/open/snowpatch">snowpatch</a> section.</em></p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -128,7 +157,7 @@
 <p>Sometimes, Atom can get too clever for its own good.  For some completely insane reason, it automatically "fixes" whitespace in every file you open, leading to a huge amount of git changes you didn't intend.  That's easy to disable, but I don't want my editor doing that, it'd be much better if it highlighted whitespace it didn't like by default, like you can get vim and Emacs to do.  For an editor designed around git, I can't comprehend that decision.</p>
 <p><img alt="Atom can also fuzzy match its commands" src="https://i.imgur.com/arbWXHx.png" /></p>
 <p>Speaking of git, the editor pretty much has everything you'd expect for an editor written at GitHub.  The sidebar shows you what lines you've added, removed and modified, and the gutter shows you what branch you're on and how much you've changed all-up.  There's no in-built support for doing git things inside the editor, but there's a package for it.  It's pretty nice to get something "for free" that you'd have to tinker with in other editors.</p>
-<p>Overall, Atom's come a long way and still has a long way to go.  I've been using it for a few weeks and I'll continue to use it.  I'll encourage new developers to use it, but it needs to be better for experienced programmers who are used to their current workflow to consider switching.  If you're in the market for a new editor, Atom might just be for you.</p></div>
+<p>Overall, Atom has come a long way and still has a long way to go.  I've been using it for a few weeks and I'll continue to use it.  I'll encourage new developers to use it, but it needs to be better for experienced programmers who are used to their current workflow to consider switching.  If you're in the market for a new editor, Atom might just be for you.</p></div>
   		</article>
   		<article>
 <header>
@@ -163,7 +192,7 @@
 <p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
 <p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
 <p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
-<div class="highlight"><pre><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
+<div class="highlight"><pre><span></span><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
         <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">uc</span><span class="p">;</span>
         <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
         <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
@@ -178,7 +207,7 @@
 
 
 <p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
-<div class="highlight"><pre><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
 <span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r13</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
 <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
 
@@ -191,26 +220,26 @@
 
 
 <p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
-<div class="highlight"><pre><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
 <span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">test_function</span><span class="p">;</span>
 </pre></div>
 
 
 <p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
-<div class="highlight"><pre><span class="cm">/* Set MSR bit if LE */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Set MSR bit if LE */</span>
 <span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x01</span><span class="p">;</span>
 </pre></div>
 
 
 <p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
 <p><strong>Secondly</strong> we have to put it on the stack:</p>
-<div class="highlight"><pre><span class="cm">/* Set current stack pointer to our fake context */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Set current stack pointer to our fake context */</span>
 <span class="n">r1</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
 </pre></div>
 
 
 <p><strong>Thirdly</strong>, we call sigreturn:</p>
-<div class="highlight"><pre><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
 <span class="n">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 <span class="n">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 </pre></div>
@@ -268,159 +297,6 @@ At the same time Petitboot makes PXE requests on configured network interfaces s
 <p>A particularly neat feature of existing in a Linux environment is the ability to easily recover from boot problems; whereas on another system you might need to use a Live CD to fix a misconfiguration or recover a broken filesystem, in Skiroot you can just drop to the shell and fix the issue right there.</p>
 <p>In summary, Petitboot/Skiroot is a small but capable Linux environment that every OPAL POWER machine boots into, gathering up all the various local and remote boot possibilities, and presenting them to you in a state-of-the-art ncurses interface. Petitboot updates all the time, and if you come across a feature that you think Petitboot is missing, patches are very welcome at <a href="mailto:petitboot@lists.ozlabs.org">petitboot@lists.ozlabs.org</a> (or hassle me on IRC)!</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-05-12T22:22:00+10:00" pubdate>Thu 12 May 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a>
-    </span>
-  </span>
-<time datetime="2016-05-12T22:22:00+10:00" pubdate>Thu 12 May 2016</time></div>
-
-  <div class="entry-content"><p>It started off a regular Wednesday morning when I hear from my desk a colleague
-muttering about doubles and their hex representation. "But that doesn't look
-right", "How do I read this as a float", and "<del>redacted</del> you're the engineer,
-you do it". My interest piqued, I headed over to his desk to enquire about the
-great un-solvable mystery of the double and its hex representation. The number
-which would consume me for the rest of the morning: 0xc00000001568fba0.</p>
-<h2>That's a Perfectly Valid hex Number!</h2>
-<p>I hear you say. And you're right, if we were to treat this as a long it
-would simply be 13835058055641365408 (or -4611686018068186208 if we assume
-a signed value). But we happen to know that this particular piece of data which
-we have printed is supposed to represent a double (-2 to be precise). "Well
-print it as a double" I hear from the back, and once again we <em>should</em> all know
-that this can be achieved rather easily by using the %f/%e/%g specifiers in our
-print statement. The only problem is that in kernel land (where we use printk)
-we are limited to printing fixed point numbers, hence why our only <em>easy</em>
-option was to print our double in it's raw hex format.</p>
-<p>This is the point where we all think back to that university course where
-number representations were covered in depth, and terms like 'mantissa' and
-'exponent' surface in our minds. Of course as we rack our brains we realise
-there's no way that we're going to remember exactly how a double is represented
-and bring up the <a href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format">IEEE 754 Wikipedia page</a>.</p>
-<h2>What is a Double?</h2>
-<p>Taking a step back for a second, a double (or a double-precision floating-point)
-is a number format used to represent floating-point numbers (those with a
-decimal component). They are made up of a sign bit, an exponent and a fraction
-(or mantissa):</p>
-<p><img alt="Double Format" src="/images/surajjs/doubles_in_hex/double.png" /></p>
-<p>Where the number they represent is defined by:</p>
-<p><img alt="Double Formula" src="/images/surajjs/doubles_in_hex/formula.png" /></p>
-<p>So this means that a 1 in the MSB (sign bit) represents a negative number, and
-we have some decimal component (the fraction) which we multiply by some power
-of 2 (as determined by the exponent) to get our value.</p>
-<h2>Alright, so what's 0xc00000001568fba0?</h2>
-<p>The reason we're all here to be begin with, so what's 0xc00000001568fba0 if we
-treat it as a double? We can first split it into the three components:</p>
-<h5>0xc00000001568fba0:</h5>
-<p>Sign bit: 1             -&gt; Negative<br>
-Exponent: 0x400         -&gt; 2<sup>(1024 - 1023)</sup><br>
-Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
-<p>And then use the formula above to get our number:</p>
-<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>something</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup></p>
-<p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
-userspace (where we are capable of printing floats) and we can save ourselves
-<em>most</em> of the trouble.</p>
-<div class="highlight"><pre><span class="cp">#include &lt;stdio.h&gt;</span>
-
-<span class="kt">void</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="kt">long</span> <span class="n">val</span> <span class="o">=</span> <span class="mh">0xc00000001568fba0</span><span class="p">;</span>
-
-    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
-<span class="p">}</span>
-</pre></div>
-
-
-<p>So all we're doing is taking our hex value and storing it in a long (val), then
-getting a pointer to val, casting it to a double pointer, and dereferencing it
-and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer is?</p>
-<blockquote>
-<p>"val: -2.000000"</p>
-</blockquote>
-<p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
-bit strange that this is exactly -2. Well it may be that we are not printing
-enough decimal places to see the full result, so update our print statement to:</p>
-<div class="highlight"><pre><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
-</pre></div>
-
-
-<p>And now we get:</p>
-<blockquote>
-<p>"val: -2.0000001595175973534423974342644214630126953125000000"</p>
-</blockquote>
-<p>Much better... But still where did this number come from and why wasn't it the
--2 that we were expecting?</p>
-<h2>Kernel Pointers</h2>
-<p>At this point suspicions had been raised that what was being printed by my
-colleague was not what he expected and that this was in fact a Kernel pointer.
-How do you know? Lets take a step back for a second...</p>
-<p>In the PowerPC architecture, the address space which can be seen by an
-application is known as the <em>effective</em> address space. We can take this
-and translate it into a <em>virtual</em> address which when mapped through the
-HPT (hash page table) gives us a <em>real</em> address (or the hardware memory address).</p>
-<p>The <em>effective</em> address space is divided into 5 regions:</p>
-<p><img alt="Effective Address Table" src="/images/surajjs/doubles_in_hex/effective_address.png" /></p>
-<p>As you may notice, Kernel addresses begin with 0xc. This has the advantage that
-we can map a <em>virtual</em> address without the need for a table by simply
-masking the top nibble.</p>
-<p>Thus it would be reasonable to assume that our value (0xc00000001568fba0) was
-indeed a pointer to a Kernel address (and further code investigation confirmed
-this).</p>
-<h2>But What is -2 as a Double in hex?</h2>
-<p>Well lets modify the above program and find out:</p>
-<div class="highlight"><pre><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
-
-<span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-        <span class="kt">double</span> <span class="n">val</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span><span class="p">;</span>
-
-        <span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: 0x%lx</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">long</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
-<span class="p">}</span>
-</pre></div>
-
-
-<p>Result?</p>
-<blockquote>
-<p>"val: 0xc000000000000000"</p>
-</blockquote>
-<p>Now that sounds much better. Lets take a closer look:</p>
-<h5>0xc000000000000000:</h5>
-<p>Sign Bit: 1     -&gt; Negative<br>
-Exponent: 0x400 -&gt; 2<sup>(1024 - 1023)</sup><br>
-Fraction: 0x0   -&gt; Zero<br></p>
-<p>So if you remember from above, we have:</p>
-<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>0</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup> = -2</p>
-<p>What about -1? -3?</p>
-<h4>-1:</h4>
-<h5>0xbff0000000000000:</h5>
-<p>Sign Bit: 1     -&gt; Negative<br>
-Exponent: 0x3ff -&gt; 2<sup>(1023 - 1023)</sup><br>
-Fraction: 0x0   -&gt; Zero<br></p>
-<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>0</strong></em> x 2<sup><strong>(1023 - 1023)</strong></sup> = -1</p>
-<h4>-3:</h4>
-<h5>0xc008000000000000:</h5>
-<p>Sign Bit: 1                     -&gt; Negative<br>
-Exponent: 0x400                 -&gt; 2<sup>(1024 - 1023)</sup><br>
-Fraction: 0x8000000000000       -&gt; 0.5<br></p>
-<p>(-1)<sup><strong>1</strong></sup> x 1.<em><strong>5</strong></em> x 2<sup><strong>(1024 - 1023)</strong></sup> = -3</p>
-<h2>So What Have We Learnt?</h2>
-<p><strong>Firstly</strong>, make sure that what you're printing is what you think you're printing.</p>
-<p><strong>Secondly</strong>, if it looks like a Kernel pointer then you're probably not printing
-what you think you're printing.</p>
-<p><strong>Thirdly</strong>, all Kernel pointers ~= -2 if you treat them as a double.</p>
-<p>And <strong>Finally</strong>, <em>with my morning gone</em>, I can say for certain that if we treat it as
-a double, 0xc00000001568fba0 =
--2.0000001595175973534423974342644214630126953125.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -430,6 +306,9 @@ a double, 0xc00000001568fba0 =
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/">Interning at Ozlabs</a>
       </li>
@@ -441,9 +320,6 @@ a double, 0xc00000001568fba0 =
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/">Tell Me About Petitboot</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
       </li>
     </ul>
   </section>
@@ -457,13 +333,14 @@ a double, 0xc00000001568fba0 =
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
         <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
     </ul>
   </section>
  
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>  </section>
+    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
