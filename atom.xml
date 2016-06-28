@@ -1,5 +1,125 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-06-15T15:33:00+10:00</updated><entry><title>Introducing snowpatch: continuous integration for patches</title><link href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/" rel="alternate"></link><published>2016-06-15T15:33:00+10:00</published><author><name>Russell Currey</name></author><id>tag:sthbrx.github.io,2016-06-15:blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/</id><summary type="html">&lt;p&gt;Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.&lt;/p&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-06-24T16:30:00+10:00</updated><entry><title>Kernel interfaces and vDSO test</title><link href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/" rel="alternate"></link><published>2016-06-24T16:30:00+10:00</published><author><name>Cyril Bur</name></author><id>tag:sthbrx.github.io,2016-06-24:blog/2016/06/24/kernel-interfaces-and-vdso-test/</id><summary type="html">&lt;h3&gt;Getting Suckered&lt;/h3&gt;
+&lt;p&gt;Last week a colleague of mine came up to me and showed me some of the
+&lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; on PowerPC and asked why on earth does it fail
+&lt;a href="https://github.com/nlynch-mentor/vdsotest"&gt;vdsotest&lt;/a&gt;. I should come
+clean at this point and admit that I knew very little about the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt;
+and hadn't heard of vdsotest. I had to admit to this colleague that I
+had no idea everything looked super sane.&lt;/p&gt;
+&lt;p&gt;Unfortunately (for me) I got hooked, vdsotest was saying it was
+getting '22' instead of '-1' and it was the case where the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; would
+call into the kernel. It plagued me all night, 22 is so suspicious.
+Right before I got to work the next morning I had an epiphany, "I bet
+22 is EINVAL".&lt;/p&gt;
+&lt;h3&gt;Virtual Dynamically linked Shared Objects&lt;/h3&gt;
+&lt;p&gt;The &lt;a href="https://en.wikipedia.org/wiki/VDSO"&gt;&lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt;&lt;/a&gt; is a mechanism to
+expose some kernel functionality into userspace to avoid the cost of a
+context switch into kernel mode. This is a great feat of engineering,
+avoiding the context switch can have a dramatic speedup for userspace
+code. Obviously not all kernel functionality can be placed into
+userspace and even for the functionality which can,
+there may be edge cases in which the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; needs to ask the kernel.&lt;/p&gt;
+&lt;p&gt;Who tests the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt;? For the portion that lies exclusively in userspace it
+will escape all testing of the syscall interface which is really what
+kernel developers are so focused on not breaking. Enter Nathan Lynch
+with &lt;a href="https://github.com/nlynch-mentor/vdsotest"&gt;vdsotest&lt;/a&gt; who has
+done some great work!&lt;/p&gt;
+&lt;h3&gt;The Kernel&lt;/h3&gt;
+&lt;p&gt;When the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; can't get the correct value without the kernel, it
+simply calls into the kernel because the kernel is the definitive
+reference for every syscall. On PowerPC something like this happens
+(sorry, our &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; is 100% asm):
+&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="err"&gt;/*&lt;/span&gt;
+ &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;Exact&lt;/span&gt; &lt;span class="no"&gt;prototype&lt;/span&gt; &lt;span class="no"&gt;of&lt;/span&gt; &lt;span class="no"&gt;clock_gettime&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+ &lt;span class="err"&gt;*&lt;/span&gt;
+ &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;int&lt;/span&gt; &lt;span class="no"&gt;__kernel_clock_gettime&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="no"&gt;clockid_t&lt;/span&gt; &lt;span class="no"&gt;clock_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="no"&gt;struct&lt;/span&gt; &lt;span class="no"&gt;timespec&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="no"&gt;tp&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="err"&gt;;&lt;/span&gt;
+ &lt;span class="err"&gt;*&lt;/span&gt;
+ &lt;span class="err"&gt;*/&lt;/span&gt;
+&lt;span class="nf"&gt;V_FUNCTION_BEGIN&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="no"&gt;__kernel_clock_gettime&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+  &lt;span class="na"&gt;.cfi_startproc&lt;/span&gt;
+    &lt;span class="err"&gt;/*&lt;/span&gt; &lt;span class="nf"&gt;Check&lt;/span&gt; &lt;span class="no"&gt;for&lt;/span&gt; &lt;span class="no"&gt;supported&lt;/span&gt; &lt;span class="no"&gt;clock&lt;/span&gt; &lt;span class="no"&gt;IDs&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="err"&gt;/&lt;/span&gt;
+    &lt;span class="nf"&gt;cmpwi&lt;/span&gt;   &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;r3&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;CLOCK_REALTIME&lt;/span&gt;
+    &lt;span class="nf"&gt;cmpwi&lt;/span&gt;   &lt;span class="no"&gt;cr1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;r3&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;CLOCK_MONOTONIC&lt;/span&gt;
+    &lt;span class="nf"&gt;cror&lt;/span&gt;    &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;cr1&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;
+    &lt;span class="nf"&gt;bne&lt;/span&gt; &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;99&lt;/span&gt;&lt;span class="no"&gt;f&lt;/span&gt;
+
+    &lt;span class="err"&gt;/*&lt;/span&gt; &lt;span class="err"&gt;[&lt;/span&gt;&lt;span class="nf"&gt;snip&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="err"&gt;/&lt;/span&gt;
+
+    &lt;span class="err"&gt;/*&lt;/span&gt;
+     &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;syscall&lt;/span&gt; &lt;span class="no"&gt;fallback&lt;/span&gt;
+     &lt;span class="err"&gt;*/&lt;/span&gt;
+&lt;span class="err"&gt;99:&lt;/span&gt;
+    &lt;span class="nf"&gt;li&lt;/span&gt;  &lt;span class="no"&gt;r0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;__NR_clock_gettime&lt;/span&gt;
+    &lt;span class="nf"&gt;sc&lt;/span&gt;
+    &lt;span class="nf"&gt;blr&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;For those not familiar, this couldn't be more simple. The start checks
+to see if it is a clock id that the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; can handle and if not it jumps
+to the 99 label. From here simply load the syscall number, jump to the
+kernel and branch to link register aka 'return'.  In this case the
+'return' statement would return to the userspace code which called the
+&lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; function.&lt;/p&gt;
+&lt;p&gt;Wait, having the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; calling into the kernel call gets us the wrong
+result? Or course it should, vdsotest is assuming a C ABI with return
+values and errno but the kernel doesn't do that, the kernel ABI is
+different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kr"&gt;inline&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;record_syscall_result&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;syscall_result&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;res&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+                     &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="cm"&gt;/* Calling the vDSO directly instead of through libc can lead to:&lt;/span&gt;
+&lt;span class="cm"&gt;     * - The vDSO code punts to the kernel (e.g. unrecognized clock id).&lt;/span&gt;
+&lt;span class="cm"&gt;     * - The kernel returns an error (e.g. -22 (-EINVAL))&lt;/span&gt;
+&lt;span class="cm"&gt;     * So we need to recognize this situation and fix things up.&lt;/span&gt;
+&lt;span class="cm"&gt;     * Fortunately we&amp;#39;re dealing only with syscalls that return -ve values&lt;/span&gt;
+&lt;span class="cm"&gt;     * on error.&lt;/span&gt;
+&lt;span class="cm"&gt;     */&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;sr_ret&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;sr_errno&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+        &lt;span class="n"&gt;sr_ret&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+
+    &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;res&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;syscall_result&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sr_ret&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+        &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sr_errno&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="p"&gt;};&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;That little hack isn't working on PowerPC and here's why:&lt;/p&gt;
+&lt;p&gt;The kernel puts the return value in the ABI specified return register
+(r3) and uses a condition register bit (condition register field 0, SO
+bit), so unlike x86 on error the return value isn't negative. To make
+matters worse, the condition register is very difficult to access from
+C. Depending on your definition of 'access from C' you might consider
+it impossible, a fixup like that would be impossible.&lt;/p&gt;
+&lt;h3&gt;Lessons learnt&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; supplied functions aren't quite the same as their libc
+counterparts. Unless you have very good reason, and to be fair,
+vdsotest does have a very good reason, always access the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; through
+libc&lt;/li&gt;
+&lt;li&gt;Kernel interfaces aren't C interfaces, yep, they're close but they
+  aren't the same&lt;/li&gt;
+&lt;li&gt;22 is in fact EINVAL&lt;/li&gt;
+&lt;li&gt;Different architectures are... Different!&lt;/li&gt;
+&lt;li&gt;Variety is the spice of life&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;P.S I have a hacky patch waiting review&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id="fn:1"&gt;
+&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn:2"&gt;
+&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</summary><category term="kernel"></category><category term="asm"></category><category term="vdso"></category></entry><entry><title>Introducing snowpatch: continuous integration for patches</title><link href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/" rel="alternate"></link><published>2016-06-15T15:33:00+10:00</published><author><name>Russell Currey</name></author><id>tag:sthbrx.github.io,2016-06-15:blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/</id><summary type="html">&lt;p&gt;Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.&lt;/p&gt;
 &lt;p&gt;Let's throw some spanners in the works.  What if instead of a desktop or web application, you're dealing with an operating system?  What if your tests can only be run when booted on physical hardware? What if instead of something like a GitHub pull request, code changes were sent as plain-text emails to a mailing list?  What if you didn't have control the development of this project, and you had to work with an existing, open community?&lt;/p&gt;
 &lt;p&gt;These are some of the problems faced by the Linux kernel, and many other open source projects.  Mailing lists, along with tools like &lt;code&gt;git send-email&lt;/code&gt;, have become core development infrastructure for many large open source projects.  The idea of sending code via a plain-text email is simple and well-defined, not reliant on a proprietary service, and uses universal, well-defined technology.  It does have shortcomings, though.  How do you take a plain-text patch, which was sent as an email to a mailing list, and accomplish the continuous integration possibilities other tools have trivially?&lt;/p&gt;
 &lt;p&gt;Out of this problem birthed &lt;a href="https://github.com/ruscur/snowpatch"&gt;snowpatch&lt;/a&gt;, a continuous integration tool designed to enable these practices for projects that use mailing lists and plain-text patches.  By taking patch metadata organised by &lt;a href="https://patchwork.ozlabs.org"&gt;Patchwork&lt;/a&gt;, performing a number of &lt;code&gt;git&lt;/code&gt; operations and shipping them off to &lt;a href="https://jenkins.io"&gt;Jenkins&lt;/a&gt;, snowpatch can enable continuous integration for any mailing list-based project.  At IBM &lt;a href="https://ozlabs.org"&gt;OzLabs&lt;/a&gt;, we're using snowpatch to automatically test new patches for &lt;a href="https://github.com/linuxppc/linux/"&gt;Linux on POWER&lt;/a&gt;, &lt;a href="https://github.com/open-power/skiboot.git"&gt;skiboot&lt;/a&gt;, snowpatch itself, and more.&lt;/p&gt;

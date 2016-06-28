@@ -4,7 +4,7 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>OpenPOWER Powers Forward &mdash; Store Half Byte-Reverse Indexed</title>
+  <title>Kernel interfaces and vDSO test &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
@@ -54,10 +54,10 @@
       <li >
         <a href="https://sthbrx.github.io/category/education.html">Education</a>
       </li>
-      <li >
+      <li class="active">
         <a href="https://sthbrx.github.io/category/kernel.html">Kernel</a>
       </li>
-      <li class="active">
+      <li >
         <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
       </li>
       <li >
@@ -72,17 +72,13 @@
 <div>
   <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">OpenPOWER Powers Forward</h1>
+      <h1 class="entry-title">Kernel interfaces and vDSO test</h1>
     <p class="meta">
-<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time>    </p>
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
 </header>
 
-  <div class="entry-content"><p>I wrote this blog post late last year, it is very relevant for this blog though so I'll repost it here.</p>
-<p>With the launch of <a href="http://www.tyan.com/campaign/openpower/">TYAN's OpenPOWER reference system</a> now is a good time to reflect on the team responsible for so much of the research, design and development behind this very first ground breaking step of <a href="http://openpowerfoundation.org/">OpenPOWER</a> with their start to finish involvement of this new Power platform.</p>
-<p>ADL Canberra have been integral to the success of this launch providing the Open Power Abstraction Layer (OPAL) firmware. OPAL breathes new life into Linux on Power finally allowing Linux to run on directly on the hardware.
-While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to sit on top and take direct control of IBMs new Power8 processor without needing to negotiate with a hypervisor. With all the Linux expertise present at ADL Canberra it's no wonder that a Linux based bootloader was developed to make this system work. Petitboot leverage's all the resources of the Linux kernel to create a light, fast and yet extremely versatile bootloader. Petitboot provides a massive amount of tools for debugging and system configuration without the need to load an operating system.</p>
-<p>TYAN have developed great and highly customisable hardware. ADL Canberra have been there since day 1 performing vital platform enablement (bringup) of this new hardware. ADL Canberra have put all the work into the entire software stack, low level work to get OPAL and Linux to talk to the new BMC chip as well as the higher level, enabling to run Linux in either endian and Linux is even now capable of virtualising KVM guests in either endian irrespective of host endian. Furthermore a subset of ADL Canberra have been key to getting the Coherent Accelerator Processor Interface (CAPI) off the ground, enabling more almost endless customisation and greater diversity within the OpenPOWER ecosystem.</p>
-<p>ADL Canberra is the home for Linux on Power and the beginning of the OpenPOWER hardware sees much of the hard work by ADL Canberra come to fruition.</p></div>
+  <div class="entry-content"><p><a href="https://en.wikipedia.org/wiki/VDSO">Virtual Dynamically linked Shareed Objects (vDSO)</a> are a mechanism to expose some kernel functionality into userspace to avoid the cost of a context switch into kernel mode. This is a great feat of engineering, avoiding the context switch can have a dramatic speedup for userpsace code. Obviously not all kernel functionality can be placed into userspace and even for the functionality which can, there may be edge cases in which the vDSO needs to ask the kernel.</p>
+<p>Who tests vDSOs? For the portion that lies exclusively in userspace it will escape all testing of the syscall interface which is really what kernel developers are so focused on not breaking. Enter Nathan Lynch with <a href="https://github.com/nlynch-mentor/vdsotest">vdsotest</a> who has done some great work! Last week a colleague of mine came up to me and showed me some of the vDSO on POWERPC and asked why on earth it is failing vDSO test. I should come clean at this point and admit that I knew very little about the vDSO and hadn't heard of vdsotest. I had to admit to this colleague that I had no idea everything looked super sane. Unfortunately (for me) I got hooked, vdsotest was saying it was getting '22' instead of '-1' and it was the case where the vDSO would call into the kernel</p></div>
     <footer>
 <p class="meta">
   <span class="byline author vcard">
@@ -90,11 +86,11 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
         <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
     </span>
   </span>
-<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time>  <span class="categories">
-    <a class='category' href='https://sthbrx.github.io/category/openpower.html'>OpenPOWER</a>
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/kernel.html'>Kernel</a>
   </span>
   <span class="categories">
-    <a class="category" href="https://sthbrx.github.io/tag/open-power.html">open-power</a>  </span>
+    <a class="category" href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a class="category" href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a class="category" href="https://sthbrx.github.io/tag/vdso.html">vdso</a>  </span>
 </p><div class="sharing">
 </div>    </footer>
   </article>
@@ -109,9 +105,6 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
-      </li>
-      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
       </li>
       <li class="post">
@@ -122,6 +115,9 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/05/13/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
       </li>
     </ul>
   </section>
@@ -143,7 +139,7 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>  </section>
+    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>  </section>
 
 
     <section>
@@ -178,9 +174,9 @@ This blog represents the views of the individual authors, and doesn't necessaril
   <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
   <script type="text/javascript">
     var disqus_shortname = 'sthbrx';
-    var disqus_identifier = '/blog/2015/05/21/openpower-powers-forward/';
-    var disqus_url = 'https://sthbrx.github.io/blog/2015/05/21/openpower-powers-forward/';
-    var disqus_title = 'OpenPOWER Powers Forward';
+    var disqus_identifier = '/blog/2016/05/13/kernel-interfaces-and-vdso-test/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/05/13/kernel-interfaces-and-vdso-test/';
+    var disqus_title = 'Kernel interfaces and vDSO test';
     (function() {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
       dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
