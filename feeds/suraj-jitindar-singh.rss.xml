@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Thu, 12 May 2016 22:22:00 +1000</lastBuildDate><item><title>Doubles in hex and why Kernel addresses ~= -2</title><link>https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/</link><description>&lt;p&gt;It started off a regular Wednesday morning when I hear from my desk a colleague
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/suraj-jitindar-singh.rss.xml" rel="self"></atom:link><lastBuildDate>Thu, 12 May 2016 22:22:00 +1000</lastBuildDate><item><title>Doubles in hex and why Kernel addresses ~= -2</title><link>https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/</link><description>&lt;p&gt;It started off a regular Wednesday morning when I hear from my desk a colleague
 muttering about doubles and their hex representation. "But that doesn't look
 right", "How do I read this as a float", and "&lt;del&gt;redacted&lt;/del&gt; you're the engineer,
 you do it". My interest piqued, I headed over to his desk to enquire about the
@@ -43,7 +43,7 @@ Fraction: 0x1568fba0    -&amp;gt; 1.&lt;em&gt;something&lt;/em&gt;&lt;br&gt;&lt;
 &lt;p&gt;&lt;strong&gt;But there's a much easier way!&lt;/strong&gt; Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 &lt;em&gt;most&lt;/em&gt; of the trouble.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -63,7 +63,7 @@ and printing it as a float. &lt;em&gt;&lt;strong&gt;Drum Roll&lt;/strong&gt;&lt;
 &lt;p&gt;"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;val: %.64lf&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="kt"&gt;double&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;val&lt;/span&gt;&lt;span class="p"&gt;));&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;val: %.64lf&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="kt"&gt;double&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;val&lt;/span&gt;&lt;span class="p"&gt;));&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -91,7 +91,7 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).&lt;/p&gt;
 &lt;h2&gt;But What is -2 as a Double in hex?&lt;/h2&gt;
 &lt;p&gt;Well lets modify the above program and find out:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;include&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;stdio&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;h&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;include&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;stdio&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;h&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -133,4 +133,4 @@ what you think you're printing.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Thirdly&lt;/strong&gt;, all Kernel pointers ~= -2 if you treat them as a double.&lt;/p&gt;
 &lt;p&gt;And &lt;strong&gt;Finally&lt;/strong&gt;, &lt;em&gt;with my morning gone&lt;/em&gt;, I can say for certain that if we treat it as
 a double, 0xc00000001568fba0 =
--2.0000001595175973534423974342644214630126953125.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Suraj Jitindar Singh</dc:creator><pubDate>Thu, 12 May 2016 22:22:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-05-12:blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/</guid><category>double</category><category>float</category><category>hex</category><category>kernel</category></item></channel></rss>
+-2.0000001595175973534423974342644214630126953125.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Suraj Jitindar Singh</dc:creator><pubDate>Thu, 12 May 2016 22:22:00 +1000</pubDate><guid>tag:sthbrx.github.io,2016-05-12:blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/</guid><category>double</category><category>float</category><category>hex</category><category>kernel</category></item></channel></rss>

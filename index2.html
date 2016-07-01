@@ -64,10 +64,112 @@
       <li >
         <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
       </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/work-experience.html">work experience</a>
+      </li>
 </ul></nav>
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
+    </span>
+  </span>
+<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time></div>
+
+  <div class="entry-content"><h2>What is SROP?</h2>
+<p>Sigreturn Oriented Programming - a general technique that can be used as an exploit, or as a backdoor to exploit another vulnerability.</p>
+<h2>Okay, but what is it?</h2>
+<p>Yeah... Let me take you through some relevant background info, where I skimp on the details and give you the general picture.</p>
+<p>In Linux, software interrupts are called signals. More about signals <a href="http://www.thegeekstuff.com/2012/03/linux-signals-fundamentals/">here</a>! Generally a signal will convey some information from the kernel and so most signals will have a specific signal handler (some code that deals with the signal) setup.</p>
+<p>Signals are asynchronous - ie they can be sent to a process/program at anytime. When a signal arrives for a process, the kernel suspends the process. The kernel then saves the 'context' of the process - all the general purpose registers (GPRs), the stack pointer, the next-instruction pointer etc - into a structure called a 'sigframe'. The sigframe is stored on the stack, and then the kernel runs the signal handler. At the very end of the signal handler, it calls a special system call called 'sigreturn' - indicating to the kernel that the signal has been dealt with. The kernel then grabs the sigframe from the stack, restores the process's context and resumes the execution of the process.</p>
+<p>This is the rough mental picture you should have:</p>
+<p><img alt="Double Format" src="/images/rashmica/picture.png" /></p>
+<h2>Okay... but you still haven't explained what SROP is..?</h2>
+<p>Well, if you insist...</p>
+<p>The above process was designed so that the kernel does not need to keep track of what signals it has delivered. The kernel assumes that the sigframe it takes off the stack was legitimately put there by the kernel because of a signal. This is where we can trick the kernel!</p>
+<p>If we can construct a fake sigframe, put it on the stack, and call sigreturn, the kernel will assume that the sigframe is one it put there before and will load the contents of the fake context into the CPU's registers and 'resume' execution from where the fake sigframe tells it to. And that is what SROP is!</p>
+<h2>Well that sounds cool, show me!</h2>
+<p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
+<p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
+<p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
+<div class="highlight"><pre><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
+        <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">uc</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
+        <span class="k">struct</span> <span class="n">siginfo</span> <span class="n">__user</span> <span class="o">*</span><span class="n">pinfo</span><span class="p">;</span>
+        <span class="kt">void</span> <span class="n">__user</span> <span class="o">*</span><span class="n">puc</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">siginfo</span> <span class="n">info</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">user_cookie</span><span class="p">;</span>
+        <span class="cm">/* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */</span>
+        <span class="kt">char</span> <span class="n">abigap</span><span class="p">[</span><span class="n">USER_REDZONE_SIZE</span><span class="p">];</span>
+<span class="p">}</span> <span class="n">__attribute__</span> <span class="p">((</span><span class="n">aligned</span> <span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
+</pre></div>
+
+
+<p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
+<div class="highlight"><pre><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
+<span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r13</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
+<span class="k">struct</span> <span class="n">ucontext</span> <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
+
+<span class="cm">/* We need a system thread id so copy the one from this process */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R13</span><span class="p">]</span> <span class="o">=</span> <span class="n">r13</span><span class="p">;</span>
+
+<span class="cm">/*  Set the context&#39;s stack pointer to where the current stack pointer is pointing */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r1</span><span class="p">;</span>
+</pre></div>
+
+
+<p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
+<div class="highlight"><pre><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">test_function</span><span class="p">;</span>
+</pre></div>
+
+
+<p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
+<div class="highlight"><pre><span class="cm">/* Set MSR bit if LE */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x01</span><span class="p">;</span>
+</pre></div>
+
+
+<p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
+<p><strong>Secondly</strong> we have to put it on the stack:</p>
+<div class="highlight"><pre><span class="cm">/* Set current stack pointer to our fake context */</span>
+<span class="n">r1</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
+</pre></div>
+
+
+<p><strong>Thirdly</strong>, we call sigreturn:</p>
+<div class="highlight"><pre><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
+<span class="n">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="n">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+</pre></div>
+
+
+<p>When the kernel receives the sigreturn call, it looks at the userspace stack pointer for the ucontext and loads this in. As we have put valid values in the ucontext, the kernel assumes that this is a valid sigframe that it set up earlier and loads the contents of the ucontext in the CPU's registers "and resumes" execution of the process from the address we pointed the NIP to.</p>
+<p>Obviously, you need something worth executing at this address, but sadly that next part is not in my job description. This is a nice gateway into the kernel though and would pair nicely with another kernel vulnerability.  If you are interested in some more in depth examples, have a read of <a href="http://www.cs.vu.nl/~herbertb/papers/srop_sp14.pdf">this</a> paper.</p>
+<h2>So how can we mitigate this?</h2>
+<p>Well, I'm glad you asked. We need some way of distinguishing between sigframes that were put there legitimately by the kernel and 'fake' sigframes. The current idea that is being thrown around is cookies, and you can see the x86 discussion <a href="https://lkml.org/lkml/2016/3/29/788">here</a>.</p>
+<p>The proposed solution is to give every sighand struct a randomly generated value. When the kernel constructs a sigframe for a process, it stores a 'cookie' with the sigframe. The cookie is a hash of the cookie's location and the random value stored in the sighand struct for the process. When the kernel receives a sigreturn, it hashes the location where the cookie should be with the randomly generated number in sighand struct - if this matches the cookie, the cookie is zeroed,  the sigframe is valid and the kernel will restore this context.  If the cookies do not match, the sigframe is not restored.</p>
+<p>Potential issues:</p>
+<ul>
+<li>Multithreading: Originally the random number was suggested to be stored in the task struct. However, this would break multi-threaded applications as every thread has its own task struct. As the sighand struct is shared by threads, this should not adversely affect multithreaded applications.</li>
+<li>Cookie location: At first I put the cookie on top of the sigframe. However some code in userspace assumed that all the space between the signal handler and the sigframe  was essentially up for grabs and would zero the cookie before I could read the cookie value. Putting the cookie below the sigframe was also a no-go due to the ABI-gap (a gap below the stack pointer that signal code cannot touch) being a part of the sigframe. Putting the cookie inside the sigframe, just above the ABI gap has been fine with all the tests I have run so far!</li>
+<li>Movement of sigframe: If you move the sigframe on the stack, the cookie value will no longer be valid... I don't think that this is something that you should be doing, and have not yet come across a scenario that does this. </li>
+</ul>
+<p>For a more in-depth explanation of SROP, click <a href="https://lwn.net/Articles/676803/">here</a>.</p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -168,7 +270,7 @@ Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
 <p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 <em>most</em> of the trouble.</p>
-<div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
 
 <span class="kt">void</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -188,7 +290,7 @@ and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer i
 <p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:</p>
-<div class="highlight"><pre><span></span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<div class="highlight"><pre><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
 </pre></div>
 
 
@@ -216,7 +318,7 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).</p>
 <h2>But What is -2 as a Double in hex?</h2>
 <p>Well lets modify the above program and find out:</p>
-<div class="highlight"><pre><span></span><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<div class="highlight"><pre><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 
 <span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -285,7 +387,7 @@ a double, 0xc00000001568fba0 =
 <p>Annoyingly, the <code>msglog</code> file reports itself as size 0 (I'm not sure exactly why, but I <em>think</em> it's due to limitations in sysfs), so if you try to copy the file with <code>cp</code>, you end up with just a blank file. However, you can read it with <code>cat</code> or <code>less</code>.</p>
 <h2>From <code>xmon</code></h2>
 <p><code>xmon</code> is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with <code>kgdb</code>. On our development systems, we often configure <code>xmon</code> to automatically begin debugging whenever we hit an oops or panic (using <code>xmon=on</code> on the kernel command line, or the <code>XMON_DEFAULT</code> Kconfig option). It can also be manually triggered:</p>
-<div class="highlight"><pre><span></span>root@p86:~# echo x &gt; /proc/sysrq-trigger
+<div class="highlight"><pre>root@p86:~# echo x &gt; /proc/sysrq-trigger
 sysrq: SysRq : Entering xmon
 cpu 0x7: Vector: 0  at [c000000fcd717a80]
 pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
@@ -308,7 +410,7 @@ enter ? for help
 <p>Sometimes, not even <code>xmon</code> will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)</p>
 <p>This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is <a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2">documented</a> in IBM Power Systems user manuals.</p>
 <p>How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a <a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c">Memory Dump Source Table</a> which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:</p>
-<div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
+<div class="highlight"><pre><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
 <span class="p">[</span><span class="mi">2690090666</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31000000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2690093767</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31100000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2750378890</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
@@ -331,7 +433,7 @@ enter ? for help
 </li>
 <li>
 <p><code>opal-dump-parse</code> (also in the <code>ppc64-diag</code> suite) can be used to extract the sections we care about from the dump:</p>
-<div class="highlight"><pre><span></span>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+<div class="highlight"><pre>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
 |---------------------------------------------------------|
 |ID              SECTION                              SIZE|
 |---------------------------------------------------------|
@@ -383,89 +485,6 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 <p>Linus Torvalds famously explained why he prefers email over GitHub pull requests <a href="https://github.com/torvalds/linux/pull/17">here</a>, using <a href="https://groups.google.com/forum/#!topic/linux.kernel/w957vpu3PPU">this</a> pull request from Ben Herrenschmidt as an example of why git's own pull request format is superior to that of GitHub.  Damien Lespiau, who is working on the freedesktop Patchwork fork, <a href="http://damien.lespiau.name/2016/02/augmenting-mailing-lists-with-patchwork.html">outlines on his blog</a> all the issues he has with mailing list workflows and why he thinks mailing lists are a relic of the past.  His work on Patchwork has gone a long way to help fix those problems, however I don't think mailing lists are outdated and superceded, I think they are timeless.  They are a technology-agnostic, simple and free system that will still be around if GitHub dies or alienates its community.</p>
 <p>That said, there's still the case of the missing features.  What about automated testing?  What about developer feedback?  What about making a maintainer's life easier?  We've been working on improving these issues, and I'll outline how we're approaching them in a future post.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/">No Network For You</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-03-21T15:23:00+11:00" pubdate>Mon 21 March 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2016-03-21T15:23:00+11:00" pubdate>Mon 21 March 2016</time></div>
-
-  <div class="entry-content"><p>In POWER land <a href="https://en.wikipedia.org/wiki/Intelligent_Platform_Management_Interface">IPMI</a> is mostly known as the method to access the machine's console and start interacting with Petitboot. However it also has a plethora of other features, handily described in the 600ish page <a href="http://www.intel.com/content/www/us/en/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html">IPMI specification</a> (which you can go read yourself).</p>
-<p>One especially relevant feature to Petitboot however is the 'chassis bootdev' command, which you can use to tell Petitboot to ignore any existing boot order, and only consider boot options of the type you specify (eg. 'network', 'disk', or 'setup' to not boot at all). Support for this has been in Petitboot for a while and should work on just about any machine you can get your hands on.</p>
-<h2>Network Overrides</h2>
-<p>Over in OpenPOWER<sup>1</sup> land however, someone took this idea and pushed it further - why not allow the network configuration to be overwritten too? This isn't in the IPMI spec, but if you cast your gaze down to page 398 where the spec lays out the entire format of the IPMI request, there is a certain field named "OEM Parameters". This is an optional amount of space set aside for whatever you like, which in this case is going to be data describing an override of the network config.</p>
-<p>This allows a user to tell Petitboot over IPMI to either;</p>
-<ul>
-<li>Disable the network completely,</li>
-<li>Set a particular interface to use DHCP, or</li>
-<li>Set a particular interface to use a specific static configuration.</li>
-</ul>
-<p>Any of these options will cause any existing network configurations to be ignored.</p>
-<h2>Building the Request</h2>
-<p>Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:</p>
-<div class="highlight"><pre><span></span><span class="x">ipmitool -I lanplus -H </span><span class="p">$</span><span class="nv">yourbmc</span><span class="x"> -U </span><span class="p">$</span><span class="nv">user</span><span class="x"> -P </span><span class="p">$</span><span class="nv">pass</span><span class="x"> raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1</span>
-</pre></div>
-
-
-<p>Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:</p>
-<div class="highlight"><pre><span></span>Specify the &quot;chassis bootdev&quot; command, field 96, data field 1:
-    0x00 0x08 0x61 0x80
-
-Unique value that Petitboot recognises:
-    0x21 0x70 0x62 0x21
-
-Version field (1)
-    0x00 0x01 ..   ..
-
-Size of the hardware address (6):
-    ..   ..   0x06 ..
-
-Size of the IP address (IPv4/IPv6):
-    ..   ..   ..   0x04
-
-Hardware (MAC) address:
-    0xf4 0x52 0x14 0xf3
-    0x01 0xdf ..   ..
-
-&#39;Ignore flag&#39; and DHCP/Static flag (DHCP is 0)
-    ..   ..   0x00 0x01
-
-(Below fields only required if setting a static IP)
-
-IP Address:
-    0x0a 0x3d 0xa1 0x42
-
-Subnet Mask (eg, /16):
-    0x10 ..   ..   ..
-Gateway IP Address:
-    ..   0x0a 0x3d 0x02
-    0x01
-</pre></div>
-
-
-<p>Clearing a network override is as simple as making a request empty aside from the header:</p>
-<div class="highlight"><pre><span></span>0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
-</pre></div>
-
-
-<p>You can also read back the request over IPMI with this request:</p>
-<div class="highlight"><pre><span></span>0x00 0x09 0x61 0x00 0x00
-</pre></div>
-
-
-<p>That's it! Ideally this is something you would be scripting rather than bashing out on the keyboard - the main use case at the moment is as a way to force a machine to netboot against a known good source, rather than whatever may be available on its other interfaces.</p>
-<p>[1] The reason this is only available on OpenPOWER machines at the moment is that support for the IPMI command itself depends on the BMC firmware, and non-OpenPOWER machines use an FSP which is a different platform.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -477,6 +496,9 @@ Gateway IP Address:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/07/01/a-taste-of-ibm/">A Taste of IBM</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
       </li>
       <li class="post">
@@ -487,9 +509,6 @@ Gateway IP Address:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
       </li>
     </ul>
   </section>
@@ -505,13 +524,14 @@ Gateway IP Address:
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
         <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
         <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/work-experience.html">work experience</a></li>
     </ul>
   </section>
  
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/education.html">education</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
 
 
     <section>
