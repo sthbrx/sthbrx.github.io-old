@@ -4,7 +4,7 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>A Taste of IBM &mdash; Store Half Byte-Reverse Indexed</title>
+  <title>Optical Action at a Distance &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
@@ -60,13 +60,13 @@
       <li >
         <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
       </li>
-      <li >
+      <li class="active">
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
       </li>
       <li >
         <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
       </li>
-      <li class="active">
+      <li >
         <a href="https://sthbrx.github.io/category/work-experience.html">work experience</a>
       </li>
 </ul></nav>
@@ -75,28 +75,72 @@
 <div>
   <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">A Taste of IBM</h1>
+      <h1 class="entry-title">Optical Action at a Distance</h1>
     <p class="meta">
-<time datetime="2016-07-01T11:45:00+10:00" pubdate>Fri 01 July 2016</time>    </p>
+<time datetime="2016-07-05T15:23:00+10:00" pubdate>Tue 05 July 2016</time>    </p>
 </header>
 
-  <div class="entry-content"><p>As a hobbyist programmer and Linux user, I was pretty stoked to be able to experience real work in the IT field that interests me most, Linux. With a mainly disconnected understanding of computer hardware and software, I braced myself to entirely relearn everything and anything I thought I knew. Furthermore, I worried that my usefulness in a world of maintainers, developers and testers would not be enough to provide any real contribution to the company. In actual fact however, the employees at OzLabs (IBM ADL) put a really great effort into making use of my existing skills, were attentive to my current knowledge and just filled in the gaps! The knowledge they've given me is practical, interlinked with hardware and provided me with the foot-up that I'd been itching for to establish my own portfolio as a programmer. I was both honoured and astonished by their dedication to helping me make a truly meaningful contribution!</p>
-<p>On applying for the placement, I listed my skills and interests. Having a Mathematics, Science background, I listed among my greatest interests development of scientific simulation and graphics using libraries such as Python matplotlib and R. By the <em>first day</em> they got me to work, researching and implementing a routine in R that would qualitatively model the ability of a system to perform common tasks - a benchmark. A series of these microbenchmarks were made; I was in my element and actually able to contribute to a corporation much larger than I could imagine. The team at IBM reinforced my knowledge from the ground up, introducing the rigorous hardware and corporate elements at a level I was comfortable with.</p>
-<p>I would say that my greatest single piece of take-home knowledge over the two weeks was knowledge of the Linux Kernel project, Git and GitHub. Having met the arch/powerpc and linux-next maintainers in person placed the Linux and Open Source development cycle in an entirely new perspective. I was introduced to the world of GitHub, and thanks to a few rigorous lessons of Git, I now have access to tools that empower me to safely and efficiently write code, and to build a public portfolio I can be proud of. Most members of the office donated their time to instruct me on all fronts, whether to do with career paths, programming expertise or conceptual knowledge, and the rest were all very good for a chat.</p>
-<p>Approaching the tail-end of Year Twelve, I was blessed with some really good feedback and recommendations regarding further study. If during the two weeks I had any query regarding anything ranging from work-life to programming expertise even to which code editor I should use (a source of much contention) the people in the office were very happy to help me. Several employees donated their time to teach me really very intensive and long lessons regarding the software development concepts, including (but not limited to!) a thorough and helpful lesson on Git that was just on my level of understanding.</p>
-<p>Working at IBM these past two weeks has not only bridged the gap between my hobby and my professional prospects, but more importantly established friendships with professionals in the field of Software Development. Without a doubt this really great experience of an environment that rewards my enthusiasm will fondly stay in my mind as I enter the next chapter of my life!</p></div>
+  <div class="entry-content"><p>Generally when someone wants to install a Linux distro they start with an ISO
+file. Now we could burn that to a DVD, walk into the server room, and put it in
+our machine, but that's a pain. Instead let's look at how to do this over the
+network with Petitboot!</p>
+<p>At the moment Petitboot won't be able to handle an ISO file unless it's
+mounted in an expected place (eg. as a mounted DVD), so we need to unpack it
+somewhere. Choose somewhere to host the result and unpack the ISO via whatever
+method you prefer. (For example <code>bsdtar -xf /path/to/image.iso</code>).</p>
+<p>You'll get a bunch of files but for our purposes we only care about a few; the
+kernel, the initrd, and the bootloader configuration file. Using
+the Ubuntu 16.04 ppc64el ISO as an example, these are:</p>
+<div class="highlight"><pre><span></span>./install/vmlinux
+./install/initrd.gz.
+./boot/grub/grub.cfg
+</pre></div>
+
+
+<p>In grub.cfg we can see that the boot arguments are actually quite simple:</p>
+<div class="highlight"><pre><span></span>set timeout=-1
+
+menuentry &quot;Install&quot; {
+    linux   /install/vmlinux tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
+    initrd  /install/initrd.gz
+}
+
+menuentry &quot;Rescue mode&quot; {
+    linux   /install/vmlinux rescue/enable=true --- quiet
+    initrd  /install/initrd.gz
+}
+</pre></div>
+
+
+<p>So all we need to do is create a PXE config file that points Petitboot towards
+the correct files.</p>
+<p>We're going to create a PXE config file which you could serve from your DHCP
+server, but that does not mean we need to use PXE - if you just want a quick
+install you only need make these files accessible to Petitboot, and then we can
+use the 'Retrieve config from URL' option to download the files.</p>
+<p>Create a petitboot.conf file somewhere accessible that contains (for Ubuntu):</p>
+<div class="highlight"><pre><span></span>label Install Ubuntu 16.04 Xenial Xerus
+    kernel http://myaccesibleserver/path/to/vmlinux
+    initrd http://myaccesibleserver/path/to/initrd.gz
+    append tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
+</pre></div>
+
+
+<p>Then in Petitboot, select 'Retrieve config from URL' and enter
+<code>http://myaccesibleserver/path/to/petitboot.conf</code>. In the main menu your new
+option should appear - select it and away you go!</p></div>
     <footer>
 <p class="meta">
   <span class="byline author vcard">
     Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a>
+        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
     </span>
   </span>
-<time datetime="2016-07-01T11:45:00+10:00" pubdate>Fri 01 July 2016</time>  <span class="categories">
-    <a class='category' href='https://sthbrx.github.io/category/work-experience.html'>work experience</a>
+<time datetime="2016-07-05T15:23:00+10:00" pubdate>Tue 05 July 2016</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/petitboot.html'>Petitboot</a>
   </span>
   <span class="categories">
-    <a class="category" href="https://sthbrx.github.io/tag/education.html">Education</a>  </span>
+    <a class="category" href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/power.html">power</a>,    <a class="category" href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a class="category" href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a class="category" href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a class="category" href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a class="category" href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/pxe.html">pxe</a>  </span>
 </p><div class="sharing">
 </div>    </footer>
   </article>
@@ -176,9 +220,9 @@
   <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
   <script type="text/javascript">
     var disqus_shortname = 'sthbrx';
-    var disqus_identifier = '/blog/2016/07/01/a-taste-of-ibm/';
-    var disqus_url = 'https://sthbrx.github.io/blog/2016/07/01/a-taste-of-ibm/';
-    var disqus_title = 'A Taste of IBM';
+    var disqus_identifier = '/blog/2016/07/05/optical-action-at-a-distance/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2016/07/05/optical-action-at-a-distance/';
+    var disqus_title = 'Optical Action at a Distance';
     (function() {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
       dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';

@@ -74,19 +74,37 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-06-07T17:03:00+10:00" pubdate>Tue 07 June 2016</time>    </p>
+</header>
+
+  <div class="entry-content"><p><a href="https://atom.io">Atom</a> is a text editor.  It's new, it's shiny, and it has a lot of good and bad sides.  I work in a lab full of kernel developers, and in the kernel, there are no IDEs.  There's no real metadata you can get out of your compiler (given the kernel isn't very clang friendly), there's certainly nothing like that you can get out of your build system, so "plain old" text editors reign supreme.  It's a vim or Emacs show.</p>
+<p>And so Atom comes along.  Unlike other shiny new text editors to emerge in the past 10 or so years, it's open source (unlike Sublime Text), it works well on Linux, and it's very configurable.  When it first came out, Atom was an absolute mess.  There was a noticeable delay whenever you typed a key.  That has gone, but the sour impression that comes from replacing a native application with a web browser in a frame remains.</p>
+<p>Like the curious person I am, I'm always trying out new things to see if they're any good.  I'm not particularly tied to any editor; I prefer modal editing, but I'm no vim wizard.  I eventually settled on using Emacs with evil-mode (which I assumed would make both Emacs and vim people like me, but the opposite happened), which was decent.  It was configurable, it was good, but it had issues.</p>
+<p><img alt="The Atom editor" src="http://i.imgur.com/36lOiMT.png" /></p>
+<p>So, let's have a look at how Atom stacks up for low-level work.  First of all, it's X only.  You wouldn't use it to change one line of a file in /etc/, and a lot of kernel developers only edit code inside a terminal emulator.  Most vim people do this since gvim is a bit wonky, and Emacs people can double-dip; using Emacs without X for small things and Emacs with X for programming.  You don't want to do that with Atom, if nothing else because of its slow startup time.</p>
+<p>Now let's look at configurability.  In my opinion, no editor will ever match the level of configurability of Emacs, however the barrier to entry is much lower here.  Atom has lots of options exposed in a config file, and you can set them there or you can use an equivalent GUI.  In addition, a perk of being a browser in a frame is that you can customise a lot of UI things with CSS, for those inclined.  Overall, I'd say Emacs &gt; Atom &gt; vim here, but for a newbie, it's probably Atom &gt; Emacs &gt; vim.</p>
+<p>Okay, package management.  Atom is the clear winner here.  The package repository is very easy to use, for users and developers.  I wrote my own package, typed <code>apm publish</code> and within a minute a friend could install it.  For kernel development though, you don't really need to install anything, Atom is pretty batteries-included.  This includes good syntax highlighting, ctags support, and a few themes.  In this respect, Atom feels like an editor that was created this century.</p>
+<p><img alt="Atom's inbuilt package management" src="https://i.imgur.com/DAx7GqD.png" /></p>
+<p>What about actually editing text?  Well, I only use modal editing, and Atom is very far from being the best vim.  I think evil-mode in Emacs is the best vim, followed closely by vim itself.  Atom has a vim-mode, and it's fine for insert/normal/visual mode, but anything involving a : is a no-go.  There's a plugin that's entirely useless.  If I tried to do a replacement with :s, Atom would lock up <em>and</em> fail to replace the text.  vim replaced thousands of occurrences with in a second.  Other than that, Atom's pretty good.  I can move around pretty much just as well as I could in vim or Emacs, but not quite.  Also, it support ligatures!  The first kernel-usable editor that does.</p>
+<p>Autocompletions feel very good in Atom.  It completes within a local scope automatically, without any knowledge of the type of file you're working on.  As far as intelligence goes, Atom's support for tags outside of ctags is very lacking, and ctags is stupid.  Go-to definition <em>sometimes</em> works, but it lags when dealing with something as big as the Linux kernel.  Return-from definition is very good, though.  Another downside is that it can complete from any open buffer, which is a huge problem if you're writing Rust in one tab and C in the other.</p>
+<p><img alt="Atom's fuzzy file matching is pretty good" src="http://i.imgur.com/0PRiIUS.png" /></p>
+<p>An experience I've had with Atom that I haven't had with other editors is actually writing a plugin.  It was really easy, mostly because I stole a lot of it from an existing plugin, but it was easy.  I wrote a syntax highlighting package for POWER assembly, which was much more fighting with regular expressions than it was fighting with anything in Atom.  Once I had it working, it was very easy to publish; just push to GitHub and run a command.</p>
+<p>Sometimes, Atom can get too clever for its own good.  For some completely insane reason, it automatically "fixes" whitespace in every file you open, leading to a huge amount of git changes you didn't intend.  That's easy to disable, but I don't want my editor doing that, it'd be much better if it highlighted whitespace it didn't like by default, like you can get vim and Emacs to do.  For an editor designed around git, I can't comprehend that decision.</p>
+<p><img alt="Atom can also fuzzy match its commands" src="https://i.imgur.com/arbWXHx.png" /></p>
+<p>Speaking of git, the editor pretty much has everything you'd expect for an editor written at GitHub.  The sidebar shows you what lines you've added, removed and modified, and the gutter shows you what branch you're on and how much you've changed all-up.  There's no in-built support for doing git things inside the editor, but there's a package for it.  It's pretty nice to get something "for free" that you'd have to tinker with in other editors.</p>
+<p>Overall, Atom has come a long way and still has a long way to go.  I've been using it for a few weeks and I'll continue to use it.  I'll encourage new developers to use it, but it needs to be better for experienced programmers who are used to their current workflow to consider switching.  If you're in the market for a new editor, Atom might just be for you.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
       </h1>
     <p class="meta">
 <time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
 </header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
-    </span>
-  </span>
-<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time></div>
 
   <div class="entry-content"><h2>What is SROP?</h2>
 <p>Sigreturn Oriented Programming - a general technique that can be used as an exploit, or as a backdoor to exploit another vulnerability.</p>
@@ -104,7 +122,7 @@
 <p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
 <p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
 <p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
-<div class="highlight"><pre><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
+<div class="highlight"><pre><span></span><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
         <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">uc</span><span class="p">;</span>
         <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
         <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
@@ -119,7 +137,7 @@
 
 
 <p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
-<div class="highlight"><pre><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
 <span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r13</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
 <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
 
@@ -132,26 +150,26 @@
 
 
 <p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
-<div class="highlight"><pre><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
 <span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">test_function</span><span class="p">;</span>
 </pre></div>
 
 
 <p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
-<div class="highlight"><pre><span class="cm">/* Set MSR bit if LE */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Set MSR bit if LE */</span>
 <span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x01</span><span class="p">;</span>
 </pre></div>
 
 
 <p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
 <p><strong>Secondly</strong> we have to put it on the stack:</p>
-<div class="highlight"><pre><span class="cm">/* Set current stack pointer to our fake context */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Set current stack pointer to our fake context */</span>
 <span class="n">r1</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
 </pre></div>
 
 
 <p><strong>Thirdly</strong>, we call sigreturn:</p>
-<div class="highlight"><pre><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
+<div class="highlight"><pre><span></span><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
 <span class="n">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 <span class="n">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 </pre></div>
@@ -178,14 +196,6 @@
     <p class="meta">
 <time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
 </header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time></div>
 
   <div class="entry-content"><p>A Google search for 'Petitboot' brings up results from a number of places, some describing its use on <a href="https://www.ibm.com/support/knowledgecenter/linuxonibm/liabp/liabppetitboot.htm">POWER servers</a>, others talking about how to use it on the <a href="http://jk.ozlabs.org/projects/petitboot/">PS3</a>, in varying levels of detail. I tend to get a lot of general questions about Petitboot and its behaviour, and have had a few requests for a broad "Welcome to Petitboot" blog, suggesting that existing docs deal with more specific topics.. or that people just aren't reading them :)</p>
 <p>So today we're going to take a bit of a crash course in the what, why, and possibly how of Petitboot. I won't delve too much into technical details, and this will be focussed on Petitboot in POWER land since that's where I spend most of my time.
@@ -217,14 +227,6 @@ At the same time Petitboot makes PXE requests on configured network interfaces s
     <p class="meta">
 <time datetime="2016-05-12T22:22:00+10:00" pubdate>Thu 12 May 2016</time>    </p>
 </header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a>
-    </span>
-  </span>
-<time datetime="2016-05-12T22:22:00+10:00" pubdate>Thu 12 May 2016</time></div>
 
   <div class="entry-content"><p>It started off a regular Wednesday morning when I hear from my desk a colleague
 muttering about doubles and their hex representation. "But that doesn't look
@@ -270,7 +272,7 @@ Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
 <p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 <em>most</em> of the trouble.</p>
-<div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
 
 <span class="kt">void</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -290,7 +292,7 @@ and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer i
 <p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:</p>
-<div class="highlight"><pre><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<div class="highlight"><pre><span></span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
 </pre></div>
 
 
@@ -318,7 +320,7 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).</p>
 <h2>But What is -2 as a Double in hex?</h2>
 <p>Well lets modify the above program and find out:</p>
-<div class="highlight"><pre><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<div class="highlight"><pre><span></span><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 
 <span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -371,14 +373,6 @@ a double, 0xc00000001568fba0 =
 <time datetime="2016-03-22T18:00:00+11:00" pubdate>Tue 22 March 2016</time>    </p>
 </header>
 
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
-    </span>
-  </span>
-<time datetime="2016-03-22T18:00:00+11:00" pubdate>Tue 22 March 2016</time></div>
-
   <div class="entry-content"><p>Here at OzLabs, we have an unfortunate habit of making our shiny Power computers very sad, which is a common problem in systems programming and kernel hacking. When this happens, we like having logs. In particular, we like to have the kernel log and the OPAL firmware log, which are, very surprisingly, rather helpful when debugging kernel and firmware issues.</p>
 <p>Here's how to get them.</p>
 <h2>From userspace</h2>
@@ -387,7 +381,7 @@ a double, 0xc00000001568fba0 =
 <p>Annoyingly, the <code>msglog</code> file reports itself as size 0 (I'm not sure exactly why, but I <em>think</em> it's due to limitations in sysfs), so if you try to copy the file with <code>cp</code>, you end up with just a blank file. However, you can read it with <code>cat</code> or <code>less</code>.</p>
 <h2>From <code>xmon</code></h2>
 <p><code>xmon</code> is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with <code>kgdb</code>. On our development systems, we often configure <code>xmon</code> to automatically begin debugging whenever we hit an oops or panic (using <code>xmon=on</code> on the kernel command line, or the <code>XMON_DEFAULT</code> Kconfig option). It can also be manually triggered:</p>
-<div class="highlight"><pre>root@p86:~# echo x &gt; /proc/sysrq-trigger
+<div class="highlight"><pre><span></span>root@p86:~# echo x &gt; /proc/sysrq-trigger
 sysrq: SysRq : Entering xmon
 cpu 0x7: Vector: 0  at [c000000fcd717a80]
 pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
@@ -410,7 +404,7 @@ enter ? for help
 <p>Sometimes, not even <code>xmon</code> will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)</p>
 <p>This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is <a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2">documented</a> in IBM Power Systems user manuals.</p>
 <p>How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a <a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c">Memory Dump Source Table</a> which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:</p>
-<div class="highlight"><pre><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
+<div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
 <span class="p">[</span><span class="mi">2690090666</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31000000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2690093767</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31100000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2750378890</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
@@ -433,7 +427,7 @@ enter ? for help
 </li>
 <li>
 <p><code>opal-dump-parse</code> (also in the <code>ppc64-diag</code> suite) can be used to extract the sections we care about from the dump:</p>
-<div class="highlight"><pre>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+<div class="highlight"><pre><span></span>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
 |---------------------------------------------------------|
 |ID              SECTION                              SIZE|
 |---------------------------------------------------------|
@@ -457,34 +451,6 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 <h2>Acknowledgements</h2>
 <p>Thanks to <a href="https://flamingspork.com">Stewart Smith</a> for pointing me in the right direction regarding FSP sysdumps and related tools.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/">The Elegance of the Plaintext Patch</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-03-22T13:53:00+11:00" pubdate>Tue 22 March 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
-    </span>
-  </span>
-<time datetime="2016-03-22T13:53:00+11:00" pubdate>Tue 22 March 2016</time></div>
-
-  <div class="entry-content"><p>I've only been working on the Linux kernel for a few months.  Before that, I worked with proprietary source control at work and common tools like GitHub at home.  The concept of the mailing list seemed obtuse to me.  If I noticed a problem with some program, I'd be willing to open an issue on GitHub but not to send an email to a mailing list.  Who still uses those, anyway?</p>
-<p>Starting out with the kernel meant I had to figure this email thing out.  <code>git format-patch</code> and <code>git send-email</code> take most of the pain out of formatting and submitting a patch, which is nice.  The patch files generated by <code>format-patch</code> open nicely in Emacs by default, showing all whitespace and letting you pick up any irregularities.  <code>send-email</code> means you can send it to yourself or a friend first, finding anything that looks stupid before being exposed to the public.</p>
-<p>And then what?  You've sent an email.  It gets sent to hundreds or thousands of people.  Nowhere near that many will read it.  Some might miss it due to their mail server going down, or the list flagging your post as spam, or requiring moderation.  Some recipients will be bots that archive mail on the list, or publish information about the patch.  If you haven't formatted it correctly, someone will let you know quickly.  If your patch is important or controversial, you'll have all sorts of responses.  If your patch is small or niche, you might not ever hear anything back.</p>
-<p>I remember when I sent my first patch.  I was talking to a former colleague who didn't understand the patch/mailing list workflow at all.  I sent him a link to my patch on a mail archive.  I explained it like a pull request - here's my code, you can find the responses.  What's missing from a GitHub-esque pull request?  We don't know what tests it passed.  We don't know if it's been merged yet, or if the maintainer has looked at it.  It takes a bit of digging around to find out who's commented on it.  If it's part of a series, that's awkward to find out as well.  What about revisions of a series?  That's another pain point.</p>
-<p>Luckily, these problems do have solutions.  <a href="http://jk.ozlabs.org/projects/patchwork/">Patchwork</a>, written by fellow OzLabs member <a href="http://jk.ozlabs.org">Jeremy Kerr</a>, changes the way we work with patches.  Project maintainers rely on Pathwork instances, such as <a href="https://patchwork.ozlabs.org">https://patchwork.ozlabs.org</a>, for their day-to-day workflow: tagging reviewers, marking the status of patches, keeping track of tests, acks, reviews and comments in one place.  Missing from this picture is support for series and revisions, which is a feature that's being developed by the <a href="https://www.freedesktop.org/wiki/">freedesktop</a> project.  You can check out their changes in action <a href="https://patchwork.freedesktop.org">here</a>.</p>
-<p>So, Patchwork helps patches and email catch up to what GitHub has in terms of ease of information.  We're still missing testing and other hooks.  What about review?  What can we do with email, compared to GitHub and the like?</p>
-<p>In my opinion, the biggest feature of email is the ease of review.  Just reply inline and you're done.  There's inline commenting on GitHub and GitLab, which works well but is a bit tacky, people commenting on the same thing overlap and conflict, each comment generates a notification (which can be an email until you turn that off).  Plus, since it's email, it's really easy to bring in additional people to the conversation as necessary.  If there's a super lengthy technical discussion in the kernel, it might just take Linus to resolve.</p>
-<p>There are alternatives to just replying to email, too, such as <a href="https://www.gerritcodereview.com/">Gerrit</a>.  Gerrit's pretty popular, and has a huge amount of features.  I understand why people use it, though I'm not much of a fan.  Reason being, it doesn't add to the email workflow, it replaces it.  Plaintext email is supported on pretty much any device, with a bunch of different programs.  From the goals of Patchwork: "patchwork should supplement mailing lists, not replace them".</p>
-<p>Linus Torvalds famously explained why he prefers email over GitHub pull requests <a href="https://github.com/torvalds/linux/pull/17">here</a>, using <a href="https://groups.google.com/forum/#!topic/linux.kernel/w957vpu3PPU">this</a> pull request from Ben Herrenschmidt as an example of why git's own pull request format is superior to that of GitHub.  Damien Lespiau, who is working on the freedesktop Patchwork fork, <a href="http://damien.lespiau.name/2016/02/augmenting-mailing-lists-with-patchwork.html">outlines on his blog</a> all the issues he has with mailing list workflows and why he thinks mailing lists are a relic of the past.  His work on Patchwork has gone a long way to help fix those problems, however I don't think mailing lists are outdated and superceded, I think they are timeless.  They are a technology-agnostic, simple and free system that will still be around if GitHub dies or alienates its community.</p>
-<p>That said, there's still the case of the missing features.  What about automated testing?  What about developer feedback?  What about making a maintainer's life easier?  We've been working on improving these issues, and I'll outline how we're approaching them in a future post.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -496,6 +462,9 @@ Captured log to file printk.842EA8A.00000001.20160322063051
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/07/05/optical-action-at-a-distance/">Optical Action at a Distance</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/07/01/a-taste-of-ibm/">A Taste of IBM</a>
       </li>
       <li class="post">
@@ -506,9 +475,6 @@ Captured log to file printk.842EA8A.00000001.20160322063051
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/">Interning at Ozlabs</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
       </li>
     </ul>
   </section>
@@ -531,7 +497,7 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>  </section>
+    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/docker.html">docker</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/open-power.html">open-power</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/experience.html">experience</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/nicta.html">nicta</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/development.html">development</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/powerpc.html">powerpc</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/lca2016.html">lca2016</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>  </section>
 
 
     <section>
@@ -550,11 +516,6 @@ Captured log to file printk.842EA8A.00000001.20160322063051
         </ul>
     </section>
 
-    <section>
-        <h1>Disclaimer</h1>
-        <div>
-This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
-    </section>
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
