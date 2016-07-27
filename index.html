@@ -65,6 +65,90 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-07-27T13:30:00+10:00" pubdate>Wed 27 July 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2016-07-27T13:30:00+10:00" pubdate>Wed 27 July 2016</time></div>
+
+  <div class="entry-content"><p>On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests are simply testing whether a project builds, and if it provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.</p>
+<p>Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that when a performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.</p>
+<p>This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.<sup id="fnref:1"><a class="footnote-ref" href="#fn:1" rel="footnote">1</a></sup></p>
+<p>So, <strong>can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?</strong></p>
+<p>What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.</p>
+<p>For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. A accessible guide (with very helpful diagrams!) is <a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf">the relevant RedBook (PDF)</a>, chapter 2.</p>
+<p>We could achieve the isolation we want by dividing up CPUs and NUMA nodes between the competing workloads. Fortunately, all of the hardware NUMA information is plumbed nicely into Linux. Each P8 socket gets a corresponding NUMA node. <code>lscpu</code> will tell you what CPUs correspond to which NUMA nodes (although what it calls a CPU we would call a hardware thread). If you install <code>numactl</code>, you can use <code>numactl -H</code> to get even more details.</p>
+<p>In our case, the relevant <code>lscpu</code> output is thus:</p>
+<div class="highlight"><pre>NUMA node0 CPU(s):     0-31
+NUMA node1 CPU(s):     96-127
+NUMA node16 CPU(s):    32-63
+NUMA node17 CPU(s):    64-95
+</pre></div>
+
+
+<p>Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or <code>cgroups</code> for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called <code>cpuset</code>, which can control CPU affinity, and restrict memory allocation to a NUMA node.</p>
+<p>We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!<sup id="fnref:2"><a class="footnote-ref" href="#fn:2" rel="footnote">2</a></sup> Docker containers are put in the <code>docker</code> cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.<sup id="fnref:3"><a class="footnote-ref" href="#fn:3" rel="footnote">3</a></sup> So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:</p>
+<div class="highlight"><pre>cgcreate -g cpuset:docker
+<span class="nb">echo</span> 32-127 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
+<span class="nb">echo</span> 1,16-17 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
+<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
+</pre></div>
+
+
+<p><code>mem_hardwall</code> prevents memory allocations under docker from spilling over into the one remaining NUMA node.</p>
+<p>So, does this work? I created a container with sysbench and then ran the following:</p>
+<div class="highlight"><pre>root@0d3f339d4181:/# sysbench --test<span class="o">=</span>cpu --num-threads<span class="o">=</span><span class="m">128</span> --max-requests<span class="o">=</span><span class="m">10000000</span> run
+</pre></div>
+
+
+<p>Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?</p>
+<p><img alt="htop screenshot, showing load only on CPUs 32-127" src="images/dja/cgroup1.png" /></p>
+<p>It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:</p>
+<div class="highlight"><pre>cgcreate -g cpuset:perf-cgroup
+<span class="nb">echo</span> 0-31 &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
+<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
+<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
+</pre></div>
+
+
+<p>Docker conveniently lets us put new containers under a different cgroup, which means we can simply do:</p>
+<div class="highlight"><pre>dja@p88 ~&gt; docker run -it --rm --cgroup-parent<span class="o">=</span>/perf-cgroup/ ppc64le/ubuntu bash
+root@b037049f94de:/# <span class="c1"># ... install sysbench</span>
+root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<span class="o">=</span><span class="m">128</span> --max-requests<span class="o">=</span><span class="m">10000000</span> run
+</pre></div>
+
+
+<p>And the result?</p>
+<p><img alt="htop screenshot, showing load only on CPUs 0-31" src="images/dja/cgroup2.png" /></p>
+<p>It works! My benchmark results also suggest this is sufficient isolation, and the rest of the team is happy to have more build resources to play with.</p>
+<p>There are some boring loose ends to tie up: if a build job does anything outside of docker (like clone a git repo), that doesn't come under the docker cgroup, and we have to interact with systemd. Because systemd doesn't know about cpuset, this is <em>quite</em> fiddly. We also want this in a systemd unit so it runs on start up, and we want some code to tear it down. But I'll spare you the gory details.</p>
+<p>In summary, cgroups are surprisingly powerful and simple to work with, especially in conjunction with Docker and NUMA on Power!</p>
+<div class="footnote">
+<hr />
+<ol>
+<li id="fn:1">
+<p>It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&#160;<a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+<li id="fn:2">
+<p>At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&#160;<a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+</li>
+<li id="fn:3">
+<p>I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&#160;<a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/">Where to Get a POWER8 Development VM</a>
       </h1>
     <p class="meta">
@@ -318,32 +402,6 @@ libc</li>
 </ol>
 </div></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-06-15T15:33:00+10:00" pubdate>Wed 15 June 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
-    </span>
-  </span>
-<time datetime="2016-06-15T15:33:00+10:00" pubdate>Wed 15 June 2016</time></div>
-
-  <div class="entry-content"><p>Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.</p>
-<p>Let's throw some spanners in the works.  What if instead of a desktop or web application, you're dealing with an operating system?  What if your tests can only be run when booted on physical hardware? What if instead of something like a GitHub pull request, code changes were sent as plain-text emails to a mailing list?  What if you didn't have control the development of this project, and you had to work with an existing, open community?</p>
-<p>These are some of the problems faced by the Linux kernel, and many other open source projects.  Mailing lists, along with tools like <code>git send-email</code>, have become core development infrastructure for many large open source projects.  The idea of sending code via a plain-text email is simple and well-defined, not reliant on a proprietary service, and uses universal, well-defined technology.  It does have shortcomings, though.  How do you take a plain-text patch, which was sent as an email to a mailing list, and accomplish the continuous integration possibilities other tools have trivially?</p>
-<p>Out of this problem birthed <a href="https://github.com/ruscur/snowpatch">snowpatch</a>, a continuous integration tool designed to enable these practices for projects that use mailing lists and plain-text patches.  By taking patch metadata organised by <a href="https://patchwork.ozlabs.org">Patchwork</a>, performing a number of <code>git</code> operations and shipping them off to <a href="https://jenkins.io">Jenkins</a>, snowpatch can enable continuous integration for any mailing list-based project.  At IBM <a href="https://ozlabs.org">OzLabs</a>, we're using snowpatch to automatically test new patches for <a href="https://github.com/linuxppc/linux/">Linux on POWER</a>, <a href="https://github.com/open-power/skiboot.git">skiboot</a>, snowpatch itself, and more.</p>
-<p>snowpatch is written in <a href="https://rust-lang.org">Rust</a>, an exciting new systems programming language with a focus on speed and safety.  Rust's amazing software ecosystem, enabled by its package manager <a href="https://crates.io">Cargo</a>, made development of snowpatch a breeze.  Using Rust has been a lot of fun, along with the practical benefits of (in our experience) faster development, and confidence in the runtime stability of our code.  It's still a young language, but it's quickly growing and has an amazing community that has always been happy to help.</p>
-<p>We still have a lot of ideas for snowpatch that haven't been implemented yet.  Once we've tested a patch and sent the results back to a patchwork instance, what if the project's maintainer (or a trusted contributor) could manually trigger some more intensive tests?  How would we handle it if the traffic on the mailing list of a project is too fast for us to test?  If we were running snowpatch on multiple machines on the same project, how would we avoid duplicating effort?  These are unsolved problems, and if you'd like to help us with these or anything else you think would be good for snowpatch, we take contributions and ideas via our mailing list, which you can subscribe to <a href="https://lists.ozlabs.org/listinfo/snowpatch">here</a>.  For more details, view our documentation on <a href="https://github.com/ruscur/snowpatch">GitHub</a>.</p>
-<p>Thanks for taking your time to learn a bit about snowpatch.  In future, we'll be talking about how we tie all these technologies together to build a continuous integration workflow for the Linux kernel and OpenPOWER firmware.  Watch this space!</p>
-<p><em>This article was originally posted on <a href="https://developer.ibm.com/open/">IBM developerWorks Open</a>.  Check that out for more open source from IBM, and look out for more content in their <a href="https://developer.ibm.com/open/snowpatch">snowpatch</a> section.</em></p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -353,6 +411,9 @@ libc</li>
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/">Where to Get a POWER8 Development VM</a>
       </li>
@@ -364,9 +425,6 @@ libc</li>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/">Introducing snowpatch: continuous integration for patches</a>
       </li>
     </ul>
   </section>
@@ -386,7 +444,7 @@ libc</li>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
