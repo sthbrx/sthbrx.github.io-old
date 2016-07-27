@@ -110,4 +110,4 @@
 
 
 &lt;p&gt;You can find the full code in-tree &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c"&gt;here&lt;/a&gt;.&lt;/p&gt;
-&lt;p&gt;And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Russell Currey</dc:creator><pubDate>Mon, 15 Feb 2016 14:23:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-02-15:blog/2016/02/15/panic/</guid><category>openpower</category></item></channel></rss>
+&lt;p&gt;And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Russell Currey</dc:creator><pubDate>Mon, 15 Feb 2016 14:23:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-02-15:blog/2016/02/15/panic/</guid></item></channel></rss>
