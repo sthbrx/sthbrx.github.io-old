@@ -39,11 +39,11 @@ treat it as a double? We can first split it into the three components:&lt;/p&gt;
 Exponent: 0x400         -&amp;gt; 2&lt;sup&gt;(1024 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x1568fba0    -&amp;gt; 1.&lt;em&gt;something&lt;/em&gt;&lt;br&gt;&lt;/p&gt;
 &lt;p&gt;And then use the formula above to get our number:&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;something&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1024 - 1023)__&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;something&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1024 - 1023)&lt;/strong&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;But there's a much easier way!&lt;/strong&gt; Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 &lt;em&gt;most&lt;/em&gt; of the trouble.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -112,20 +112,20 @@ this).&lt;/p&gt;
 Exponent: 0x400 -&amp;gt; 2&lt;sup&gt;(1024 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x0   -&amp;gt; Zero&lt;br&gt;&lt;/p&gt;
 &lt;p&gt;So if you remember from above, we have:&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;0&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1024 - 1023)__&lt;/sup&gt; = -2&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1024 - 1023)&lt;/strong&gt;&lt;/sup&gt; = -2&lt;/p&gt;
 &lt;p&gt;What about -1? -3?&lt;/p&gt;
 &lt;h4&gt;-1:&lt;/h4&gt;
 &lt;h5&gt;0xbff0000000000000:&lt;/h5&gt;
 &lt;p&gt;Sign Bit: 1     -&amp;gt; Negative&lt;br&gt;
 Exponent: 0x3ff -&amp;gt; 2&lt;sup&gt;(1023 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x0   -&amp;gt; Zero&lt;br&gt;&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;0&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1023 - 1023)__&lt;/sup&gt; = -1&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1023 - 1023)&lt;/strong&gt;&lt;/sup&gt; = -1&lt;/p&gt;
 &lt;h4&gt;-3:&lt;/h4&gt;
 &lt;h5&gt;0xc008000000000000:&lt;/h5&gt;
 &lt;p&gt;Sign Bit: 1                     -&amp;gt; Negative&lt;br&gt;
 Exponent: 0x400                 -&amp;gt; 2&lt;sup&gt;(1024 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x8000000000000       -&amp;gt; 0.5&lt;br&gt;&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;5&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1024 - 1023)__&lt;/sup&gt; = -3&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;5&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1024 - 1023)&lt;/strong&gt;&lt;/sup&gt; = -3&lt;/p&gt;
 &lt;h2&gt;So What Have We Learnt?&lt;/h2&gt;
 &lt;p&gt;&lt;strong&gt;Firstly&lt;/strong&gt;, make sure that what you're printing is what you think you're printing.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Secondly&lt;/strong&gt;, if it looks like a Kernel pointer then you're probably not printing

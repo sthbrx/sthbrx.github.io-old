@@ -44,7 +44,7 @@ reference for every syscall. On PowerPC something like this happens
     &lt;span class="nf"&gt;cror&lt;/span&gt;    &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;cr1&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;
     &lt;span class="nf"&gt;bne&lt;/span&gt; &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;99&lt;/span&gt;&lt;span class="no"&gt;f&lt;/span&gt;
 
-    &lt;span class="err"&gt;/*&lt;/span&gt; &lt;span class="err"&gt;[&lt;/span&gt;&lt;span class="nf"&gt;snip&lt;/span&gt;&lt;span class="err"&gt;]&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="err"&gt;/&lt;/span&gt;
+    &lt;span class="err"&gt;/*&lt;/span&gt; &lt;span class="err"&gt;[&lt;/span&gt;&lt;span class="nf"&gt;snip&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="err"&gt;/&lt;/span&gt;
 
     &lt;span class="err"&gt;/*&lt;/span&gt;
      &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;syscall&lt;/span&gt; &lt;span class="no"&gt;fallback&lt;/span&gt;

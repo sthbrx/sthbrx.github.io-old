@@ -104,7 +104,7 @@ reference for every syscall. On PowerPC something like this happens
     &lt;span class="nf"&gt;cror&lt;/span&gt;    &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="no"&gt;cr1&lt;/span&gt;&lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;+&lt;/span&gt;&lt;span class="no"&gt;eq&lt;/span&gt;
     &lt;span class="nf"&gt;bne&lt;/span&gt; &lt;span class="no"&gt;cr0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;99&lt;/span&gt;&lt;span class="no"&gt;f&lt;/span&gt;
 
-    &lt;span class="err"&gt;/*&lt;/span&gt; &lt;span class="err"&gt;[&lt;/span&gt;&lt;span class="nf"&gt;snip&lt;/span&gt;&lt;span class="err"&gt;]&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="err"&gt;/&lt;/span&gt;
+    &lt;span class="err"&gt;/*&lt;/span&gt; &lt;span class="err"&gt;[&lt;/span&gt;&lt;span class="nf"&gt;snip&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="err"&gt;/&lt;/span&gt;
 
     &lt;span class="err"&gt;/*&lt;/span&gt;
      &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;syscall&lt;/span&gt; &lt;span class="no"&gt;fallback&lt;/span&gt;
@@ -356,11 +356,11 @@ treat it as a double? We can first split it into the three components:&lt;/p&gt;
 Exponent: 0x400         -&amp;gt; 2&lt;sup&gt;(1024 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x1568fba0    -&amp;gt; 1.&lt;em&gt;something&lt;/em&gt;&lt;br&gt;&lt;/p&gt;
 &lt;p&gt;And then use the formula above to get our number:&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;something&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1024 - 1023)__&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;something&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1024 - 1023)&lt;/strong&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;But there's a much easier way!&lt;/strong&gt; Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 &lt;em&gt;most&lt;/em&gt; of the trouble.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -429,20 +429,20 @@ this).&lt;/p&gt;
 Exponent: 0x400 -&amp;gt; 2&lt;sup&gt;(1024 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x0   -&amp;gt; Zero&lt;br&gt;&lt;/p&gt;
 &lt;p&gt;So if you remember from above, we have:&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;0&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1024 - 1023)__&lt;/sup&gt; = -2&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1024 - 1023)&lt;/strong&gt;&lt;/sup&gt; = -2&lt;/p&gt;
 &lt;p&gt;What about -1? -3?&lt;/p&gt;
 &lt;h4&gt;-1:&lt;/h4&gt;
 &lt;h5&gt;0xbff0000000000000:&lt;/h5&gt;
 &lt;p&gt;Sign Bit: 1     -&amp;gt; Negative&lt;br&gt;
 Exponent: 0x3ff -&amp;gt; 2&lt;sup&gt;(1023 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x0   -&amp;gt; Zero&lt;br&gt;&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;0&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1023 - 1023)__&lt;/sup&gt; = -1&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1023 - 1023)&lt;/strong&gt;&lt;/sup&gt; = -1&lt;/p&gt;
 &lt;h4&gt;-3:&lt;/h4&gt;
 &lt;h5&gt;0xc008000000000000:&lt;/h5&gt;
 &lt;p&gt;Sign Bit: 1                     -&amp;gt; Negative&lt;br&gt;
 Exponent: 0x400                 -&amp;gt; 2&lt;sup&gt;(1024 - 1023)&lt;/sup&gt;&lt;br&gt;
 Fraction: 0x8000000000000       -&amp;gt; 0.5&lt;br&gt;&lt;/p&gt;
-&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;strong&gt;&lt;em&gt;5&lt;/em&gt;_* x 2&lt;sup&gt;&lt;/strong&gt;(1024 - 1023)__&lt;/sup&gt; = -3&lt;/p&gt;
+&lt;p&gt;(-1)&lt;sup&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/sup&gt; x 1.&lt;em&gt;&lt;strong&gt;5&lt;/strong&gt;&lt;/em&gt; x 2&lt;sup&gt;&lt;strong&gt;(1024 - 1023)&lt;/strong&gt;&lt;/sup&gt; = -3&lt;/p&gt;
 &lt;h2&gt;So What Have We Learnt?&lt;/h2&gt;
 &lt;p&gt;&lt;strong&gt;Firstly&lt;/strong&gt;, make sure that what you're printing is what you think you're printing.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Secondly&lt;/strong&gt;, if it looks like a Kernel pointer then you're probably not printing
@@ -623,9 +623,9 @@ Gateway IP Address:
 &lt;p&gt;I'd also really recommed &lt;a href="https://www.youtube.com/watch?v=tFmajPt0_hI"&gt;RCU Mutation Testing&lt;/a&gt;, from the kernel miniconf, also by Paul.&lt;/p&gt;
 &lt;h4&gt;What I've learned as the kernel docs maintainer&lt;/h4&gt;
 &lt;p&gt;As an extra bonus: I mention &lt;a href="https://www.youtube.com/watch?v=gsJXf6oSbAE"&gt;this talk&lt;/a&gt;, just to say "why on earth have we still not fixed the Linux kernel &lt;a href="https://www.kernel.org/doc/linux/README"&gt;README&lt;/a&gt;"?!!?&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-03-15:blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</guid><category>lca2016</category><category>conferences</category></item><item><title>Learning From the Best</title><link>https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/</link><description>&lt;p&gt;When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
-&lt;span class="cp"&gt;#include &amp;lt;string.h&amp;gt;&lt;/span&gt;
-&lt;span class="cp"&gt;#include &amp;lt;curses.h&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;string.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#include&lt;/span&gt; &lt;span class="cpf"&gt;&amp;lt;curses.h&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&lt;/span&gt;
 
 &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
   &lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;Hello, World! This Is cal&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
