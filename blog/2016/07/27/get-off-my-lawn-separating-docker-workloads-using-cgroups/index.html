@@ -102,7 +102,7 @@ NUMA node17 CPU(s):    64-95
 
 
 <p>Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?</p>
-<p><img alt="htop screenshot, showing load only on CPUs 32-127" src="images/dja/cgroup1.png" /></p>
+<p><img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png" /></p>
 <p>It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:</p>
 <div class="highlight"><pre>cgcreate -g cpuset:perf-cgroup
 <span class="nb">echo</span> 0-31 &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
@@ -119,7 +119,7 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
 
 
 <p>And the result?</p>
-<p><img alt="htop screenshot, showing load only on CPUs 0-31" src="images/dja/cgroup2.png" /></p>
+<p><img alt="htop screenshot, showing load only on CPUs 0-31" src="/images/dja/cgroup2.png" /></p>
 <p>It works! My benchmark results also suggest this is sufficient isolation, and the rest of the team is happy to have more build resources to play with.</p>
 <p>There are some boring loose ends to tie up: if a build job does anything outside of docker (like clone a git repo), that doesn't come under the docker cgroup, and we have to interact with systemd. Because systemd doesn't know about cpuset, this is <em>quite</em> fiddly. We also want this in a systemd unit so it runs on start up, and we want some code to tear it down. But I'll spare you the gory details.</p>
 <p>In summary, cgroups are surprisingly powerful and simple to work with, especially in conjunction with Docker and NUMA on Power!</p>
