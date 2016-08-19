@@ -65,6 +65,45 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/">Tell Me About Petitboot</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time></div>
+
+  <div class="entry-content"><p>A Google search for 'Petitboot' brings up results from a number of places, some describing its use on <a href="https://www.ibm.com/support/knowledgecenter/linuxonibm/liabp/liabppetitboot.htm">POWER servers</a>, others talking about how to use it on the <a href="http://jk.ozlabs.org/projects/petitboot/">PS3</a>, in varying levels of detail. I tend to get a lot of general questions about Petitboot and its behaviour, and have had a few requests for a broad "Welcome to Petitboot" blog, suggesting that existing docs deal with more specific topics.. or that people just aren't reading them :)</p>
+<p>So today we're going to take a bit of a crash course in the what, why, and possibly how of Petitboot. I won't delve too much into technical details, and this will be focussed on Petitboot in POWER land since that's where I spend most of my time.
+Here we go!</p>
+<h2>What</h2>
+<p>Aside from a whole lot of firmware and kernel logs flying past, the first thing you'll see when booting a POWER server<sup>In OPAL mode at least...</sup> is Petitboot's main menu:</p>
+<p><img alt="Main Menu" src="/images/sammj/mainmenu.png" /></p>
+<p>Petitboot is the first interact-able component a user will see. The word 'BIOS' gets thrown around a lot when discussing this area, but that is wrong, and the people using that word are wrong.</p>
+<p>When the OPAL firmware layer <a href="https://github.com/open-power/skiboot">Skiboot</a> has finished its own set up, it loads a certain binary (stored on the BMC) into memory and jumps into it. This could hypothetically be anything, but for any POWER server right now it is 'Skiroot'. Skiroot is a full Linux kernel and userspace, which runs Petitboot. People often say Petitboot when they mean Skiroot - technically Petitboot is the server and UI processes that happen to run within Skiroot, and Skiroot is the full kernel and rootfs package. This is more obvious when you look at the <a href="https://github.com/open-power/op-build">op-build</a> project - Petitboot is a package built as part of the kernel and rootfs created by Buildroot.</p>
+<p>Petitboot is made of two major parts - the UI processes (one for each available console), and the 'discover' server. The discover server updates the UI processes, manages and scans available disks and network devices, and performs the actual booting of host operating systems. The UI, running in ncurses, displays these options, allows the user to edit boot options and system configuration, and tells the server which boot option to kexec.</p>
+<h2>Why</h2>
+<p>The 'why' delves into some of the major architectural differences between a POWER machine and your average x86 machine which, as always, could spread over several blog posts and/or a textbook.</p>
+<p>POWER processors don't boot themselves, instead the attached Baseboard Management Controller (BMC) does a lot of low-level poking that gets the primary processor into a state where it is ready to execute instructions. PowerVM systems would then jump directly into the PHYP hypervisor - any subsequent OS, be it AIX or Linux, would then run as a 'partition' under this hypervisor.</p>
+<p>What we all really want though is to run Linux directly on the hardware, which meant a new boot process would have to be thought up while still maintaining compatibility with PowerVM so systems could be booted in either mode. Thus became OPAL, and its implementation <a href="https://github.com/open-power/skiboot">Skiboot</a>. Skipping over <em>so much</em> detail, the system ends up booting into Skiboot which acts as our firmware layer. Skiboot isn't interactive and doesn't really care about things like disks, so it loads another binary into memory and executes it - Skiroot!</p>
+<p>Skiroot exists as an alternative to writing a whole new bootloader just for POWER in OPAL mode, or going through the effort to port an existing bootloader to understand the specifics of POWER. Why do all that when Linux already exists and already knows how to handle disks, network interfaces, and a thousand other things? Not to mention that when Linux gains support for fancy new devices so do we, and adding new features of our own is as simple as writing your average Linux program.</p>
+<p>Skiroot itself (not including Skiboot) is roughly comparable to UEFI, or at least much more so than legacy BIOS implementations. But whereas UEFI tends to be a monolithic blob of fairly platform-specific code (in practice), Skiroot is simply a small Linux environment that anyone could put together with Buildroot.</p>
+<p>A much better insight into the development and motivation behind Skiroot and Petitboot is available in Jeremy's <a href="https://www.youtube.com/watch?v=oxmMJMibZQ8">LCA2013 talk</a></p>
+<h2>Back to Petitboot</h2>
+<p>Petitboot is the part of the 'bootloader' that <em>did</em> need to be written, because users probably wouldn't be too thrilled if they had to manually mount disks and kexec their kernels every time they booted the machine. The Petitboot server process mounts any available disk devices and scans them for available operating systems. That's not to say that it scans the entire disk, because otherwise you could be waiting for quite some time, but rather it looks in a list of common locations for bootloader configuration files. This is handy because it means the operating system doesn't need to have any knowledge of Petitboot - it just uses its usual install scripts and Petitboot reads them to know what is available.
+At the same time Petitboot makes PXE requests on configured network interfaces so we can netboot, and allows these various sources to be given relative priorities for auto-boot, plus a number of other ways to specially configure booting behaviour.</p>
+<p>A particularly neat feature of existing in a Linux environment is the ability to easily recover from boot problems; whereas on another system you might need to use a Live CD to fix a misconfiguration or recover a broken filesystem, in Skiroot you can just drop to the shell and fix the issue right there.</p>
+<p>In summary, Petitboot/Skiroot is a small but capable Linux environment that every OPAL POWER machine boots into, gathering up all the various local and remote boot possibilities, and presenting them to you in a state-of-the-art ncurses interface. Petitboot updates all the time, and if you come across a feature that you think Petitboot is missing, patches are very welcome at <a href="mailto:petitboot@lists.ozlabs.org">petitboot@lists.ozlabs.org</a> (or hassle me on IRC)!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
       </h1>
     <p class="meta">
@@ -123,7 +162,7 @@ Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
 <p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 <em>most</em> of the trouble.</p>
-<div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
 
 <span class="kt">void</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -143,7 +182,7 @@ and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer i
 <p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:</p>
-<div class="highlight"><pre><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<div class="highlight"><pre><span></span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
 </pre></div>
 
 
@@ -171,7 +210,7 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).</p>
 <h2>But What is -2 as a Double in hex?</h2>
 <p>Well lets modify the above program and find out:</p>
-<div class="highlight"><pre><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<div class="highlight"><pre><span></span><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 
 <span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -240,7 +279,7 @@ a double, 0xc00000001568fba0 =
 <p>Annoyingly, the <code>msglog</code> file reports itself as size 0 (I'm not sure exactly why, but I <em>think</em> it's due to limitations in sysfs), so if you try to copy the file with <code>cp</code>, you end up with just a blank file. However, you can read it with <code>cat</code> or <code>less</code>.</p>
 <h2>From <code>xmon</code></h2>
 <p><code>xmon</code> is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with <code>kgdb</code>. On our development systems, we often configure <code>xmon</code> to automatically begin debugging whenever we hit an oops or panic (using <code>xmon=on</code> on the kernel command line, or the <code>XMON_DEFAULT</code> Kconfig option). It can also be manually triggered:</p>
-<div class="highlight"><pre>root@p86:~# echo x &gt; /proc/sysrq-trigger
+<div class="highlight"><pre><span></span>root@p86:~# echo x &gt; /proc/sysrq-trigger
 sysrq: SysRq : Entering xmon
 cpu 0x7: Vector: 0  at [c000000fcd717a80]
 pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
@@ -263,7 +302,7 @@ enter ? for help
 <p>Sometimes, not even <code>xmon</code> will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)</p>
 <p>This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is <a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2">documented</a> in IBM Power Systems user manuals.</p>
 <p>How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a <a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c">Memory Dump Source Table</a> which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:</p>
-<div class="highlight"><pre><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
+<div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
 <span class="p">[</span><span class="mi">2690090666</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31000000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2690093767</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31100000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2750378890</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
@@ -286,7 +325,7 @@ enter ? for help
 </li>
 <li>
 <p><code>opal-dump-parse</code> (also in the <code>ppc64-diag</code> suite) can be used to extract the sections we care about from the dump:</p>
-<div class="highlight"><pre>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+<div class="highlight"><pre><span></span>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
 |---------------------------------------------------------|
 |ID              SECTION                              SIZE|
 |---------------------------------------------------------|
@@ -368,12 +407,12 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 <p>Any of these options will cause any existing network configurations to be ignored.</p>
 <h2>Building the Request</h2>
 <p>Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:</p>
-<div class="highlight"><pre><span class="x">ipmitool -I lanplus -H </span><span class="p">$</span><span class="nv">yourbmc</span><span class="x"> -U </span><span class="p">$</span><span class="nv">user</span><span class="x"> -P </span><span class="p">$</span><span class="nv">pass</span><span class="x"> raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1</span>
+<div class="highlight"><pre><span></span><span class="x">ipmitool -I lanplus -H </span><span class="p">$</span><span class="nv">yourbmc</span><span class="x"> -U </span><span class="p">$</span><span class="nv">user</span><span class="x"> -P </span><span class="p">$</span><span class="nv">pass</span><span class="x"> raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1</span>
 </pre></div>
 
 
 <p>Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:</p>
-<div class="highlight"><pre>Specify the &quot;chassis bootdev&quot; command, field 96, data field 1:
+<div class="highlight"><pre><span></span>Specify the &quot;chassis bootdev&quot; command, field 96, data field 1:
     0x00 0x08 0x61 0x80
 
 Unique value that Petitboot recognises:
@@ -409,44 +448,17 @@ Gateway IP Address:
 
 
 <p>Clearing a network override is as simple as making a request empty aside from the header:</p>
-<div class="highlight"><pre>0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
+<div class="highlight"><pre><span></span>0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
 </pre></div>
 
 
 <p>You can also read back the request over IPMI with this request:</p>
-<div class="highlight"><pre>0x00 0x09 0x61 0x00 0x00
+<div class="highlight"><pre><span></span>0x00 0x09 0x61 0x00 0x00
 </pre></div>
 
 
 <p>That's it! Ideally this is something you would be scripting rather than bashing out on the keyboard - the main use case at the moment is as a way to force a machine to netboot against a known good source, rather than whatever may be available on its other interfaces.</p>
 <p>[1] The reason this is only available on OpenPOWER machines at the moment is that support for the IPMI command itself depends on the BMC firmware, and non-OpenPOWER machines use an FSP which is a different platform.</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time></div>
-
-  <div class="entry-content"><p>In early February I had the opportunity to go the the NICTA Systems Summer School, where Cyril and I were invited to represent IBM. There were a number of excellent talks across a huge range of systems related subjects, but the one that has stuck with me the most was a talk given by <a href="http://homes.cs.washington.edu/~luisceze/">Luis Ceze</a>  on a topic called approximate computing. So here, in hopes that you too find it interesting, is a brief run-down on what I learned.</p>
-<p>Approximate computing is fundamentally about trading off accuracy for something else - often speed or power consumption. Initially this sounded like a very weird proposition: computers do things like 'running your operating system' and 'reading from and writing to disks': things you need to always be absolutely correct if you want anything vaguely resembling reliability. It turns out that this is actually not as big a roadblock as I had assumed - you can work around it fairly easily.</p>
-<p>The model proposed for approximate computing is as follows. You divide your computation up into two classes: 'precise', and 'approximate'. You use 'precise' computations when you need to get exact answers: so for example if you are constructing a JPEG file, you want the JPEG header to be exact. Then you have approximate computations: so for example the contents of your image can be approximate.</p>
-<p>For correctness, you have to establish some boundaries: you say that precise data can be used in approximate calculations, but that approximate data isn't allowed to cross back over and pollute precise calculations. This, while intuitively correct, poses some problems in practise: when you want to write out your approximate JPEG data, you need an operation that allows you to 'bless' (or in their terms 'endorse') some approximate data so it can be used in the precise file system operations.</p>
-<p>In the talk we were shown an implementation of this model in Java, called <a href="http://sampa.cs.washington.edu/research/approximation/enerj.html">EnerJ</a>. EnerJ allows you to label variables with either <code>@Precise</code> if you're dealing with precise data, or <code>@Approx</code> if you're dealing with approximate data. The compiler was modified so that it would do all sorts of weird things when it knew it was dealing with approximate data: for example, drop loop iterations entirely, do things in entirely non-determistic ways - all sorts of fun stuff. It turns out this works surprisingly well.</p>
-<p>However, the approximate computing really shines when you can bring it all the way down to the hardware level. The first thing they tried was a CPU with both 'approximate' and precise execution engines, but this turned out not to have the power savings hoped for. What seemed to work really well was a model where some approximate calculations could be identified ahead of time, and then replaced with neural networks in hardware. These neural networks approximated the calculations, but did so at significantly lower power levels. This sounded like a really promising concept, and it will be interesting to see if this goes anywhere over the next few years.</p>
-<p>There's a lot of work evaluating the quality of the approximate result, for cases where the set of inputs is known, and when the inputs is not known. This is largely beyond my understanding, so I'll simply refer you to some of the papers <a href="http://sampa.cs.washington.edu/research/approximation/enerj.html">listed on the website</a>.</p>
-<p>The final thing covered in the talk was bringing approximate computing into current paradigms by just being willing to accept higher user-visible error rates. For example, they hacked up a network stack to accept packets with invalid checksums. This has had mixed results so far. A question I had (but didn't get around to asking!) would be whether the mathematical properties of checksums (i.e. that they can correct a certain number of bit errors) could be used to correct some of the errors, rather than just accepting/rejecting them blindly. Perhaps by first attempting to correct errors using the checksums, we will be able to fix the simpler errors, reducing the error rate visible to the user.</p>
-<p>Overall, I found the NICTA Systems Summer School to be a really interesting experience (and I hope to blog more about it soon). If you're a university student in Australia, or an academic, see if you can make it in 2017!</p></div>
   		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
@@ -459,6 +471,9 @@ Gateway IP Address:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/">Getting In Sync</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
       </li>
       <li class="post">
@@ -469,9 +484,6 @@ Gateway IP Address:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/07/01/a-taste-of-ibm/">A Taste of IBM</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
       </li>
     </ul>
   </section>
@@ -491,7 +503,7 @@ Gateway IP Address:
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>  </section>
 
 
     <section>
