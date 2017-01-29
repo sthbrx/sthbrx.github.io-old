@@ -1,5 +1,135 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2016-08-17T15:23:00+10:00</updated><entry><title>Getting In Sync</title><link href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/" rel="alternate"></link><published>2016-08-17T15:23:00+10:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2016-08-17:blog/2016/08/17/getting-in-sync/</id><summary type="html">&lt;p&gt;Since at least v1.0.0 Petitboot has used device-mapper snapshots to avoid
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2017-01-30T08:54:33+11:00</updated><entry><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link href="https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/" rel="alternate"></link><published>2017-01-30T08:54:33+11:00</published><author><name>Daniel Black</name></author><id>tag:sthbrx.github.io,2017-01-30:blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</id><summary type="html">&lt;h2&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky).&lt;/p&gt;
+&lt;h3&gt;Prerequisites&lt;/h3&gt;
+&lt;p&gt;Before you power on the system, ensure that you have the following items:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Ethernet cables;&lt;/li&gt;
+&lt;li&gt;USB storage device of 7G or greater;&lt;/li&gt;
+&lt;li&gt;An installed ethernet network with a DHCP server;&lt;/li&gt;
+&lt;li&gt;Access to the DHCP server's logs;&lt;/li&gt;
+&lt;li&gt;Power cords and outlet for your system;&lt;/li&gt;
+&lt;li&gt;PC or notebook that has IPMItool level 1.8.15 or greater; and &lt;/li&gt;
+&lt;li&gt;a VNC client.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Download CentOS ISO file from the &lt;a href="http://mirror.centos.org/altarch/7/isos/ppc64le/"&gt;Centos Mirror&lt;/a&gt;. Select the "Everything" ISO file.&lt;/p&gt;
+&lt;p&gt;Note: You must use the 1611 release (dated 2016-12-22) or later due to Linux Kernel support for the server hardware.&lt;/p&gt;
+&lt;h2&gt;Step 1: Preparing to power on your system&lt;/h2&gt;
+&lt;p&gt;Follow these steps to prepare your system:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;If your system belongs in a rack, install your system into that rack. For instructions, see IBM POWER8 Systems information.&lt;/li&gt;
+&lt;li&gt;Connect an Ethernet cable to the left embedded Ethernet port next to the serial port on the back of your system and the other end to your network. This Ethernet port is used for the BMC/IPMI interface.&lt;/li&gt;
+&lt;li&gt;Connect another Enternet cable to the right Ethernet port for network connection for the operating system.&lt;/li&gt;
+&lt;li&gt;Connect the power cords to the system and plug them into the outlets. &lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;At this point, your firmware is booting.&lt;/p&gt;
+&lt;h2&gt;Step 2: Determining the BMC firmware IP address&lt;/h2&gt;
+&lt;p&gt;To determine the IP address of the BMC, examine the latest DHCP server logs for the network connected to the server. The IP address will be requested approximately 2 minutes after being powered on.&lt;/p&gt;
+&lt;p&gt;It is possible to set the BMC to a static IP address by following the &lt;a href="https://www.ibm.com/support/knowledgecenter/en/TI0003H/p8eih/p8eih_managing_with_ipmi_ami.htm"&gt;IBM documentation on IPMI&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;Step 3: Connecting to the BMC firmware with IPMItool&lt;/h2&gt;
+&lt;p&gt;After you have a network connection set up for your BMC firmware, you can connect using Intelligent Platform Management Interface (IPMI).  IPMI is the default console to use when connecting to the Open Power Abstraction Layer (OPAL) firmware.&lt;/p&gt;
+&lt;p&gt;Use the default authentication for servers over IPMI is:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Default user: ADMIN &lt;/li&gt;
+&lt;li&gt;Default password: admin &lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;To power on your server from a PC or notebook that is running Linux®, follow these steps:&lt;/p&gt;
+&lt;p&gt;Open a terminal program on your PC or notebook with &lt;a href="#active-sol-ipmi"&gt;Activate Serial-Over-Lan using IPMI&lt;/a&gt;. Use other steps here as needed.&lt;/p&gt;
+&lt;p&gt;For the following impitool commands, server_ip_address is the IP address of the BMC from Step 2, and ipmi_user and ipmi_password are the default user ID and password for IPMI.&lt;/p&gt;
+&lt;h3&gt;Power On using IPMI&lt;/h3&gt;
+&lt;p&gt;If your server is not powered on, run the following command to power the server on:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password chassis power on
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;&lt;a name="active-sol-ipmi"&gt;&lt;/a&gt;Activate Serial-Over-Lan using IPMI&lt;/h3&gt;
+&lt;p&gt;Activate your IPMI console by running this command:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password sol activate
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;After powering on your system, the Petitboot interface loads. If you do not interrupt the boot process by pressing any key within 10 seconds, Petitboot automatically boots the first option. At this point the IPMI console will be connected to the Operating Systems serial. If you get to this stage accidently you can deactivate and reboot as per the following two commands.&lt;/p&gt;
+&lt;h3&gt;Deactivate Serial-Over-Lan using IPMI&lt;/h3&gt;
+&lt;p&gt;If you need to power off or reboot your system, deactivate the console by running this command:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password sol deactivate
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;Reboot using IPMI&lt;/h3&gt;
+&lt;p&gt;If you need to reboot the system, run this command: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password chassis power reset
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;Step 4: Creating a USB device and booting&lt;/h2&gt;
+&lt;p&gt;At this point, your IPMI console should be contain a Petitboot bootloader menu as illistrated below and you are ready to install Centos 7 on your server.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Petitboot menu over IPMI" src="/images/centos7-minsky/petitboot-centos7-usb-topmenu.png" /&gt; &lt;/p&gt;
+&lt;p&gt;Use one of the following USB devices:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;USB attached DVD player with a single USB cable to stay under 1.0 Amps, or&lt;/li&gt;
+&lt;li&gt;7 GB (or more) 2.0 (or later) USB flash drive. &lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Follow the following instructions:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;To create the bootable USB device, follow the instructions in the CentOS wiki &lt;a href="https://wiki.centos.org/HowTos/InstallFromUSBkey"&gt;Host to Set Up a USB to Install CentOS&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;Insert your bootable USB device into the front USB port. CentOS AltArch installer will automatically appear as a boot option on the Petitboot main screen. If the USB device does not appear select &lt;em&gt;Rescan devices&lt;/em&gt;. If your device is not detected, you might have to try a different type.&lt;/li&gt;
+&lt;li&gt;Arrow up to select the CentOS boot option. Press &lt;em&gt;e&lt;/em&gt; (Edit) to open the Petitboot Option Editor window&lt;/li&gt;
+&lt;li&gt;Move the cursor to the Boot arguments section and to include the following information: &lt;code&gt;ro inst.stage2=hd:LABEL=CentOS_7_ppc64le:/ console=hvc0 ip=dhcp&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img alt="Petitboot edited &amp;quot;Install CentOS AltArch 7 (64-bit kernel)" src="/images/centos7-minsky/petitboot-centos7-usb-option-editor-menu.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Notes about the boot arguments:   &lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;ip=dhcp&lt;/code&gt; to ensure network is started for VNC installation.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;console hvc0&lt;/code&gt; is needed as this is not the default.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;inst.stage2&lt;/code&gt; is needed as the boot process won't automatically find the stage2 install on the install disk.&lt;/li&gt;
+&lt;li&gt;append &lt;code&gt;inst.proxy=URL&lt;/code&gt; where URL is the proxy URL if installing in a network that requires a proxy to connect externally.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;You can find additional options at &lt;a href="https://rhinstaller.github.io/anaconda/boot-options.html"&gt;Anaconda Boot Options&lt;/a&gt;.&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Select &lt;em&gt;OK&lt;/em&gt; to save your options and return to the Main menu &lt;/li&gt;
+&lt;li&gt;On the Petitboot main screen, select the CentOS AltArch option and then press &lt;em&gt;Enter&lt;/em&gt;. &lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Step 5: Complete your installation&lt;/h2&gt;
+&lt;p&gt;After you select to boot the CentOS installer, the installer wizard walks you through the steps.  &lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;If the CentOS installer was able to obtain a network address via DHCP, it will present an option to enable the VNC. If no option is presented check your network cables. &lt;img alt="VNC option" src="/images/centos7-minsky/anaconda-centos7-text-start.png" /&gt;&lt;/li&gt;
+&lt;li&gt;Select the &lt;em&gt;Start VNC&lt;/em&gt; option and it will provide an OS server IP adress. Note that this will be different to the BMC address previously optained. &lt;img alt="VNC option selected" src="/images/centos7-minsky/anaconda-centos7-vnc-selected.png" /&gt;&lt;/li&gt;
+&lt;li&gt;Run a VNC client program on your PC or notebook and connect to the OS server IP address.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img alt="VNC of Installer" src="/images/centos7-minsky/anaconda-centos7-vnc-start.png" /&gt;&lt;/p&gt;
+&lt;p&gt;During the install over VNC, there are a couple of consoles active. To switch between them in the ipmitool terminal, press &lt;em&gt;ctrl-b&lt;/em&gt; and then between &lt;em&gt;1&lt;/em&gt;-&lt;em&gt;4&lt;/em&gt; as indicated.&lt;/p&gt;
+&lt;p&gt;Using the VNC client program:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Select "Install Destination" - after selecting a device - select "Full disk summary and boot device" - select "Do not install boot loader" from device. &lt;img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png" /&gt; results in &lt;img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png" /&gt;.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Without disabling boot loader, the installer complains about &lt;code&gt;an invalid stage1 device&lt;/code&gt;. I suspect it needs a manual Prep partition of 10M to make the installer happy.&lt;/p&gt;
+&lt;p&gt;If you have a local Centos repository  you can set this by selecting "Install Source" - the directories at this url should look like &lt;a href="http://mirror.centos.org/altarch/7/os/ppc64le/"&gt;CentOS's Install Source for ppc64le&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;Step 6: Before reboot and using the IPMI Serial-Over-LAN&lt;/h2&gt;
+&lt;p&gt;Before reboot, generate the grub.cfg file as Petitboot uses this to generate its boot menu: &lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Using the ipmitool's shell (&lt;em&gt;ctrl-b 2&lt;/em&gt;):&lt;/li&gt;
+&lt;li&gt;Enter the following commands to generate a grub.cfg file&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;chroot /mnt/sysimage
+rm /etc/grub.d/30_os-prober
+grub2-mkconfig -o /boot/grub2/grub.cfg
+exit
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;/etc/grub.d/30_os-prober&lt;/code&gt; is removed as Petitboot probes the other devices anyway so including it would create lots of duplicate menu items.&lt;/p&gt;
+&lt;p&gt;The last step is to restart your system.&lt;/p&gt;
+&lt;p&gt;Note: While your system is restarting, remove the USB device. &lt;/p&gt;
+&lt;p&gt;After the system restarts, Petitboot displays the option to boot CentOS 7.2. Select this option and press Enter. &lt;/p&gt;
+&lt;h2&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;After you have booted CentOS, your server is ready to go!
+For more information, see the following resources:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.ibm.com/support/knowledgecenter/"&gt;IBM Knowledge Center&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.ibm.com/developerworks/community/groups/service/html/communityview?communityUuid=fe313521-2e95-46f2-817d-44a4f27eba32"&gt;The Linux on Power Community&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://developer.ibm.com/linuxonpower/category/announcements/"&gt;The Linux on Power Developer Center&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://twitter.com/ibmpowerlinux"&gt;Follow us @ibmpowerlinux&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</summary><category term="S822LC for hpc"></category><category term="hpc"></category><category term="centos"></category><category term="centos7"></category><category term="p8"></category><category term="bmc"></category></entry><entry><title>Getting In Sync</title><link href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/" rel="alternate"></link><published>2016-08-17T15:23:00+10:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2016-08-17:blog/2016/08/17/getting-in-sync/</id><summary type="html">&lt;p&gt;Since at least v1.0.0 Petitboot has used device-mapper snapshots to avoid
 mounting block devices directly. Primarily this is so Petitboot can mount disks
 and potentially perform filesystem recovery without worrying about messing it up
 and corrupting a host's boot partition - all changes happen to the snapshot in
