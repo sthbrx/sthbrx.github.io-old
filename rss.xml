@@ -1,5 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/rss.xml" rel="self"></atom:link><lastBuildDate>Mon, 30 Jan 2017 08:54:33 +1100</lastBuildDate><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/rss.xml" rel="self"></atom:link><lastBuildDate>Mon, 30 Jan 2017 16:47:00 +1100</lastBuildDate><item><title>Extracting Early Boot Messages in QEMU</title><link>https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/</link><description>&lt;p&gt;Be me, you're a kernel hacker, you make some changes to your kernel, you boot
+test it in QEMU, and it fails to boot. Even worse is the fact that it just hangs
+without any failure message, no stack trace, no nothing. "Now what?" you think
+to yourself.&lt;/p&gt;
+&lt;p&gt;You probably do the first thing you learnt in debugging101 and add abundant
+print statements all over the place to try and make some sense of what's
+happening and where it is that you're actually crashing. So you do this, you
+recompile your kernel, boot it in QEMU and lo and behold, nothing... What
+happened? You added all these shiny new print statements, where did the output
+go? The kernel still failed to boot (obviously), but where you were hoping to
+get some clue to go on you were again left with an empty screen. "Maybe I
+didn't print early enough" or "maybe I got the code paths wrong" you think,
+"maybe I just need more prints" even. So lets delve a bit deeper, why didn't
+you see those prints, where did they go, and how can you get at them?&lt;/p&gt;
+&lt;h1&gt;__log_buf&lt;/h1&gt;
+&lt;p&gt;So what happens when you call printk()? Well what normally happens is,
+depending on the log level you set, the output is sent to the console or logged
+so you can see it in dmesg. But what happens if we haven't registered a console
+yet? Well then we can't print the message can we, so its logged in a buffer,
+kernel log buffer to be exact helpfully named __log_buf.&lt;/p&gt;
+&lt;h1&gt;Console Registration&lt;/h1&gt;
+&lt;p&gt;So how come I eventually see print statements on my screen? Well at some point
+during the boot process a console is registered with the printk system, and any
+buffered output can now be displayed. On ppc it happens that this occurs in
+register_early_udbg_console() called in setup_arch() from start_kernel(),
+which is the generic kernel entry point. From this point forward when you print
+something it will be displayed on the console, but what if you crash before
+this? What are you supposed to do then?&lt;/p&gt;
+&lt;h1&gt;Extracting Early Boot Messages in QEMU&lt;/h1&gt;
+&lt;p&gt;And now the moment you've all been waiting for, how do I extract those early
+boot messages in QEMU if my kernel crashes before the console is registered?
+Well it's quite simple really, QEMU is nice enough to allow us to dump guest
+memory, and we know the log buffer is in there some where, so we just need to
+dump the correct part of memory which corresponds to the log buffer.&lt;/p&gt;
+&lt;h4&gt;Locating __log_buf&lt;/h4&gt;
+&lt;p&gt;Before we can dump the log buffer we need to know where it is. Luckily for us
+this is fairly simple, we just need to dump all the kernel symbols and look for
+the right one.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;nm&lt;/span&gt; &lt;span class="n"&gt;vmlinux&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;tmp&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="n"&gt;grep&lt;/span&gt; &lt;span class="n"&gt;__log_buf&lt;/span&gt; &lt;span class="n"&gt;tmp&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="n"&gt;c000000000f5e3dc&lt;/span&gt; &lt;span class="n"&gt;b&lt;/span&gt; &lt;span class="n"&gt;__log_buf&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We use the nm tool to list all the kernel symbols and output this into some
+temporary file, we can then grep this for the log buffer (which we know to be
+named __log_buf), and presto we are told that it's at kernel address 0xf5e3dc.&lt;/p&gt;
+&lt;h4&gt;Dumping Guest Memory&lt;/h4&gt;
+&lt;p&gt;It's then simply a case of dumping guest memory from the QEMU console. So first
+we press ^a+c to get us to the QEMU console, then we can use the aptly named
+dump-guest-memory.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;help&lt;/span&gt; &lt;span class="n"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;guest&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;memory&lt;/span&gt;
+&lt;span class="n"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;guest&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;memory&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;z&lt;/span&gt;&lt;span class="o"&gt;|-&lt;/span&gt;&lt;span class="n"&gt;l&lt;/span&gt;&lt;span class="o"&gt;|-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;filename&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;begin&lt;/span&gt; &lt;span class="n"&gt;length&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt; &lt;span class="n"&gt;dump&lt;/span&gt; &lt;span class="n"&gt;guest&lt;/span&gt; &lt;span class="n"&gt;memory&lt;/span&gt; &lt;span class="n"&gt;into&lt;/span&gt; &lt;span class="n"&gt;file&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;filename&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+            &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nl"&gt;p&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="k"&gt;do&lt;/span&gt; &lt;span class="n"&gt;paging&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;get&lt;/span&gt; &lt;span class="n"&gt;guest&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="n"&gt;memory&lt;/span&gt; &lt;span class="n"&gt;mapping&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+            &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nl"&gt;d&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;immediately&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;do&lt;/span&gt; &lt;span class="n"&gt;not&lt;/span&gt; &lt;span class="n"&gt;wait&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="n"&gt;completion&lt;/span&gt;&lt;span class="p"&gt;).&lt;/span&gt;
+            &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nl"&gt;z&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;dump&lt;/span&gt; &lt;span class="n"&gt;in&lt;/span&gt; &lt;span class="n"&gt;kdump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;compressed&lt;/span&gt; &lt;span class="n"&gt;format&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;with&lt;/span&gt; &lt;span class="n"&gt;zlib&lt;/span&gt; &lt;span class="n"&gt;compression&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+            &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nl"&gt;l&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;dump&lt;/span&gt; &lt;span class="n"&gt;in&lt;/span&gt; &lt;span class="n"&gt;kdump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;compressed&lt;/span&gt; &lt;span class="n"&gt;format&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;with&lt;/span&gt; &lt;span class="n"&gt;lzo&lt;/span&gt; &lt;span class="n"&gt;compression&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+            &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nl"&gt;s&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;dump&lt;/span&gt; &lt;span class="n"&gt;in&lt;/span&gt; &lt;span class="n"&gt;kdump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;compressed&lt;/span&gt; &lt;span class="n"&gt;format&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;with&lt;/span&gt; &lt;span class="n"&gt;snappy&lt;/span&gt; &lt;span class="n"&gt;compression&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+            &lt;span class="nl"&gt;begin&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;the&lt;/span&gt; &lt;span class="n"&gt;starting&lt;/span&gt; &lt;span class="n"&gt;physical&lt;/span&gt; &lt;span class="n"&gt;address&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+            &lt;span class="nl"&gt;length&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;the&lt;/span&gt; &lt;span class="n"&gt;memory&lt;/span&gt; &lt;span class="n"&gt;size&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;in&lt;/span&gt; &lt;span class="n"&gt;bytes&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We just give it a filename for where we want our output to go, we know the
+starting address, we just don't know the length. We could choose some arbitrary
+length, but inspection of the kernel code shows us that:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;#define __LOG_BUF_LEN (1 &amp;lt;&amp;lt; CONFIG_LOG_BUF_SHIFT)&lt;/span&gt;
+&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;char&lt;/span&gt; &lt;span class="n"&gt;__log_buf&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;__LOG_BUF_LEN&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;__aligned&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;LOG_ALIGN&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Looking at the pseries_defconfig file shows us that the LOG_BUF_SHIFT is set to
+18, and thus we know that the buffer is 2^18 bytes or 256kb. So now we run:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;guest&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;memory&lt;/span&gt; &lt;span class="n"&gt;tmp&lt;/span&gt; &lt;span class="mh"&gt;0xf5e3dc&lt;/span&gt; &lt;span class="mi"&gt;262144&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;And we now get our log buffer in the file tmp. This can simply be viewed with:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;hexdump&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;C&lt;/span&gt; &lt;span class="n"&gt;tmp&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This gives a readable, if poorly formatted output. I'm sure you can find
+something better but I'll leave that as an exercise for the reader.&lt;/p&gt;
+&lt;h1&gt;Conclusion&lt;/h1&gt;
+&lt;p&gt;So if like me your kernel hangs somewhere early in the boot process and you're
+left without your console output you are now fully equipped to extract the log
+buffer in QEMU and hopefully therein lies the answer to why you failed to boot.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Suraj Jitindar Singh</dc:creator><pubDate>Mon, 30 Jan 2017 16:47:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-01-30:blog/2017/01/30/extracting-early-boot-messages-in-qemu/</guid><category>QEMU</category><category>debug</category><category>virtualisation</category><category>kernel</category><category>dmesg</category><category>printk</category><category>boot</category><category>early</category><category>error</category></item><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
 &lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky).&lt;/p&gt;
 &lt;h3&gt;Prerequisites&lt;/h3&gt;
 &lt;p&gt;Before you power on the system, ensure that you have the following items:&lt;/p&gt;
