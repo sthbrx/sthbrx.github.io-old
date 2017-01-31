@@ -78,6 +78,33 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/">Where to Get a POWER8 Development VM</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-07-06T16:00:00+10:00" pubdate>Wed 06 July 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2016-07-06T16:00:00+10:00" pubdate>Wed 06 July 2016</time></div>
+
+  <div class="entry-content"><p><em>POWER8 sounds great, but where the heck can I get a Power VM so I can test my code?</em></p>
+<p>This is a common question we get at OzLabs from other open source developers looking to port their software to the Power Architecture. Unfortunately, most developers don't have one of our amazing servers just sitting around under their desk.</p>
+<p>Thankfully, there's a few IBM partners who offer free VMs for development use. If you're in need of a development VM, check out:</p>
+<ul>
+<li><a href="http://openpower.ic.unicamp.br/minicloud/">MiniCloud</a>, hosted by the State University of Campinas (Unicamp), Brazil</li>
+<li><a href="http://osuosl.org/services/powerdev">OSU Open Source Lab</a>, hosted by the Oregon State University</li>
+<li><a href="https://ptopenlab.com/cloudlabconsole">SuperVessel Cloud for Power/OpenPOWER</a>, hosted by IBM China</li>
+</ul>
+<p>So, next time you wonder how you can test your project on POWER8, request a VM and get to it!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/07/05/optical-action-at-a-distance/">Optical Action at a Distance</a>
       </h1>
     <p class="meta">
@@ -330,40 +357,6 @@ libc</li>
 <p>Thanks for taking your time to learn a bit about snowpatch.  In future, we'll be talking about how we tie all these technologies together to build a continuous integration workflow for the Linux kernel and OpenPOWER firmware.  Watch this space!</p>
 <p><em>This article was originally posted on <a href="https://developer.ibm.com/open/">IBM developerWorks Open</a>.  Check that out for more open source from IBM, and look out for more content in their <a href="https://developer.ibm.com/open/snowpatch">snowpatch</a> section.</em></p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/06/08/interning-at-ozlabs/">Interning at Ozlabs</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-06-08T22:22:00+10:00" pubdate>Wed 08 June 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
-    </span>
-  </span>
-<time datetime="2016-06-08T22:22:00+10:00" pubdate>Wed 08 June 2016</time></div>
-
-  <div class="entry-content"><p>I am sadly coming to the end of my six(ish) month internship with Ozlabs (funded by <a href="https://www.acs.org.au">ACS</a>). So here I am writing about my experience in the hopes that future prospective interns can read about how they should come and work with the previously dubbed Linux Gods.</p>
-<h3>What is your background?</h3>
-<p>Despite embracing being a nerd at school, my opinion of computers prior to starting my Engineering degree was that they were boring and for geeky boys who didn't want to interact with the 'real' world. However when having to choose a specialisation of Engineering I was drawn towards Computer Systems as everything else seemed obvious * but Computer Systems was this great mystical unknown. </p>
-<p>Fast forward three years, and I had seen glimpses into the workings of this magical computer world. I had learnt about transistors, logic gates and opamps; I had designed circuits that actually worked; and I had bashed my head against a wall trying to find obscure bugs. I had dabbled in a range of languages from the low levels of VHDL and embedded C, to the abstract world of Python and Java and delved into the obscure world of declarative prologs and relational reinforcement learning. Now it was time to solidify some of these concepts and get some experience under my belt so I could feel less like a monkey bashing random keys on my keyboard. Enter Ozlabs!</p>
-<h3>What did you do at Ozlabs?</h3>
-<p>After being handed a nice laptop and the root passwords, I faced the inevitable battle of getting everything setup. With the help of my mentor, the prestigious <a href="http://mpe.github.io/">Michael Ellerman</a>, and various other Ozlabs residents I picked off some low hanging fruit such as removing unused code and tidying up a few things. This allowed me to get familiar with the open-source workflow, the kernel building process, IRC, do more with Git then just push and pull, and <strong>finally</strong> come face-to-face with the seemingly impossible: Vim and virtual machines.</p>
-<p>I then got to learn about Transactional Memory (TM) - a way of making a bunch of instructions on one processor appear to be one atomic operation to other processors. I took some old TM tests from Mikey and checked that they did indeed pass and fail when they were supposed to and refurbished them a little, learning how to run kernel self-tests and a bit about powerpc assembly along the way.</p>
-<p>Eventually my fear of shell scripts was no match for my desire to be able to build and install a kernel with one command and so I finally got around to writing a build script. Accidentally rebooting a bare-metal machine instead of my VM running on it may have had a significant contribution to this...</p>
-<p>The next interesting task I got to tackle was to implement a virtual memory dump that other architectures like x86 have, so we can see how the pages in memory are laid out along with information about these pages. This involved understanding x86's implementation and relating that to POWER's memory management. At Uni I never quite understood the fuss about pages and virtual memory and so it was great to be able to build up an appreciation and play around with page tables, virtual to real addresses, and hashtable.</p>
-<p>I then moved onto <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP mitigation</a>! After a lot of reading and re-reading, I decided to first understand how to use SROP to make an exploit on POWER which meant some assembly, diving into the signal code and finally meeting and spending time with GDB.  Once again I had x86 code to port over to POWER, the main issue being making sure that I didn't break existing things - aka hours and hours of running the kernel self-tests and the Linux Test Project tests and some more scripting, with the help of <a href="http://blog.christophersmart.com/">Chris Smart</a>, to collate the results.</p>
-<p>You can judge all my submitted patches <a href="https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=67695&amp;state=*">here</a>.</p>
-<h3>What was your overall experience like at Ozlabs?</h3>
-<p>I moved to Canberra shortly after finishing exams and so hadn't had the time to ponder expectations of Ozlabs. Everyone was super friendly and despite being, not just the only female but, the only kiwi among a whoooole lot of Aussies I experienced a distinct lack of discrimination (apart from a bit of banter about accents).</p>
-<p>Could I wear my normal clothes (and not stuffy business clothes)? Check. Did I get to work on interesting things? Check. Could I do my work without having to go through lots of unnecessary hoops and what not? Check. Could I develop my own workflow and learn all the things? Check. Did I get to delve into a few different areas? Check. Was I surrounded by super smart people who were willing to help me learn? Check. </p>
-<p>All in all, I have had a great time here, learnt so much and you should definitely come and work at Ozlabs! Hopefully you'll see me back on this blog in a few months :)</p>
-<p>* <em>My pre-university, perhaps somewhat naiive, opinion: Civil and Mechanical is just physics. Chemical and Materials is just chemistry. Electrical seems interesting but who wants to work with power lines? Biomedical is just math and biology. Software is just abstract high level nonsense. But how a computer works?? That is some magical stuff.</em></p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -375,6 +368,9 @@ libc</li>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
       </li>
       <li class="post">
@@ -385,9 +381,6 @@ libc</li>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/">Where to Get a POWER8 Development VM</a>
       </li>
     </ul>
   </section>
@@ -408,7 +401,7 @@ libc</li>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>

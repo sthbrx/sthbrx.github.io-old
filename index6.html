@@ -78,6 +78,95 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/">Docker: Just Stop Using AUFS</a>
+      </h1>
+    <p class="meta">
+<time datetime="2015-10-30T13:30:00+11:00" pubdate>Fri 30 October 2015</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2015-10-30T13:30:00+11:00" pubdate>Fri 30 October 2015</time></div>
+
+  <div class="entry-content"><p>Docker's default storage driver on most Ubuntu installs is AUFS.</p>
+<p>Don't use it. Use Overlay instead. Here's why.</p>
+<p>First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See <a href="/blog/2015/10/12/a-tale-of-two-dockers/">my previous post</a> for more info.)</p>
+<p>Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.</p>
+<p>Why? Well, my first point of call was to observe a compilation under
+<code>top</code>. The header is below.</p>
+<p><img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /></p>
+<p>Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.</p>
+<p>My next port of call for analysis of CPU-bound workloads is
+<code>perf</code>. <code>perf top</code> reports astounding quantities of time in
+spin-locks:</p>
+<p><img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /></p>
+<p><code>perf top -g</code> gives us some more information: the time is in system
+calls. <code>open()</code> and <code>stat()</code> are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.</p>
+<p><img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /></p>
+<p>Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (<code>docker info</code> will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)</p>
+<p>Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. <a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html">This presentation is particularly good.</a>
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.</p>
+<p>It's also easy to set up on Ubuntu:</p>
+<ul>
+<li>
+<p>export/save any docker containers you care about.</p>
+</li>
+<li>
+<p>add <code>--storage-driver=overlay</code> option to <code>DOCKER_OPTS</code> in <code>/etc/default/docker</code>, and restart docker (<code>service docker restart</code>)</p>
+</li>
+<li>
+<p>import/load the containters you exported</p>
+</li>
+<li>
+<p>verify that things work, then clear away your old storage directory (<code>/var/lib/docker/aufs</code>). </p>
+</li>
+</ul>
+<p>Having moved my base container across, I set off another build.</p>
+<p>The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:</p>
+<p><img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /></p>
+<p>The compiles went from taking painfully long to astonishingly fast. Winning.</p>
+<p>So in conclusion:</p>
+<ul>
+<li>
+<p>If you use Docker for something that involves open()ing or stat()ing files</p>
+</li>
+<li>
+<p>If you want your machine to do real work, rather than spin in spinlocks</p>
+</li>
+<li>
+<p>If you want to use code that's upstream and thus much better supported</p>
+</li>
+<li>
+<p>If you want something less disruptive than the btrfs or dm storage drivers</p>
+</li>
+</ul>
+<p>...then drop AUFS and switch to Overlay today.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2015/10/12/a-tale-of-two-dockers/">A tale of two Dockers</a>
       </h1>
     <p class="meta">
@@ -429,31 +518,8 @@ You can retain the original behaviour by only putting one option into the list (
 <p>Secondly, our partner <a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;mtag=connectx_4_vpi_card">Mellanox</a> is using CAPI to make network cards that run at speeds of up to 100Gb/s.</p>
 <p>CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/05/21/openpower-powers-forward/">OpenPOWER Powers Forward</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
-    </span>
-  </span>
-<time datetime="2015-05-21T11:29:00+10:00" pubdate>Thu 21 May 2015</time></div>
-
-  <div class="entry-content"><p>I wrote this blog post late last year, it is very relevant for this blog though so I'll repost it here.</p>
-<p>With the launch of <a href="http://www.tyan.com/campaign/openpower/">TYAN's OpenPOWER reference system</a> now is a good time to reflect on the team responsible for so much of the research, design and development behind this very first ground breaking step of <a href="http://openpowerfoundation.org/">OpenPOWER</a> with their start to finish involvement of this new Power platform.</p>
-<p>ADL Canberra have been integral to the success of this launch providing the Open Power Abstraction Layer (OPAL) firmware. OPAL breathes new life into Linux on Power finally allowing Linux to run on directly on the hardware.
-While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to sit on top and take direct control of IBMs new Power8 processor without needing to negotiate with a hypervisor. With all the Linux expertise present at ADL Canberra it's no wonder that a Linux based bootloader was developed to make this system work. Petitboot leverage's all the resources of the Linux kernel to create a light, fast and yet extremely versatile bootloader. Petitboot provides a massive amount of tools for debugging and system configuration without the need to load an operating system.</p>
-<p>TYAN have developed great and highly customisable hardware. ADL Canberra have been there since day 1 performing vital platform enablement (bringup) of this new hardware. ADL Canberra have put all the work into the entire software stack, low level work to get OPAL and Linux to talk to the new BMC chip as well as the higher level, enabling to run Linux in either endian and Linux is even now capable of virtualising KVM guests in either endian irrespective of host endian. Furthermore a subset of ADL Canberra have been key to getting the Coherent Accelerator Processor Interface (CAPI) off the ground, enabling more almost endless customisation and greater diversity within the OpenPOWER ecosystem.</p>
-<p>ADL Canberra is the home for Linux on Power and the beginning of the OpenPOWER hardware sees much of the hard work by ADL Canberra come to fruition.</p></div>
-  		</article>
 <div class="pagination">
+    <a class="prev" href="https://sthbrx.github.io/index7.html">&larr; Older</a>
 
     <a class="next" href="https://sthbrx.github.io/index5.html">Newer &rarr;</a>
   <br />
@@ -462,6 +528,9 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
       </li>
@@ -473,9 +542,6 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/">Where to Get a POWER8 Development VM</a>
       </li>
     </ul>
   </section>
@@ -496,7 +562,7 @@ While OPAL harnesses the hardware, ADL Canberra significantly improved Linux to 
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
