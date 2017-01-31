@@ -288,7 +288,11 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.<
 <p>During the install over VNC, there are a couple of consoles active. To switch between them in the ipmitool terminal, press <em>ctrl-b</em> and then between <em>1</em>-<em>4</em> as indicated.</p>
 <p>Using the VNC client program:</p>
 <ol>
-<li>Select "Install Destination" - after selecting a device - select "Full disk summary and boot device" - select "Do not install boot loader" from device. <img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png" /> results in <img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png" />.</li>
+<li>Select "Install Destination"</li>
+<li>Select a device from "Local Standard Disks"</li>
+<li>Select "Full disk summary and boot device"</li>
+<li>Select the device again from "Selected Disks" with the Boot enabled</li>
+<li>Select "Do not install boot loader" from device. <img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png" /> which results in <img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png" />.</li>
 </ol>
 <p>Without disabling boot loader, the installer complains about <code>an invalid stage1 device</code>. I suspect it needs a manual Prep partition of 10M to make the installer happy.</p>
 <p>If you have a local Centos repository  you can set this by selecting "Install Source" - the directories at this url should look like <a href="http://mirror.centos.org/altarch/7/os/ppc64le/">CentOS's Install Source for ppc64le</a>.</p>

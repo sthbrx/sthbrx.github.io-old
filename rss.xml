@@ -186,7 +186,11 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.&
 &lt;p&gt;During the install over VNC, there are a couple of consoles active. To switch between them in the ipmitool terminal, press &lt;em&gt;ctrl-b&lt;/em&gt; and then between &lt;em&gt;1&lt;/em&gt;-&lt;em&gt;4&lt;/em&gt; as indicated.&lt;/p&gt;
 &lt;p&gt;Using the VNC client program:&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;Select "Install Destination" - after selecting a device - select "Full disk summary and boot device" - select "Do not install boot loader" from device. &lt;img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png" /&gt; results in &lt;img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png" /&gt;.&lt;/li&gt;
+&lt;li&gt;Select "Install Destination"&lt;/li&gt;
+&lt;li&gt;Select a device from "Local Standard Disks"&lt;/li&gt;
+&lt;li&gt;Select "Full disk summary and boot device"&lt;/li&gt;
+&lt;li&gt;Select the device again from "Selected Disks" with the Boot enabled&lt;/li&gt;
+&lt;li&gt;Select "Do not install boot loader" from device. &lt;img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png" /&gt; which results in &lt;img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png" /&gt;.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;Without disabling boot loader, the installer complains about &lt;code&gt;an invalid stage1 device&lt;/code&gt;. I suspect it needs a manual Prep partition of 10M to make the installer happy.&lt;/p&gt;
 &lt;p&gt;If you have a local Centos repository  you can set this by selecting "Install Source" - the directories at this url should look like &lt;a href="http://mirror.centos.org/altarch/7/os/ppc64le/"&gt;CentOS's Install Source for ppc64le&lt;/a&gt;.&lt;/p&gt;
