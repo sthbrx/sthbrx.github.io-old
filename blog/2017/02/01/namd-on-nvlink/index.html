@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>NAMD on NVLink &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">NAMD on NVLink</h1>
+    <p class="meta">
+<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time>    </p>
+</header>
+
+  <div class="entry-content"><p>NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.</p>
+<p>Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.</p>
+<h2>Prerequisites</h2>
+<h3>GPU Drivers and CUDA</h3>
+<p>Firstly, you'll need CUDA and the NVidia drivers.</p>
+<p>You can install CUDA by following the instructions on NVidia's <a href="https://developer.nvidia.com/cuda-downloads">CUDA Downloads</a> page.</p>
+<div class="highlight"><pre><span></span>yum install epel-release
+yum install dkms
+# download the rpm from the NVidia website
+rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
+yum clean expire-cache
+yum install cuda
+# this will take a while...
+</pre></div>
+
+
+<p>Then, we set up a profile file to automatically load CUDA into our path:</p>
+<div class="highlight"><pre><span></span>cat &gt;  /etc/profile.d/cuda_path.sh <span class="err">&lt;</span><span class="nt">&lt;EOF</span>
+<span class="err">#</span> <span class="err">From</span> <span class="err">http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf</span> <span class="err">-</span> <span class="err">4.4.2.1</span>
+<span class="err">export</span> <span class="na">PATH=</span><span class="s">/usr/local/cuda-8.0/bin${PATH:+:${PATH}}</span>
+<span class="err">export</span> <span class="na">LD_LIBRARY_PATH=</span><span class="s">/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}</span>
+<span class="err">EOF</span>
+</pre></div>
+
+
+<p>Now, open a new terminal session and check to see if it works:</p>
+<div class="highlight"><pre><span></span>cuda-install-samples-8.0.sh ~
+cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
+make &amp;&amp; ./bandwidthTest
+</pre></div>
+
+
+<p>If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.</p>
+<h3>Compilers</h3>
+<p>You need a c++ compiler:</p>
+<div class="highlight"><pre><span></span>yum install gcc-c++
+</pre></div>
+
+
+<h2>Building NAMD</h2>
+<p>Once CUDA and the compilers are installed, building NAMD is reasonably straightforward. The one hitch is that because we're using CUDA 8.0, and the NAMD build scripts assume CUDA 7.5, we need to supply an updated <a href="images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a>. (We also enable code generation for the Pascal in this file.)</p>
+<p>We've documented the entire process as a script which you can <a href="images/namd/install-namd.sh">download</a>. We'd recommend executing the commands one by one, but if you're brave you can run the script directly.</p>
+<p>The script will fetch NAMD 2.12 and build it for you, but won't install it. It will look for the CUDA override file in the directory you are running the script from, and will automatically move it into the correct place so it is picked up by the build system..</p>
+<p>The script compiles for a single multicore machine setup, rather than for a cluster. However, it should be a good start for an Ethernet or Infiniband setup.</p>
+<p>If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get <code>charm++ built successfully.</code> at the end, you should be OK.</p>
+<h2>Testing NAMD</h2>
+<p>We have been testing NAMD using the STMV files available from the <a href="http://www.ks.uiuc.edu/Research/namd/utilities/">NAMD website</a>:</p>
+<div class="highlight"><pre><span></span>cd NAMD_2.12_Source/Linux-POWER-g++
+wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
+tar -xf stmv.tar.gz
+sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
+</pre></div>
+
+
+<p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
+<p>You should see messages about finding and using GPUs:</p>
+<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
+</pre></div>
+
+
+<p>This should be <em>significantly</em> faster than on non-NVLink machines - we saw a gain of about 2x in speed going from a machine with Nvidia K80s to a Minsky. If things aren't faster for you, let us know!</p>
+<h2>Downloads</h2>
+<ul>
+<li><a href="images/namd/install-namd.sh">Install script for CentOS</a></li>
+<li><a href="images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a></li>
+</ul>
+<h2>Other notes</h2>
+<p>Namd requires some libraries, some of which they supply as binary downloads on <a href="http://www.ks.uiuc.edu/Research/namd/libraries/">their website</a>.
+Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:</p>
+<div class="highlight"><pre><span></span>/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
+/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
+</pre></div>
+
+
+<p>The script we supply should get these right automatically.</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/openpower.html'>OpenPOWER</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a class="category" href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a class="category" href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a class="category" href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a class="category" href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a class="category" href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a class="category" href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/">Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/">Getting In Sync</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2017  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script src="https://sthbrx.github.io/theme/js/modernizr-2.0.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/ender.js"></script>
+  <script src="https://sthbrx.github.io/theme/js/octopress.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2017/02/01/namd-on-nvlink/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/';
+    var disqus_title = 'NAMD on NVLink';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>

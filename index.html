@@ -78,6 +78,101 @@
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time></div>
+
+  <div class="entry-content"><p>NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.</p>
+<p>Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.</p>
+<h2>Prerequisites</h2>
+<h3>GPU Drivers and CUDA</h3>
+<p>Firstly, you'll need CUDA and the NVidia drivers.</p>
+<p>You can install CUDA by following the instructions on NVidia's <a href="https://developer.nvidia.com/cuda-downloads">CUDA Downloads</a> page.</p>
+<div class="highlight"><pre><span></span>yum install epel-release
+yum install dkms
+# download the rpm from the NVidia website
+rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
+yum clean expire-cache
+yum install cuda
+# this will take a while...
+</pre></div>
+
+
+<p>Then, we set up a profile file to automatically load CUDA into our path:</p>
+<div class="highlight"><pre><span></span>cat &gt;  /etc/profile.d/cuda_path.sh <span class="err">&lt;</span><span class="nt">&lt;EOF</span>
+<span class="err">#</span> <span class="err">From</span> <span class="err">http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf</span> <span class="err">-</span> <span class="err">4.4.2.1</span>
+<span class="err">export</span> <span class="na">PATH=</span><span class="s">/usr/local/cuda-8.0/bin${PATH:+:${PATH}}</span>
+<span class="err">export</span> <span class="na">LD_LIBRARY_PATH=</span><span class="s">/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}</span>
+<span class="err">EOF</span>
+</pre></div>
+
+
+<p>Now, open a new terminal session and check to see if it works:</p>
+<div class="highlight"><pre><span></span>cuda-install-samples-8.0.sh ~
+cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
+make &amp;&amp; ./bandwidthTest
+</pre></div>
+
+
+<p>If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.</p>
+<h3>Compilers</h3>
+<p>You need a c++ compiler:</p>
+<div class="highlight"><pre><span></span>yum install gcc-c++
+</pre></div>
+
+
+<h2>Building NAMD</h2>
+<p>Once CUDA and the compilers are installed, building NAMD is reasonably straightforward. The one hitch is that because we're using CUDA 8.0, and the NAMD build scripts assume CUDA 7.5, we need to supply an updated <a href="images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a>. (We also enable code generation for the Pascal in this file.)</p>
+<p>We've documented the entire process as a script which you can <a href="images/namd/install-namd.sh">download</a>. We'd recommend executing the commands one by one, but if you're brave you can run the script directly.</p>
+<p>The script will fetch NAMD 2.12 and build it for you, but won't install it. It will look for the CUDA override file in the directory you are running the script from, and will automatically move it into the correct place so it is picked up by the build system..</p>
+<p>The script compiles for a single multicore machine setup, rather than for a cluster. However, it should be a good start for an Ethernet or Infiniband setup.</p>
+<p>If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get <code>charm++ built successfully.</code> at the end, you should be OK.</p>
+<h2>Testing NAMD</h2>
+<p>We have been testing NAMD using the STMV files available from the <a href="http://www.ks.uiuc.edu/Research/namd/utilities/">NAMD website</a>:</p>
+<div class="highlight"><pre><span></span>cd NAMD_2.12_Source/Linux-POWER-g++
+wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
+tar -xf stmv.tar.gz
+sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
+</pre></div>
+
+
+<p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
+<p>You should see messages about finding and using GPUs:</p>
+<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
+</pre></div>
+
+
+<p>This should be <em>significantly</em> faster than on non-NVLink machines - we saw a gain of about 2x in speed going from a machine with Nvidia K80s to a Minsky. If things aren't faster for you, let us know!</p>
+<h2>Downloads</h2>
+<ul>
+<li><a href="images/namd/install-namd.sh">Install script for CentOS</a></li>
+<li><a href="images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a></li>
+</ul>
+<h2>Other notes</h2>
+<p>Namd requires some libraries, some of which they supply as binary downloads on <a href="http://www.ks.uiuc.edu/Research/namd/libraries/">their website</a>.
+Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:</p>
+<div class="highlight"><pre><span></span>/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
+/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
+</pre></div>
+
+
+<p>The script we supply should get these right automatically.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
       </h1>
     <p class="meta">
@@ -449,90 +544,6 @@ pb-event sync@sda2
 read-only and merge the current snapshot differences back to disk. You can also
 run <code>pb-event sync@all</code> to sync all existing snapshots if desired.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-07-27T13:30:00+10:00" pubdate>Wed 27 July 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2016-07-27T13:30:00+10:00" pubdate>Wed 27 July 2016</time></div>
-
-  <div class="entry-content"><p>On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.</p>
-<p>Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.</p>
-<p>This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.<sup id="fnref:1"><a class="footnote-ref" href="#fn:1" rel="footnote">1</a></sup></p>
-<p>So, <strong>can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?</strong></p>
-<p>What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.</p>
-<p>For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is <a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf">the relevant RedBook (PDF)</a>, chapter 2.</p>
-<p>We could achieve the isolation we want by dividing up CPUs and NUMA nodes between the competing workloads. Fortunately, all of the hardware NUMA information is plumbed nicely into Linux. Each P8 socket gets a corresponding NUMA node. <code>lscpu</code> will tell you what CPUs correspond to which NUMA nodes (although what it calls a CPU we would call a hardware thread). If you install <code>numactl</code>, you can use <code>numactl -H</code> to get even more details.</p>
-<p>In our case, the relevant <code>lscpu</code> output is thus:</p>
-<div class="highlight"><pre><span></span>NUMA node0 CPU(s):     0-31
-NUMA node1 CPU(s):     96-127
-NUMA node16 CPU(s):    32-63
-NUMA node17 CPU(s):    64-95
-</pre></div>
-
-
-<p>Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or <code>cgroups</code> for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called <code>cpuset</code>, which can control CPU affinity, and restrict memory allocation to a NUMA node.</p>
-<p>We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!<sup id="fnref:2"><a class="footnote-ref" href="#fn:2" rel="footnote">2</a></sup> Docker containers are put in the <code>docker</code> cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.<sup id="fnref:3"><a class="footnote-ref" href="#fn:3" rel="footnote">3</a></sup> So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:</p>
-<div class="highlight"><pre><span></span>cgcreate -g cpuset:docker
-<span class="nb">echo</span> 32-127 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
-<span class="nb">echo</span> 1,16-17 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
-<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
-</pre></div>
-
-
-<p><code>mem_hardwall</code> prevents memory allocations under docker from spilling over into the one remaining NUMA node.</p>
-<p>So, does this work? I created a container with sysbench and then ran the following:</p>
-<div class="highlight"><pre><span></span>root@0d3f339d4181:/# sysbench --test<span class="o">=</span>cpu --num-threads<span class="o">=</span><span class="m">128</span> --max-requests<span class="o">=</span><span class="m">10000000</span> run
-</pre></div>
-
-
-<p>Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?</p>
-<p><img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png" /></p>
-<p>It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:</p>
-<div class="highlight"><pre><span></span>cgcreate -g cpuset:perf-cgroup
-<span class="nb">echo</span> 0-31 &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
-<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
-<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
-</pre></div>
-
-
-<p>Docker conveniently lets us put new containers under a different cgroup, which means we can simply do:</p>
-<div class="highlight"><pre><span></span>dja@p88 ~&gt; docker run -it --rm --cgroup-parent<span class="o">=</span>/perf-cgroup/ ppc64le/ubuntu bash
-root@b037049f94de:/# <span class="c1"># ... install sysbench</span>
-root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<span class="o">=</span><span class="m">128</span> --max-requests<span class="o">=</span><span class="m">10000000</span> run
-</pre></div>
-
-
-<p>And the result?</p>
-<p><img alt="htop screenshot, showing load only on CPUs 0-31" src="/images/dja/cgroup2.png" /></p>
-<p>It works! My benchmark results also suggest this is sufficient isolation, and the rest of the team is happy to have more build resources to play with.</p>
-<p>There are some boring loose ends to tie up: if a build job does anything outside of docker (like clone a git repo), that doesn't come under the docker cgroup, and we have to interact with systemd. Because systemd doesn't know about cpuset, this is <em>quite</em> fiddly. We also want this in a systemd unit so it runs on start up, and we want some code to tear it down. But I'll spare you the gory details.</p>
-<p>In summary, cgroups are surprisingly powerful and simple to work with, especially in conjunction with Docker and NUMA on Power!</p>
-<div class="footnote">
-<hr />
-<ol>
-<li id="fn:1">
-<p>It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&#160;<a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-<li id="fn:2">
-<p>At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&#160;<a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text">&#8617;</a></p>
-</li>
-<li id="fn:3">
-<p>I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&#160;<a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text">&#8617;</a></p>
-</li>
-</ol>
-</div></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -542,6 +553,9 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
       </li>
@@ -553,9 +567,6 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/">Getting In Sync</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
       </li>
     </ul>
   </section>
@@ -576,7 +587,7 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>

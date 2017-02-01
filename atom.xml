@@ -1,5 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2017-01-31T16:07:00+11:00</updated><entry><title>linux.conf.au 2017 review</title><link href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/" rel="alternate"></link><published>2017-01-31T16:07:00+11:00</published><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2017-01-31:blog/2017/01/31/linuxconfau-2017-review/</id><summary type="html">&lt;p&gt;I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.&lt;/p&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2017-02-01T08:32:00+11:00</updated><entry><title>NAMD on NVLink</title><link href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/" rel="alternate"></link><published>2017-02-01T08:32:00+11:00</published><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2017-02-01:blog/2017/02/01/namd-on-nvlink/</id><summary type="html">&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
+&lt;p&gt;Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.&lt;/p&gt;
+&lt;h2&gt;Prerequisites&lt;/h2&gt;
+&lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
+&lt;p&gt;Firstly, you'll need CUDA and the NVidia drivers.&lt;/p&gt;
+&lt;p&gt;You can install CUDA by following the instructions on NVidia's &lt;a href="https://developer.nvidia.com/cuda-downloads"&gt;CUDA Downloads&lt;/a&gt; page.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install epel-release
+yum install dkms
+# download the rpm from the NVidia website
+rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
+yum clean expire-cache
+yum install cuda
+# this will take a while...
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Then, we set up a profile file to automatically load CUDA into our path:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &amp;gt;  /etc/profile.d/cuda_path.sh &lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;EOF&lt;/span&gt;
+&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="err"&gt;From&lt;/span&gt; &lt;span class="err"&gt;http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf&lt;/span&gt; &lt;span class="err"&gt;-&lt;/span&gt; &lt;span class="err"&gt;4.4.2.1&lt;/span&gt;
+&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/bin${PATH:+:${PATH}}&lt;/span&gt;
+&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;LD_LIBRARY_PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}&lt;/span&gt;
+&lt;span class="err"&gt;EOF&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
+cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
+make &amp;amp;&amp;amp; ./bandwidthTest
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.&lt;/p&gt;
+&lt;h3&gt;Compilers&lt;/h3&gt;
+&lt;p&gt;You need a c++ compiler:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install gcc-c++
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;Building NAMD&lt;/h2&gt;
+&lt;p&gt;Once CUDA and the compilers are installed, building NAMD is reasonably straightforward. The one hitch is that because we're using CUDA 8.0, and the NAMD build scripts assume CUDA 7.5, we need to supply an updated &lt;a href="images/namd/Linux-POWER.cuda"&gt;Linux-POWER.cuda file&lt;/a&gt;. (We also enable code generation for the Pascal in this file.)&lt;/p&gt;
+&lt;p&gt;We've documented the entire process as a script which you can &lt;a href="images/namd/install-namd.sh"&gt;download&lt;/a&gt;. We'd recommend executing the commands one by one, but if you're brave you can run the script directly.&lt;/p&gt;
+&lt;p&gt;The script will fetch NAMD 2.12 and build it for you, but won't install it. It will look for the CUDA override file in the directory you are running the script from, and will automatically move it into the correct place so it is picked up by the build system..&lt;/p&gt;
+&lt;p&gt;The script compiles for a single multicore machine setup, rather than for a cluster. However, it should be a good start for an Ethernet or Infiniband setup.&lt;/p&gt;
+&lt;p&gt;If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get &lt;code&gt;charm++ built successfully.&lt;/code&gt; at the end, you should be OK.&lt;/p&gt;
+&lt;h2&gt;Testing NAMD&lt;/h2&gt;
+&lt;p&gt;We have been testing NAMD using the STMV files available from the &lt;a href="http://www.ks.uiuc.edu/Research/namd/utilities/"&gt;NAMD website&lt;/a&gt;:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cd NAMD_2.12_Source/Linux-POWER-g++
+wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
+tar -xf stmv.tar.gz
+sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
+&lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This should be &lt;em&gt;significantly&lt;/em&gt; faster than on non-NVLink machines - we saw a gain of about 2x in speed going from a machine with Nvidia K80s to a Minsky. If things aren't faster for you, let us know!&lt;/p&gt;
+&lt;h2&gt;Downloads&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="images/namd/install-namd.sh"&gt;Install script for CentOS&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="images/namd/Linux-POWER.cuda"&gt;Linux-POWER.cuda file&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Other notes&lt;/h2&gt;
+&lt;p&gt;Namd requires some libraries, some of which they supply as binary downloads on &lt;a href="http://www.ks.uiuc.edu/Research/namd/libraries/"&gt;their website&lt;/a&gt;.
+Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
+/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</summary><category term="nvlink"></category><category term="namd"></category><category term="cuda"></category><category term="gpu"></category><category term="hpc"></category><category term="minsky"></category><category term="S822LC for hpc"></category></entry><entry><title>linux.conf.au 2017 review</title><link href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/" rel="alternate"></link><published>2017-01-31T16:07:00+11:00</published><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2017-01-31:blog/2017/01/31/linuxconfau-2017-review/</id><summary type="html">&lt;p&gt;I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.&lt;/p&gt;
 &lt;p&gt;I received some really interesting feedback so I've taken the opportunity to write some of it down to complement the talk videos and slides that are online. (And to remind me to follow up on it!)&lt;/p&gt;
 &lt;h2&gt;Miniconf talk: Sparse Warnings&lt;/h2&gt;
 &lt;p&gt;My kernel miniconf talk was on sparse warnings (&lt;a href="https://github.com/daxtens/sparse-warnings-talk/blob/master/talk.pdf"&gt;pdf slides&lt;/a&gt;, &lt;a href="https://www.youtube.com/watch?v=hmCukzpevUc"&gt;23m video&lt;/a&gt;).&lt;/p&gt;
