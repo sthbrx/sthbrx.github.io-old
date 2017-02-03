@@ -206,7 +206,7 @@ something better but I'll leave that as an exercise for the reader.&lt;/p&gt;
 &lt;p&gt;So if like me your kernel hangs somewhere early in the boot process and you're
 left without your console output you are now fully equipped to extract the log
 buffer in QEMU and hopefully therein lies the answer to why you failed to boot.&lt;/p&gt;</summary><category term="QEMU"></category><category term="debug"></category><category term="virtualisation"></category><category term="kernel"></category><category term="dmesg"></category><category term="printk"></category><category term="boot"></category><category term="early"></category><category term="error"></category></entry><entry><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link href="https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/" rel="alternate"></link><published>2017-01-30T08:54:33+11:00</published><author><name>Daniel Black</name></author><id>tag:sthbrx.github.io,2017-01-30:blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</id><summary type="html">&lt;h2&gt;Introduction&lt;/h2&gt;
-&lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky).&lt;/p&gt;
+&lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky), but also work for RHEL 7 - just swap CentOS for RHEL.&lt;/p&gt;
 &lt;h3&gt;Prerequisites&lt;/h3&gt;
 &lt;p&gt;Before you power on the system, ensure that you have the following items:&lt;/p&gt;
 &lt;ul&gt;
@@ -268,7 +268,7 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.&
 
 
 &lt;h2&gt;Step 4: Creating a USB device and booting&lt;/h2&gt;
-&lt;p&gt;At this point, your IPMI console should be contain a Petitboot bootloader menu as illistrated below and you are ready to install Centos 7 on your server.&lt;/p&gt;
+&lt;p&gt;At this point, your IPMI console should be contain a Petitboot bootloader menu as illustrated below and you are ready to install Centos 7 on your server.&lt;/p&gt;
 &lt;p&gt;&lt;img alt="Petitboot menu over IPMI" src="/images/centos7-minsky/petitboot-centos7-usb-topmenu.png" /&gt; &lt;/p&gt;
 &lt;p&gt;Use one of the following USB devices:&lt;/p&gt;
 &lt;ul&gt;
@@ -280,7 +280,7 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.&
 &lt;li&gt;To create the bootable USB device, follow the instructions in the CentOS wiki &lt;a href="https://wiki.centos.org/HowTos/InstallFromUSBkey"&gt;Host to Set Up a USB to Install CentOS&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;Insert your bootable USB device into the front USB port. CentOS AltArch installer will automatically appear as a boot option on the Petitboot main screen. If the USB device does not appear select &lt;em&gt;Rescan devices&lt;/em&gt;. If your device is not detected, you might have to try a different type.&lt;/li&gt;
 &lt;li&gt;Arrow up to select the CentOS boot option. Press &lt;em&gt;e&lt;/em&gt; (Edit) to open the Petitboot Option Editor window&lt;/li&gt;
-&lt;li&gt;Move the cursor to the Boot arguments section and to include the following information: &lt;code&gt;ro inst.stage2=hd:LABEL=CentOS_7_ppc64le:/ console=hvc0 ip=dhcp&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Move the cursor to the Boot arguments section and to include the following information: &lt;code&gt;ro inst.stage2=hd:LABEL=CentOS_7_ppc64le:/ console=hvc0 ip=dhcp&lt;/code&gt; (if using RHEL the LABEL will be similar to &lt;code&gt;RHEL-7.3\x20Server.ppc64le:/&lt;/code&gt;)&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;img alt="Petitboot edited &amp;quot;Install CentOS AltArch 7 (64-bit kernel)" src="/images/centos7-minsky/petitboot-centos7-usb-option-editor-menu.png" /&gt;&lt;/p&gt;
 &lt;p&gt;Notes about the boot arguments:   &lt;/p&gt;
@@ -339,7 +339,7 @@ For more information, see the following resources:&lt;/p&gt;
 &lt;li&gt;&lt;a href="https://www.ibm.com/developerworks/community/groups/service/html/communityview?communityUuid=fe313521-2e95-46f2-817d-44a4f27eba32"&gt;The Linux on Power Community&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://developer.ibm.com/linuxonpower/category/announcements/"&gt;The Linux on Power Developer Center&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://twitter.com/ibmpowerlinux"&gt;Follow us @ibmpowerlinux&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</summary><category term="S822LC for hpc"></category><category term="hpc"></category><category term="centos"></category><category term="centos7"></category><category term="p8"></category><category term="bmc"></category></entry><entry><title>Getting In Sync</title><link href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/" rel="alternate"></link><published>2016-08-17T15:23:00+10:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2016-08-17:blog/2016/08/17/getting-in-sync/</id><summary type="html">&lt;p&gt;Since at least v1.0.0 Petitboot has used device-mapper snapshots to avoid
+&lt;/ul&gt;</summary><category term="S822LC for hpc"></category><category term="hpc"></category><category term="centos"></category><category term="centos7"></category><category term="p8"></category><category term="bmc"></category><category term="RHEL"></category></entry><entry><title>Getting In Sync</title><link href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/" rel="alternate"></link><published>2016-08-17T15:23:00+10:00</published><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2016-08-17:blog/2016/08/17/getting-in-sync/</id><summary type="html">&lt;p&gt;Since at least v1.0.0 Petitboot has used device-mapper snapshots to avoid
 mounting block devices directly. Primarily this is so Petitboot can mount disks
 and potentially perform filesystem recovery without worrying about messing it up
 and corrupting a host's boot partition - all changes happen to the snapshot in
