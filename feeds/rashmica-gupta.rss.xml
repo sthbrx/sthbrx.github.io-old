@@ -1,5 +1,132 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 01 Feb 2017 08:32:00 +1100</lastBuildDate><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 13 Feb 2017 16:29:00 +1100</lastBuildDate><item><title>High Power Lustre</title><link>https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/</link><description>&lt;p&gt;(Most of the hard work here was done by fellow blogger Rashmica - I just verified her instructions and wrote up this post.)&lt;/p&gt;
+&lt;p&gt;&lt;a href="http://lustre.org/"&gt;Lustre&lt;/a&gt; is a high-performance clustered file system. Traditionally the Lustre client and server have run on x86, but both the server and client will also work on Power. Here's how to get them running.&lt;/p&gt;
+&lt;h1&gt;Server&lt;/h1&gt;
+&lt;p&gt;Lustre normally requires a patched 'enterprise' kernel - normally an old RHEL, CentOS or SUSE kernel. We tested with a CentOS 7.3 kernel. We tried to follow &lt;a href="https://wiki.hpdd.intel.com/pages/viewpage.action?pageId=52104622"&gt;the Intel instructions&lt;/a&gt; for building the kernel as much as possible - any deviations we had to make are listed below.&lt;/p&gt;
+&lt;h2&gt;Setup quirks&lt;/h2&gt;
+&lt;p&gt;We are told to edit &lt;code&gt;~/kernel/rpmbuild/SPEC/kernel.spec&lt;/code&gt;. This doesn't exist because the directory is &lt;code&gt;SPECS&lt;/code&gt; not &lt;code&gt;SPEC&lt;/code&gt;: you need to edit &lt;code&gt;~/kernel/rpmbuild/SPECS/kernel.spec&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;I also found there was an extra quote mark in the supplied patch script after &lt;code&gt;-lustre.patch&lt;/code&gt;. I removed that and ran this instead:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;for patch in $(&lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&amp;quot;3.10-rhel7.series&amp;quot;); do \
+      patch_file=&amp;quot;&lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-release/lustre/kernel_patches/patches/&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; \
+      cat &amp;quot;&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch_file&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; &amp;gt;&amp;gt; &lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-kernel-x86_64-lustre.patch \
+done
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The fact that there is 'x86_64' in the patch name doesn't matter as you're about to copy it under a different name to a place where it will be included by the spec file.&lt;/p&gt;
+&lt;h2&gt;Building for ppc64le&lt;/h2&gt;
+&lt;p&gt;Building for ppc64le was reasonably straight-forward. I had one small issue:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[build@dja-centos-guest rpmbuild]$ rpmbuild -bp --target=`uname -m` ./SPECS/kernel.spec
+Building target platforms: ppc64le
+Building for target ppc64le
+error: Failed build dependencies:
+       net-tools is needed by kernel-3.10.0-327.36.3.el7.ppc64le
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Fixing this was as simple as a &lt;code&gt;yum install net-tools&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;This was sufficient to build the kernel RPMs. I installed them and booted to my patched kernel - so far so good!&lt;/p&gt;
+&lt;h1&gt;Building the client packages: CentOS&lt;/h1&gt;
+&lt;p&gt;I then tried to build and install the RPMs from &lt;a href="https://git.hpdd.intel.com/?p=fs/lustre-release.git;a=summary"&gt;&lt;code&gt;lustre-release&lt;/code&gt;&lt;/a&gt;. This repository provides the sources required to build the client and utility binaries.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;./configure&lt;/code&gt; and &lt;code&gt;make&lt;/code&gt; succeeded, but when I went to install the packages with &lt;code&gt;rpm&lt;/code&gt;, I found I was missing some dependencies:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;error&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Failed&lt;/span&gt; &lt;span class="n"&gt;dependencies&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+        &lt;span class="n"&gt;ldiskfsprogs&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;=&lt;/span&gt; &lt;span class="mf"&gt;1.42&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;wc1&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;kmod&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;osd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ldiskfs&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
+    &lt;span class="n"&gt;sg3_utils&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;iokit&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
+        &lt;span class="n"&gt;attr&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
+        &lt;span class="n"&gt;lsof&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I was able to install &lt;code&gt;sg3_utils&lt;/code&gt;, &lt;code&gt;attr&lt;/code&gt; and &lt;code&gt;lsof&lt;/code&gt;, but I was still missing &lt;code&gt;ldiskfsprogs&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;It seems we need the lustre-patched version of &lt;code&gt;e2fsprogs&lt;/code&gt; - I found a &lt;a href="https://groups.google.com/forum/#!topic/lustre-discuss-list/U93Ja6Xkxfk"&gt;mailing list post&lt;/a&gt; to that effect.&lt;/p&gt;
+&lt;p&gt;So, following the instructions on the walkthrough, I grabbed &lt;a href="https://downloads.hpdd.intel.com/public/e2fsprogs/latest/el7/SRPMS/"&gt;the SRPM&lt;/a&gt; and installed the dependencies: &lt;code&gt;yum install -y texinfo libblkid-devel libuuid-devel&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;I then tried &lt;code&gt;rpmbuild -ba SPECS/e2fsprogs-RHEL-7.spec&lt;/code&gt;. This built but failed tests. Some failed because I ran out of disk space - they were using 10s of gigabytes. I found that there were some comments in the spec file about this with suggested tests to disable, so I did that. Even with that fix, I was still failing two tests:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;f_pgsize_gt_blksize&lt;/code&gt;: Intel added this to their fork, and no equivalent exists in the master e2fsprogs branches. This relates to Intel specific assumptions about page sizes which don't hold on Power.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;f_eofblocks&lt;/code&gt;: This may need fixing for large page sizes, see &lt;a href="https://jira.hpdd.intel.com/browse/LU-4677?focusedCommentId=78814&amp;amp;page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-78814"&gt;this bug&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;I disabled the tests by adding the following two lines to the spec file, just before &lt;code&gt;make %{?_smp_mflags} check&lt;/code&gt;.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;rm -rf tests/f_pgsize_gt_blksize
+rm -rf tests/f_eofblocks
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;With those tests disabled I was able to build the packages successfully. I installed them with &lt;code&gt;yum localinstall *1.42.13.wc5*&lt;/code&gt; (I needed that rather weird pattern to pick up important RPMs that didn't fit the &lt;code&gt;e2fs*&lt;/code&gt; pattern - things like &lt;code&gt;libcom_err&lt;/code&gt; and &lt;code&gt;libss&lt;/code&gt;)&lt;/p&gt;
+&lt;p&gt;Following that I went back to the &lt;code&gt;lustre-release&lt;/code&gt; build products and was able to successfully run &lt;code&gt;yum localinstall *ppc64le.rpm&lt;/code&gt;!&lt;/p&gt;
+&lt;h1&gt;Testing the server&lt;/h1&gt;
+&lt;p&gt;After disabling SELinux and rebooting, I ran the test script:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo /usr/lib64/lustre/tests/llmount.sh
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This spat out one scary warning:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mount.lustre FATAL: unhandled/unloaded fs type 0 &amp;#39;ext3&amp;#39;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The test did seem to succeed overall, and it would seem that is a &lt;a href="https://jira.hpdd.intel.com/browse/LU-9059"&gt;known problem&lt;/a&gt;, so I pressed on undeterred.&lt;/p&gt;
+&lt;p&gt;I then attached a couple of virtual harddrives for the metadata and object store volumes, and having set them up, proceeded to try to mount my freshly minted lustre volume from some clients.&lt;/p&gt;
+&lt;h1&gt;Testing with a ppc64le client&lt;/h1&gt;
+&lt;p&gt;My first step was to test whether another ppc64le machine would work as a client.&lt;/p&gt;
+&lt;p&gt;I tried with an existing Ubuntu 16.04 VM that I use for much of my day to day development.&lt;/p&gt;
+&lt;p&gt;A quick google suggested that I could grab the &lt;code&gt;lustre-release&lt;/code&gt; repository and run &lt;code&gt;make debs&lt;/code&gt; to get Debian packages for my system.&lt;/p&gt;
+&lt;p&gt;I needed the following dependencies:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo apt install module-assistant debhelper dpatch libsnmp-dev quilt
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;With those the packages built successfully, and could be easily installed:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;dpkg -i lustre-client-modules-4.4.0-57-generic_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deblustre-utils_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deb
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I tried to connect to the server:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;sudo mount -t lustre &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;SERVER_IP&lt;/span&gt;&lt;span class="x"&gt;@tcp:/lustre /lustre/&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Initially I wasn't able to connect to the server at all. I remembered that (unlike Ubuntu), CentOS comes with quite an aggressive firewall by default. I ran the following on the server:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;systemctl stop firewalld
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;And voila! I was able to connect, mount the lustre volume, and successfully read and write to it. This is very much an over-the-top hack - I should have poked holes in the firewall to allow just the ports lustre needed. This is left as an exercise for the reader.&lt;/p&gt;
+&lt;h1&gt;Testing with an x86_64 client&lt;/h1&gt;
+&lt;p&gt;I then tried to run &lt;code&gt;make debs&lt;/code&gt; on my Ubuntu 16.10 x86_64 laptop.&lt;/p&gt;
+&lt;p&gt;This did not go well - I got the following error:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;liblustreapi.c: In function ‘llapi_get_poollist’:
+liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-declarations]
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This looks like one of the new errors introduced in recent GCC versions, and is &lt;a href="https://jira.hpdd.intel.com/browse/LU-8724?focusedCommentId=175244&amp;amp;page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-175244"&gt;a known bug&lt;/a&gt;. To work around it, I found the following stanza in a &lt;code&gt;lustre/autoconf/lustre-core.m4&lt;/code&gt;, and removed the &lt;code&gt;-Werror&lt;/code&gt;:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;AS_IF([test &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;target_cpu&lt;/span&gt;&lt;span class="x"&gt; == &amp;quot;i686&amp;quot; -o &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;target_cpu&lt;/span&gt;&lt;span class="x"&gt; == &amp;quot;x86_64&amp;quot;],&lt;/span&gt;
+&lt;span class="x"&gt;        [CFLAGS=&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;CFLAGS&lt;/span&gt;&lt;span class="x"&gt; -Wall -Werror&amp;quot;])&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Even this wasn't enough: I got the following errors:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+         .d_compare = ll_dcompare,
+                  ^~~~~~~~~~~
+/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: note: (near initialization for ‘ll_d_ops.d_compare’)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I figured this was probably because Ubuntu 16.10 has a 4.8 kernel, and Ubuntu 16.04 has a 4.4 kernel. Work on supporting 4.8 &lt;a href="https://jira.hpdd.intel.com/browse/LU-9003"&gt;is ongoing&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Sure enough, when I fired up a 16.04 x86_64 VM with a 4.4 kernel, I was able to build and install fine.&lt;/p&gt;
+&lt;p&gt;Connecting didn't work first time - the guest failed to mount, but I did get the following helpful error on the server:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;LNetError&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;2595&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;:(&lt;/span&gt;&lt;span class="n"&gt;acceptor&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;c&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;406&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;lnet_acceptor&lt;/span&gt;&lt;span class="o"&gt;())&lt;/span&gt; &lt;span class="n"&gt;Refusing&lt;/span&gt; &lt;span class="n"&gt;connection&lt;/span&gt; &lt;span class="n"&gt;from&lt;/span&gt; &lt;span class="mf"&gt;10.61&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mf"&gt;2.227&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;insecure&lt;/span&gt; &lt;span class="n"&gt;port&lt;/span&gt; &lt;span class="mi"&gt;1024&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Refusing insecure port 1024 made me thing that perhaps the NATing that qemu was performing for me was interfering - perhaps the server expected to get a connection where the source port was privileged, and qemu wouldn't be able to do that with NAT.&lt;/p&gt;
+&lt;p&gt;Sure enough, switching NAT to bridging was enough to get the x86 VM to talk to the ppc64le server. I verified that &lt;code&gt;ls&lt;/code&gt;, reading and writing all succeeded.&lt;/p&gt;
+&lt;h1&gt;Next steps&lt;/h1&gt;
+&lt;p&gt;The obvious next steps are following up the disabled tests in e2fsprogs, and doing a lot of internal performance and functionality testing.&lt;/p&gt;
+&lt;p&gt;Happily, it looks like Lustre might be in the mainline kernel before too long - parts have already started to go in to staging. This will make our lives a lot easier: for example, the breakage between 4.4 and 4.8 would probably have already been picked up and fixed if it was the main kernel tree rather than an out-of-tree patch set.&lt;/p&gt;
+&lt;p&gt;In the long run, we'd like to make Lustre on Power just as easy as Lustre on x86. (And, of course, more performant!) We'll keep you up to date!&lt;/p&gt;
+&lt;p&gt;(Thanks to fellow bloggers Daniel Black and Andrew Donnellan for useful feedback on this post.)&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 13 Feb 2017 16:29:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-02-13:blog/2017/02/13/high-power-lustre/</guid><category>lustre</category><category>hpc</category></item><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
 &lt;p&gt;Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.&lt;/p&gt;
 &lt;h2&gt;Prerequisites&lt;/h2&gt;
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
