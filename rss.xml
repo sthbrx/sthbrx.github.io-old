@@ -1,5 +1,396 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 13 Feb 2017 16:29:00 +1100</lastBuildDate><item><title>High Power Lustre</title><link>https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/</link><description>&lt;p&gt;(Most of the hard work here was done by fellow blogger Rashmica - I just verified her instructions and wrote up this post.)&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 20 Mar 2017 10:43:00 +1100</lastBuildDate><item><title>Erasure Coding for Programmers, Part 1</title><link>https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/</link><description>&lt;p&gt;Erasure coding is an increasingly popular storage technology - allowing the same level of fault tolerance as replication with a significantly reduced storage footprint.&lt;/p&gt;
+&lt;p&gt;Increasingly, erasure coding is available 'out of the box' on storage solutions such as Ceph and OpenStack Swift. Normally, you'd just pull in a library like &lt;a href="https://github.com/01org/isa-l"&gt;ISA-L&lt;/a&gt; or &lt;a href="http://jerasure.org"&gt;jerasure&lt;/a&gt;, and set some config options, and you'd be done.&lt;/p&gt;
+&lt;p&gt;This post is not about that. This post is about how I went from knowing nothing about erasure coding to writing POWER optimised routines to make it go fast. (These are in the process of being polished for upstream at the moment.) If you want to understand how erasure coding works under the hood - and in particular if you're interested in writing optimised routines to make it run quickly in your platform - this is for you.&lt;/p&gt;
+&lt;h2&gt;What are erasure codes anyway?&lt;/h2&gt;
+&lt;p&gt;I think the easiest way to begin thinking about erasure codes is "RAID 6 on steroids". RAID 6 allows you to have up to 255 data disks and 2 parity disks (called P and Q), thus allowing you to tolerate the failure of up to 2 arbitrary disks without data loss.&lt;/p&gt;
+&lt;p&gt;Erasure codes allow you to have k data disks and m 'parity' or coding disks. You then have a total of m + k disks, and you can tolerate the failure of up to m without losing data.&lt;/p&gt;
+&lt;p&gt;The downside of erasure coding is that computing what to put on those parity disks is CPU intensive. Lets look at what we put on them.&lt;/p&gt;
+&lt;h2&gt;RAID 6&lt;/h2&gt;
+&lt;p&gt;RAID 6 is the easiest way to get started on understanding erasure codes for a number of reasons. H Peter Anvin's paper on RAID 6 in the Linux kernel is an excellent start, but does dive in a bit quickly to the underlying mathematics. So before reading that, read on!&lt;/p&gt;
+&lt;h2&gt;Rings and Fields&lt;/h2&gt;
+&lt;p&gt;As programmers we're pretty comfortable with modular arithmetic - the idea that if you have:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;unsigned char a = 255;
+a++;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;the new value of &lt;code&gt;a&lt;/code&gt; will be 0, not 256.&lt;/p&gt;
+&lt;p&gt;This is an example of an algebraic structure called a &lt;em&gt;ring&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;Rings obey certain laws. For our purposes, we'll consider the following incomplete and somewhat simplified list:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;There is an addition operation.&lt;/li&gt;
+&lt;li&gt;There is an additive identity (normally called 0), such that 'a + 0 = a'.&lt;/li&gt;
+&lt;li&gt;Every element has an additive inverse, that is, for every element 'a', there is an element -a such that 'a + (-a) = 0'&lt;/li&gt;
+&lt;li&gt;There is a multiplication operation.&lt;/li&gt;
+&lt;li&gt;There is a multiplicative identity (normally called 1), such that 'a * 1 = a'.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;These operations aren't necessarily addition or multiplication as we might expect from the integers or real numbers. For example, in our modular arithmetic example, we have 'wrap around'. (There are also certain rules the addition and multiplication rules must satisfy - we are glossing over them here.)&lt;/p&gt;
+&lt;p&gt;One thing a ring doesn't have a 'multiplicative inverse'. The multiplicative inverse of some non-zero element of the ring (call it a), is the value b such that a * b = 1. (Often instead of b we write 'a^-1', but that looks bad in plain text, so we shall stick to b for now.)&lt;/p&gt;
+&lt;p&gt;We do have some inverses in 'mod 256': the inverse of 3 is 171 as 3 * 171 = 513, and 513 = 1 mod 256, but there is no b such that 2 * b = 1 mod 256.&lt;/p&gt;
+&lt;p&gt;If every non-zero element of our ring had a multiplicative inverse, we would have what is called a &lt;em&gt;field&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;Now, let's look at a the integers modulo 2, that is, 0 and 1.&lt;/p&gt;
+&lt;p&gt;We have this for addition:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;+&lt;/th&gt;
+&lt;th&gt;0&lt;/th&gt;
+&lt;th&gt;1&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Eagle-eyed readers will notice that this is the same as XOR.&lt;/p&gt;
+&lt;p&gt;For multiplication: &lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;*&lt;/th&gt;
+&lt;th&gt;0&lt;/th&gt;
+&lt;th&gt;1&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;As we said, a field is a ring where every non-zero element has a multiplicative inverse. As we can see, the integers modulo 2 shown above is a field: it's a ring, and 1 is its own multiplicative inverse.&lt;/p&gt;
+&lt;p&gt;So this is all well and good, but you can't really do very much in a field with 2 elements. This is sad, so we make bigger fields. For this application, we consider the Galois Field with 256 elements - GF(2^8). This field has some surprising and useful properties.&lt;/p&gt;
+&lt;p&gt;Remember how we said that integers modulo 256 weren't a field because they didn't have multiplicative inverses? I also just said that GF(2^8) also has 256 elements, but is a field - i.e., it does have inverses! How does that work?&lt;/p&gt;
+&lt;p&gt;Consider an element in GF(2^8). There are 2 ways to look at an element in GF(2^8). The first is to consider it as an 8-bit number. So, for example, let's take 100. We can express that as as an 8 bit binary number: 0b01100100.&lt;/p&gt;
+&lt;p&gt;We can write that more explicitly as a sum of powers of 2:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0 * 2^7 + 1 * 2^6 + 1 * 2^5 + 0 * 2^4 + 0 * 2^3 + 1 * 2^2 + 0 * 2 + 0 * 1
+= 2^6 + 2^5 + 2^2
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now the other way we can look at elements in GF(2^8) is to replace the '2's with 'x's, and consider them as polynomials. Each of our bits then represents the coefficient of a term of a polynomial, that is:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0 x^7 + 1 x^6 + 1 x^5 + 0 x^4 + 0 x^3 + 1 x^2 + 0 x + 0 * 1
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;or more simply&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;x^6 + x^5 + x^2
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now, and this is &lt;strong&gt;important&lt;/strong&gt;: each of the coefficients are elements of the integers modulo 2: x + x = 2x = 0 as 2 mod 2 = 0. There is no concept of 'carrying' in this addition.&lt;/p&gt;
+&lt;p&gt;Let's try: what's 100 + 79 in GF(2^8)?&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 +       x^2
+ 79 = 0b01001111 =&amp;gt; x^6 +       x^3 + x^2 + x + 1
+
+100 + 79         =&amp;gt;   0 + x^5 + x^3 +   0 + x + 1
+                 =    0b00101011 = 43
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;So, 100 + 79 = 43 in GF(2^8)&lt;/p&gt;
+&lt;p&gt;You may notice we could have done that much more efficiently: we can add numbers in GF(2^8) by just XORing their binary representations together. Subtraction, amusingly, is the same as addition: 0 + x = x =  0 - x, as -1 is congruent to 1 modulo 2.&lt;/p&gt;
+&lt;p&gt;So at this point you might be wanting to explore a few additions yourself. Fortuantely there's a lovely tool that will allow you to do that:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;sudo apt install gf-complete-tools&lt;/span&gt;
+&lt;span class="x"&gt;gf_add &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;A&lt;/span&gt;&lt;span class="x"&gt; &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;B&lt;/span&gt;&lt;span class="x"&gt; 8&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This will give you A + B in GF(2^8).&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_add 100 79 8
+43
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Excellent!&lt;/p&gt;
+&lt;p&gt;So, hold on to your hats, as this is where things get really weird. In modular arithmetic example, we considered the elements of our ring to be numbers, and we performed our addition and multiplication modulo 256. In GF(2^8), we consider our elements as polynomials and we perform our addition and multiplication modulo a polynomial. There is one conventional polynomial used in applications:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x11d =&amp;gt; 0b1 0001 1101 =&amp;gt; x^8 + x^4 + x^3 + x^2 + 1
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;It is possible to use other polynomials if they satisfy particular requirements, but for our applications we don't need to worry as we will always use 0x11d. I am not going to attempt to explain anything about this polynomial - take it as an article of faith.&lt;/p&gt;
+&lt;p&gt;So when we multiply two numbers, we multiply their polynomial representations. Then, to find out what that is modulo 0x11d, we do polynomial long division by 0x11d, and take the remainder.&lt;/p&gt;
+&lt;p&gt;Some examples will help.&lt;/p&gt;
+&lt;p&gt;Let's multiply 100 by 3.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  3 = 0b00000011 =&amp;gt; x + 1
+
+(x^6 + x^5 + x^2)(x + 1) = x^7 + x^6 + x^3 + x^6 + x^5 + x^2
+                         = x^7 + x^5 + x^3 + x^2
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Notice that some of the terms have disappeared: x^6 + x^6 = 0.&lt;/p&gt;
+&lt;p&gt;The degree (the largest power of a term) is 7. 7 is less than the degree of 0x11d, which is 8, so we don't need to do anything: the remainder modulo 0x11d is simply x^7 + x^5 + x^3 + x^2.&lt;/p&gt;
+&lt;p&gt;In binary form, that is 0b10101100 = 172, so 100 * 3 = 172 in GF(2^8).&lt;/p&gt;
+&lt;p&gt;Fortunately &lt;code&gt;gf-complete-tools&lt;/code&gt; also allows us to check multiplications:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 3 8
+172
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Excellent!&lt;/p&gt;
+&lt;p&gt;Now let's see what happens if we multiply by a larger number. Let's multiply 100 by 5.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  5 = 0b00000101 =&amp;gt; x^2 + 1
+
+(x^6 + x^5 + x^2)(x^2 + 1) = x^8 + x^7 + x^4 + x^6 + x^5 + x^2
+                           = x^8 + x^7 + x^6 + x^5 + x^4 + x^2
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Here we have an x^8 term, so we have a degree of 8. This means will get a different remainder when we divide by our polynomial. We do this with polynomial long division, which you will hopefully remember if you did some solid algebra in high school.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;                              1
+                           ---------------------------------------------
+x^8 + x^4 + x^3 + x^2 + 1 | x^8 + x^7 + x^6 + x^5 + x^4       + x^2
+                          - x^8                   + x^4 + x^3 + x^2 + 1
+                            -------------------------------------------
+                          =       x^7 + x^6 + x^5       + x^3       + 1
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;So we have that our original polynomial (x^8 + x^4 + x^3 + x^2 + 1) is congruent to (x^7 + x^6 + x^5 + x^3 + 1) modulo the polynomial 0x11d.
+Looking at the binary representation of that new polynomial, we have 0b11101001 = 233.&lt;/p&gt;
+&lt;p&gt;Sure enough:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 5 8
+233
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Just to solidify the polynomial long division a bit, let's try a slightly larger example, 100 * 9:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  9 = 0b00001001 =&amp;gt; x^3 + 1
+
+(x^6 + x^5 + x^2)(x^3 + 1) = x^9 + x^8 + x^5 + x^6 + x^5 + x^2
+                           = x^9 + x^8 + x^6 + x^2
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Doing long division to reduce our result:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;                              x
+                           -----------------------------------
+x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
+                          - x^9                   + x^5 + x^4 + x^3       + x
+                            -------------------------------------------------
+                          =       x^8       + x^6 + x^5 + x^4 + x^3 + x^2 + x
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We still have a polynomial of degree 8, so we can do another step:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;                              x +   1
+                           -----------------------------------
+x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
+                          - x^9                   + x^5 + x^4 + x^3       + x
+                            -------------------------------------------------
+                          =       x^8       + x^6 + x^5 + x^4 + x^3 + x^2 + x
+                          -       x^8                   + x^4 + x^3 + x^2     + 1
+                                  -----------------------------------------------
+                          =                   x^6 + x^5                   + x + 1
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We now have a polynomial of degree less than 8 that is congruent to our original polynomial modulo 0x11d, and the binary form is 0x01100011 = 99.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 9 8
+99
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This process can be done more efficiently, of course - but understanding what is going on will make you &lt;em&gt;much&lt;/em&gt; more comfortable with what is going on!&lt;/p&gt;
+&lt;p&gt;I will not try to convince you that all multiplicative inverses exist in this magic shadow land of GF(2^8), but it's important for the rest of the algorithms to work that they do exist. Trust me on this.&lt;/p&gt;
+&lt;h2&gt;Back to RAID 6&lt;/h2&gt;
+&lt;p&gt;Equipped with this knowledge, you are ready to take on &lt;a href="https://www.kernel.org/pub/linux/kernel/people/hpa/raid6.pdf"&gt;RAID6 in the kernel&lt;/a&gt; (PDF) sections 1 - 2.&lt;/p&gt;
+&lt;p&gt;Pause when you get to section 3 - this snippet is a bit magic and benefits from some explanation:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Multiplication by {02} for a single byte can be implemeted using the C code:&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;uint8_t c, cc;
+cc = (c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0);
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;How does this work? Well:&lt;/p&gt;
+&lt;p&gt;Say you have a binary number 0bNMMM MMMM. Mutiplication by 2 gives you 0bNMMMMMMM0, which is 9 bits. Now, there are two cases to consider.&lt;/p&gt;
+&lt;p&gt;If your leading bit (N) is 0, your product doesn't have an x^8 term, so we don't need to reduce it modulo the irreducible polynomial.&lt;/p&gt;
+&lt;p&gt;If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.&lt;/p&gt;
+&lt;p&gt;We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)&lt;/p&gt;
+&lt;p&gt;So, back to the original statement:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0)
+    |          |          |     |
+    &amp;gt; multiply by 2       |     |
+               |          |     |
+               &amp;gt; is the high bit set - will the product have an x^8 term?
+                          |     |
+                          &amp;gt; if so, reduce by the polynomial
+                                |
+                                &amp;gt; otherwise, leave alone
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Hopefully that makes sense.&lt;/p&gt;
+&lt;h3&gt;Key points&lt;/h3&gt;
+&lt;p&gt;It's critical you understand the section on Altivec (the vperm stuff), so let's cover it in a bit more detail.&lt;/p&gt;
+&lt;p&gt;Say you want to do A * V, where A is a constant and V is an 8-bit variable. We can express V as V_a + V_b, where V_a is the top 4 bits of V, and V_b is the bottom 4 bits. A * V = A * V_a + A * V_b&lt;/p&gt;
+&lt;p&gt;We can then make lookup tables for multiplication by A.&lt;/p&gt;
+&lt;p&gt;If we did this in the most obvious way, we would need a 256 entry lookup table. But by splitting things into the top and bottom halves, we can reduce that to two 16 entry tables. For example, say A = 02.&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;V_a&lt;/th&gt;
+&lt;th&gt;A * V_a&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;01&lt;/td&gt;
+&lt;td&gt;02&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;02&lt;/td&gt;
+&lt;td&gt;04&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;0f&lt;/td&gt;
+&lt;td&gt;1e&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;V_b&lt;/th&gt;
+&lt;th&gt;A * V_b&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;10&lt;/td&gt;
+&lt;td&gt;20&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;20&lt;/td&gt;
+&lt;td&gt;40&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;f0&lt;/td&gt;
+&lt;td&gt;fd&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;We then use vperm to look up entries in these tables and vxor to combine our results.&lt;/p&gt;
+&lt;p&gt;So - and this is a key point - for each A value we wish to multiply by, we need to generate a new lookup table.&lt;/p&gt;
+&lt;p&gt;So if we wanted A = 03:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;V_a&lt;/th&gt;
+&lt;th&gt;A * V_a&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;01&lt;/td&gt;
+&lt;td&gt;03&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;02&lt;/td&gt;
+&lt;td&gt;06&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;0f&lt;/td&gt;
+&lt;td&gt;11&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;V_b&lt;/th&gt;
+&lt;th&gt;A * V_b&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;td&gt;00&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;10&lt;/td&gt;
+&lt;td&gt;30&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;20&lt;/td&gt;
+&lt;td&gt;60&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;f0&lt;/td&gt;
+&lt;td&gt;0d&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;One final thing is that Power8 adds a vpermxor instruction, so we can reduce the entire 4 instruction sequence in the paper:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;vsrb v1, v0, v14
+vperm v2, v12, v12, v0
+vperm v1, v13, v13, v1
+vxor v1, v2, v1
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;to 1 vpermxor:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;vpermxor v1, v12, v13, v0
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Isn't POWER grand?&lt;/p&gt;
+&lt;h2&gt;OK, but how does this relate to erasure codes?&lt;/h2&gt;
+&lt;p&gt;I'm glad you asked.&lt;/p&gt;
+&lt;p&gt;Galois Field arithmetic, and its application in RAID 6 is the basis for erasure coding. (It's also the basis for CRCs - two for the price of one!)&lt;/p&gt;
+&lt;p&gt;But, that's all to come in part 2, which will definitely be published before 7 April!&lt;/p&gt;
+&lt;p&gt;Many thanks to Sarah Axtens who reviewed the mathematical content of this post and suggested significant improvements. All errors and gross oversimplifications remain my own. Thanks also to the OzLabs crew for their feedback and comments.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 20 Mar 2017 10:43:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-03-20:blog/2017/03/20/erasure-coding-for-programmers-part-1/</guid><category>erasure</category><category>raid</category><category>storage</category></item><item><title>High Power Lustre</title><link>https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/</link><description>&lt;p&gt;(Most of the hard work here was done by fellow blogger Rashmica - I just verified her instructions and wrote up this post.)&lt;/p&gt;
 &lt;p&gt;&lt;a href="http://lustre.org/"&gt;Lustre&lt;/a&gt; is a high-performance clustered file system. Traditionally the Lustre client and server have run on x86, but both the server and client will also work on Power. Here's how to get them running.&lt;/p&gt;
 &lt;h1&gt;Server&lt;/h1&gt;
 &lt;p&gt;Lustre normally requires a patched 'enterprise' kernel - normally an old RHEL, CentOS or SUSE kernel. We tested with a CentOS 7.3 kernel. We tried to follow &lt;a href="https://wiki.hpdd.intel.com/pages/viewpage.action?pageId=52104622"&gt;the Intel instructions&lt;/a&gt; for building the kernel as much as possible - any deviations we had to make are listed below.&lt;/p&gt;

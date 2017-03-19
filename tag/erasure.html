@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  <title>Getting In Sync &mdash; Store Half Byte-Reverse Indexed</title>
+  <title>Tag: erasure &mdash; Store Half Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
         title="Store Half Byte-Reverse Indexed RSS Feed" />
-
-
 
 
 
@@ -88,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <li >
         <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
       </li>
-      <li class="active">
+      <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
       </li>
       <li >
@@ -101,68 +99,28 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="main">
     <div id="content">
 <div>
-  <article class="hentry" role="article">
-<header>
-      <h1 class="entry-title">Getting In Sync</h1>
-    <p class="meta">
-<time datetime="2016-08-17T15:23:00+10:00" pubdate>Wed 17 August 2016</time>    </p>
-</header>
+	<article role="article">
+    	<header>
+    		<h1 class="entry-title">Tag: erasure</h1>
+    	</header>
 
-  <div class="entry-content"><p>Since at least v1.0.0 Petitboot has used device-mapper snapshots to avoid
-mounting block devices directly. Primarily this is so Petitboot can mount disks
-and potentially perform filesystem recovery without worrying about messing it up
-and corrupting a host's boot partition - all changes happen to the snapshot in
-memory without affecting the actual device.</p>
-<p>This of course gets in the way if you actually <em>do</em> want to make changes to a
-block device. Petitboot will allow certain bootloader scripts to make changes
-to disks if configured (eg, grubenv updates), but if you manually make changes
-you would need to know the special sequence of <code>dmsetup</code> commands to merge the
-snapshots back to disk. This is particulary annoying if you're trying to copy
-logs to a USB device!</p>
-<p>Depending on how recent a version of Petitboot you're running, there are two
-ways of making sure your changes persist:</p>
-<h2>Before v1.2.2</h2>
-<p>If you really need to save changes from within Petitboot, the most
-straightforward way is to disable snapshots. Drop to the shell and enter</p>
-<div class="highlight"><pre><span></span>nvram --update-config petitboot,snapshots?=false
-reboot
-</pre></div>
-
-
-<p>Once you have rebooted you can remount the device as read-write and
-modify it as normal.</p>
-<h2>After v1.2.2</h2>
-<p>To make this easier while keeping the benefit of snapshots, v1.2.2 introduces
-a new user-event that will merge snapshots on demand. For example:</p>
-<div class="highlight"><pre><span></span>mount -o remount,rw /var/petitboot/mnt/dev/sda2
-cp /var/log/messages /var/petitboot/mnt/dev/sda2/
-pb-event sync@sda2
-</pre></div>
-
-
-<p>After calling <code>pb-event sync@yourdevice</code>, Petitboot will remount the device back to
-read-only and merge the current snapshot differences back to disk. You can also
-run <code>pb-event sync@all</code> to sync all existing snapshots if desired.</p></div>
-    <footer>
-<p class="meta">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2016-08-17T15:23:00+10:00" pubdate>Wed 17 August 2016</time>  <span class="categories">
-    <a class='category' href='https://sthbrx.github.io/category/petitboot.html'>Petitboot</a>
-  </span>
-  <span class="categories">
-    <a class="category" href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a class="category" href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a class="category" href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a class="category" href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a class="category" href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a class="category" href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a class="category" href="https://sthbrx.github.io/tag/debug.html">debug</a>  </span>
-</p><div class="sharing">
-</div>    </footer>
-  </article>
-
-  <section>
-    <h1>Comments</h1>
-    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
-  </section>
+    	<div id="blog-archives">
+            <h2>2017</h2>
+                    <article>
+                        <h1><a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a></h1>
+                        <time datetime="2017-03-20 10:43:00+11:00" pubdate>
+                            <span class="month">Mar</span>
+                            <span class="day">20</span>
+                            <span class="year">2017</span>
+                        </time>
+                        <footer>
+                            <span class="categories">posted in
+                                <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
+                            </span>
+                        </footer>
+                    </article>
+	    </div>
+    </article>
 </div>
 <aside class="sidebar">
   <section>
@@ -170,18 +128,6 @@ run <code>pb-event sync@all</code> to sync all existing snapshots if desired.</p
     <ul id="recent_posts">
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
       </li>
     </ul>
   </section>
@@ -229,19 +175,8 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2017  OzLabs &mdash;
+    Copyright &copy;  2017  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
-  <script type="text/javascript">
-    var disqus_shortname = 'sthbrx';
-    var disqus_identifier = '/blog/2016/08/17/getting-in-sync/';
-    var disqus_url = 'https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/';
-    var disqus_title = 'Getting In Sync';
-    (function() {
-      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
-      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-     })();
-  </script>
 </body>
 </html>

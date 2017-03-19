@@ -102,6 +102,29 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/07/01/a-taste-of-ibm/">A Taste of IBM</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-07-01T11:45:00+10:00" pubdate>Fri 01 July 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a>
+    </span>
+  </span>
+<time datetime="2016-07-01T11:45:00+10:00" pubdate>Fri 01 July 2016</time></div>
+
+  <div class="entry-content"><p>As a hobbyist programmer and Linux user, I was pretty stoked to be able to experience real work in the IT field that interests me most, Linux. With a mainly disconnected understanding of computer hardware and software, I braced myself to entirely relearn everything and anything I thought I knew. Furthermore, I worried that my usefulness in a world of maintainers, developers and testers would not be enough to provide any real contribution to the company. In actual fact however, the employees at OzLabs (IBM ADL) put a really great effort into making use of my existing skills, were attentive to my current knowledge and just filled in the gaps! The knowledge they've given me is practical, interlinked with hardware and provided me with the foot-up that I'd been itching for to establish my own portfolio as a programmer. I was both honoured and astonished by their dedication to helping me make a truly meaningful contribution!</p>
+<p>On applying for the placement, I listed my skills and interests. Having a Mathematics, Science background, I listed among my greatest interests development of scientific simulation and graphics using libraries such as Python matplotlib and R. By the <em>first day</em> they got me to work, researching and implementing a routine in R that would qualitatively model the ability of a system to perform common tasks - a benchmark. A series of these microbenchmarks were made; I was in my element and actually able to contribute to a corporation much larger than I could imagine. The team at IBM reinforced my knowledge from the ground up, introducing the rigorous hardware and corporate elements at a level I was comfortable with.</p>
+<p>I would say that my greatest single piece of take-home knowledge over the two weeks was knowledge of the Linux Kernel project, Git and GitHub. Having met the arch/powerpc and linux-next maintainers in person placed the Linux and Open Source development cycle in an entirely new perspective. I was introduced to the world of GitHub, and thanks to a few rigorous lessons of Git, I now have access to tools that empower me to safely and efficiently write code, and to build a public portfolio I can be proud of. Most members of the office donated their time to instruct me on all fronts, whether to do with career paths, programming expertise or conceptual knowledge, and the rest were all very good for a chat.</p>
+<p>Approaching the tail-end of Year Twelve, I was blessed with some really good feedback and recommendations regarding further study. If during the two weeks I had any query regarding anything ranging from work-life to programming expertise even to which code editor I should use (a source of much contention) the people in the office were very happy to help me. Several employees donated their time to teach me really very intensive and long lessons regarding the software development concepts, including (but not limited to!) a thorough and helpful lesson on Git that was just on my level of understanding.</p>
+<p>Working at IBM these past two weeks has not only bridged the gap between my hobby and my professional prospects, but more importantly established friendships with professionals in the field of Software Development. Without a doubt this really great experience of an environment that rewards my enthusiasm will fondly stay in my mind as I enter the next chapter of my life!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
       </h1>
     <p class="meta">
@@ -332,105 +355,6 @@ libc</li>
 <p>Speaking of git, the editor pretty much has everything you'd expect for an editor written at GitHub.  The sidebar shows you what lines you've added, removed and modified, and the gutter shows you what branch you're on and how much you've changed all-up.  There's no in-built support for doing git things inside the editor, but there's a package for it.  It's pretty nice to get something "for free" that you'd have to tinker with in other editors.</p>
 <p>Overall, Atom has come a long way and still has a long way to go.  I've been using it for a few weeks and I'll continue to use it.  I'll encourage new developers to use it, but it needs to be better for experienced programmers who are used to their current workflow to consider switching.  If you're in the market for a new editor, Atom might just be for you.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
-    </span>
-  </span>
-<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time></div>
-
-  <div class="entry-content"><h2>What is SROP?</h2>
-<p>Sigreturn Oriented Programming - a general technique that can be used as an exploit, or as a backdoor to exploit another vulnerability.</p>
-<h2>Okay, but what is it?</h2>
-<p>Yeah... Let me take you through some relevant background info, where I skimp on the details and give you the general picture.</p>
-<p>In Linux, software interrupts are called signals. More about signals <a href="http://www.thegeekstuff.com/2012/03/linux-signals-fundamentals/">here</a>! Generally a signal will convey some information from the kernel and so most signals will have a specific signal handler (some code that deals with the signal) setup.</p>
-<p>Signals are asynchronous - ie they can be sent to a process/program at anytime. When a signal arrives for a process, the kernel suspends the process. The kernel then saves the 'context' of the process - all the general purpose registers (GPRs), the stack pointer, the next-instruction pointer etc - into a structure called a 'sigframe'. The sigframe is stored on the stack, and then the kernel runs the signal handler. At the very end of the signal handler, it calls a special system call called 'sigreturn' - indicating to the kernel that the signal has been dealt with. The kernel then grabs the sigframe from the stack, restores the process's context and resumes the execution of the process.</p>
-<p>This is the rough mental picture you should have:</p>
-<p><img alt="Double Format" src="/images/rashmica/picture.png" /></p>
-<h2>Okay... but you still haven't explained what SROP is..?</h2>
-<p>Well, if you insist...</p>
-<p>The above process was designed so that the kernel does not need to keep track of what signals it has delivered. The kernel assumes that the sigframe it takes off the stack was legitimately put there by the kernel because of a signal. This is where we can trick the kernel!</p>
-<p>If we can construct a fake sigframe, put it on the stack, and call sigreturn, the kernel will assume that the sigframe is one it put there before and will load the contents of the fake context into the CPU's registers and 'resume' execution from where the fake sigframe tells it to. And that is what SROP is!</p>
-<h2>Well that sounds cool, show me!</h2>
-<p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
-<p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
-<p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
-<div class="highlight"><pre><span></span><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
-        <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">uc</span><span class="p">;</span>
-        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
-        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
-        <span class="k">struct</span> <span class="n">siginfo</span> <span class="n">__user</span> <span class="o">*</span><span class="n">pinfo</span><span class="p">;</span>
-        <span class="kt">void</span> <span class="n">__user</span> <span class="o">*</span><span class="n">puc</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">siginfo</span> <span class="n">info</span><span class="p">;</span>
-        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">user_cookie</span><span class="p">;</span>
-        <span class="cm">/* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */</span>
-        <span class="kt">char</span> <span class="n">abigap</span><span class="p">[</span><span class="n">USER_REDZONE_SIZE</span><span class="p">];</span>
-<span class="p">}</span> <span class="n">__attribute__</span> <span class="p">((</span><span class="n">aligned</span> <span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
-</pre></div>
-
-
-<p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
-<div class="highlight"><pre><span></span><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
-<span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r13</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
-<span class="k">struct</span> <span class="n">ucontext</span> <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
-
-<span class="cm">/* We need a system thread id so copy the one from this process */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R13</span><span class="p">]</span> <span class="o">=</span> <span class="n">r13</span><span class="p">;</span>
-
-<span class="cm">/*  Set the context&#39;s stack pointer to where the current stack pointer is pointing */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r1</span><span class="p">;</span>
-</pre></div>
-
-
-<p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
-<div class="highlight"><pre><span></span><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">test_function</span><span class="p">;</span>
-</pre></div>
-
-
-<p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
-<div class="highlight"><pre><span></span><span class="cm">/* Set MSR bit if LE */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x01</span><span class="p">;</span>
-</pre></div>
-
-
-<p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
-<p><strong>Secondly</strong> we have to put it on the stack:</p>
-<div class="highlight"><pre><span></span><span class="cm">/* Set current stack pointer to our fake context */</span>
-<span class="n">r1</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
-</pre></div>
-
-
-<p><strong>Thirdly</strong>, we call sigreturn:</p>
-<div class="highlight"><pre><span></span><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
-<span class="n">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-<span class="n">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-</pre></div>
-
-
-<p>When the kernel receives the sigreturn call, it looks at the userspace stack pointer for the ucontext and loads this in. As we have put valid values in the ucontext, the kernel assumes that this is a valid sigframe that it set up earlier and loads the contents of the ucontext in the CPU's registers "and resumes" execution of the process from the address we pointed the NIP to.</p>
-<p>Obviously, you need something worth executing at this address, but sadly that next part is not in my job description. This is a nice gateway into the kernel though and would pair nicely with another kernel vulnerability.  If you are interested in some more in depth examples, have a read of <a href="http://www.cs.vu.nl/~herbertb/papers/srop_sp14.pdf">this</a> paper.</p>
-<h2>So how can we mitigate this?</h2>
-<p>Well, I'm glad you asked. We need some way of distinguishing between sigframes that were put there legitimately by the kernel and 'fake' sigframes. The current idea that is being thrown around is cookies, and you can see the x86 discussion <a href="https://lkml.org/lkml/2016/3/29/788">here</a>.</p>
-<p>The proposed solution is to give every sighand struct a randomly generated value. When the kernel constructs a sigframe for a process, it stores a 'cookie' with the sigframe. The cookie is a hash of the cookie's location and the random value stored in the sighand struct for the process. When the kernel receives a sigreturn, it hashes the location where the cookie should be with the randomly generated number in sighand struct - if this matches the cookie, the cookie is zeroed,  the sigframe is valid and the kernel will restore this context.  If the cookies do not match, the sigframe is not restored.</p>
-<p>Potential issues:</p>
-<ul>
-<li>Multithreading: Originally the random number was suggested to be stored in the task struct. However, this would break multi-threaded applications as every thread has its own task struct. As the sighand struct is shared by threads, this should not adversely affect multithreaded applications.</li>
-<li>Cookie location: At first I put the cookie on top of the sigframe. However some code in userspace assumed that all the space between the signal handler and the sigframe  was essentially up for grabs and would zero the cookie before I could read the cookie value. Putting the cookie below the sigframe was also a no-go due to the ABI-gap (a gap below the stack pointer that signal code cannot touch) being a part of the sigframe. Putting the cookie inside the sigframe, just above the ABI gap has been fine with all the tests I have run so far!</li>
-<li>Movement of sigframe: If you move the sigframe on the stack, the cookie value will no longer be valid... I don't think that this is something that you should be doing, and have not yet come across a scenario that does this. </li>
-</ul>
-<p>For a more in-depth explanation of SROP, click <a href="https://lwn.net/Articles/676803/">here</a>.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
 
@@ -442,6 +366,9 @@ libc</li>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
       </li>
       <li class="post">
@@ -452,9 +379,6 @@ libc</li>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/">Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</a>
       </li>
     </ul>
   </section>
@@ -475,7 +399,7 @@ libc</li>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
