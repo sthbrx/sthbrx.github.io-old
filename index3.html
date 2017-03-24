@@ -102,6 +102,73 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/07/05/optical-action-at-a-distance/">Optical Action at a Distance</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-07-05T15:23:00+10:00" pubdate>Tue 05 July 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2016-07-05T15:23:00+10:00" pubdate>Tue 05 July 2016</time></div>
+
+  <div class="entry-content"><p>Generally when someone wants to install a Linux distro they start with an ISO
+file. Now we could burn that to a DVD, walk into the server room, and put it in
+our machine, but that's a pain. Instead let's look at how to do this over the
+network with Petitboot!</p>
+<p>At the moment Petitboot won't be able to handle an ISO file unless it's
+mounted in an expected place (eg. as a mounted DVD), so we need to unpack it
+somewhere. Choose somewhere to host the result and unpack the ISO via whatever
+method you prefer. (For example <code>bsdtar -xf /path/to/image.iso</code>).</p>
+<p>You'll get a bunch of files but for our purposes we only care about a few; the
+kernel, the initrd, and the bootloader configuration file. Using
+the Ubuntu 16.04 ppc64el ISO as an example, these are:</p>
+<div class="highlight"><pre><span></span>./install/vmlinux
+./install/initrd.gz.
+./boot/grub/grub.cfg
+</pre></div>
+
+
+<p>In grub.cfg we can see that the boot arguments are actually quite simple:</p>
+<div class="highlight"><pre><span></span>set timeout=-1
+
+menuentry &quot;Install&quot; {
+    linux   /install/vmlinux tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
+    initrd  /install/initrd.gz
+}
+
+menuentry &quot;Rescue mode&quot; {
+    linux   /install/vmlinux rescue/enable=true --- quiet
+    initrd  /install/initrd.gz
+}
+</pre></div>
+
+
+<p>So all we need to do is create a PXE config file that points Petitboot towards
+the correct files.</p>
+<p>We're going to create a PXE config file which you could serve from your DHCP
+server, but that does not mean we need to use PXE - if you just want a quick
+install you only need make these files accessible to Petitboot, and then we can
+use the 'Retrieve config from URL' option to download the files.</p>
+<p>Create a petitboot.conf file somewhere accessible that contains (for Ubuntu):</p>
+<div class="highlight"><pre><span></span>label Install Ubuntu 16.04 Xenial Xerus
+    kernel http://myaccesibleserver/path/to/vmlinux
+    initrd http://myaccesibleserver/path/to/initrd.gz
+    append tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
+</pre></div>
+
+
+<p>Then in Petitboot, select 'Retrieve config from URL' and enter
+<code>http://myaccesibleserver/path/to/petitboot.conf</code>. In the main menu your new
+option should appear - select it and away you go!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/07/01/a-taste-of-ibm/">A Taste of IBM</a>
       </h1>
     <p class="meta">
@@ -321,40 +388,6 @@ libc</li>
 <p>All in all, I have had a great time here, learnt so much and you should definitely come and work at Ozlabs! Hopefully you'll see me back on this blog in a few months :)</p>
 <p>* <em>My pre-university, perhaps somewhat naiive, opinion: Civil and Mechanical is just physics. Chemical and Materials is just chemistry. Electrical seems interesting but who wants to work with power lines? Biomedical is just math and biology. Software is just abstract high level nonsense. But how a computer works?? That is some magical stuff.</em></p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">Using the Atom editor for Linux kernel development</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-06-07T17:03:00+10:00" pubdate>Tue 07 June 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
-    </span>
-  </span>
-<time datetime="2016-06-07T17:03:00+10:00" pubdate>Tue 07 June 2016</time></div>
-
-  <div class="entry-content"><p><a href="https://atom.io">Atom</a> is a text editor.  It's new, it's shiny, and it has a lot of good and bad sides.  I work in a lab full of kernel developers, and in the kernel, there are no IDEs.  There's no real metadata you can get out of your compiler (given the kernel isn't very clang friendly), there's certainly nothing like that you can get out of your build system, so "plain old" text editors reign supreme.  It's a vim or Emacs show.</p>
-<p>And so Atom comes along.  Unlike other shiny new text editors to emerge in the past 10 or so years, it's open source (unlike Sublime Text), it works well on Linux, and it's very configurable.  When it first came out, Atom was an absolute mess.  There was a noticeable delay whenever you typed a key.  That has gone, but the sour impression that comes from replacing a native application with a web browser in a frame remains.</p>
-<p>Like the curious person I am, I'm always trying out new things to see if they're any good.  I'm not particularly tied to any editor; I prefer modal editing, but I'm no vim wizard.  I eventually settled on using Emacs with evil-mode (which I assumed would make both Emacs and vim people like me, but the opposite happened), which was decent.  It was configurable, it was good, but it had issues.</p>
-<p><img alt="The Atom editor" src="/images/ruscur/36lOiMT.png" /></p>
-<p>So, let's have a look at how Atom stacks up for low-level work.  First of all, it's X only.  You wouldn't use it to change one line of a file in /etc/, and a lot of kernel developers only edit code inside a terminal emulator.  Most vim people do this since gvim is a bit wonky, and Emacs people can double-dip; using Emacs without X for small things and Emacs with X for programming.  You don't want to do that with Atom, if nothing else because of its slow startup time.</p>
-<p>Now let's look at configurability.  In my opinion, no editor will ever match the level of configurability of Emacs, however the barrier to entry is much lower here.  Atom has lots of options exposed in a config file, and you can set them there or you can use an equivalent GUI.  In addition, a perk of being a browser in a frame is that you can customise a lot of UI things with CSS, for those inclined.  Overall, I'd say Emacs &gt; Atom &gt; vim here, but for a newbie, it's probably Atom &gt; Emacs &gt; vim.</p>
-<p>Okay, package management.  Atom is the clear winner here.  The package repository is very easy to use, for users and developers.  I wrote my own package, typed <code>apm publish</code> and within a minute a friend could install it.  For kernel development though, you don't really need to install anything, Atom is pretty batteries-included.  This includes good syntax highlighting, ctags support, and a few themes.  In this respect, Atom feels like an editor that was created this century.</p>
-<p><img alt="Atom's inbuilt package management" src="/images/ruscur/DAx7GqD.png" /></p>
-<p>What about actually editing text?  Well, I only use modal editing, and Atom is very far from being the best vim.  I think evil-mode in Emacs is the best vim, followed closely by vim itself.  Atom has a vim-mode, and it's fine for insert/normal/visual mode, but anything involving a : is a no-go.  There's a plugin that's entirely useless.  If I tried to do a replacement with :s, Atom would lock up <em>and</em> fail to replace the text.  vim replaced thousands of occurrences with in a second.  Other than that, Atom's pretty good.  I can move around pretty much just as well as I could in vim or Emacs, but not quite.  Also, it support ligatures!  The first kernel-usable editor that does.</p>
-<p>Autocompletions feel very good in Atom.  It completes within a local scope automatically, without any knowledge of the type of file you're working on.  As far as intelligence goes, Atom's support for tags outside of ctags is very lacking, and ctags is stupid.  Go-to definition <em>sometimes</em> works, but it lags when dealing with something as big as the Linux kernel.  Return-from definition is very good, though.  Another downside is that it can complete from any open buffer, which is a huge problem if you're writing Rust in one tab and C in the other.</p>
-<p><img alt="Atom's fuzzy file matching is pretty good" src="/images/ruscur/0PRiIUS.png" /></p>
-<p>An experience I've had with Atom that I haven't had with other editors is actually writing a plugin.  It was really easy, mostly because I stole a lot of it from an existing plugin, but it was easy.  I wrote a syntax highlighting package for POWER assembly, which was much more fighting with regular expressions than it was fighting with anything in Atom.  Once I had it working, it was very easy to publish; just push to GitHub and run a command.</p>
-<p>Sometimes, Atom can get too clever for its own good.  For some completely insane reason, it automatically "fixes" whitespace in every file you open, leading to a huge amount of git changes you didn't intend.  That's easy to disable, but I don't want my editor doing that, it'd be much better if it highlighted whitespace it didn't like by default, like you can get vim and Emacs to do.  For an editor designed around git, I can't comprehend that decision.</p>
-<p><img alt="Atom can also fuzzy match its commands" src="/images/ruscur/arbWXHx.png" /></p>
-<p>Speaking of git, the editor pretty much has everything you'd expect for an editor written at GitHub.  The sidebar shows you what lines you've added, removed and modified, and the gutter shows you what branch you're on and how much you've changed all-up.  There's no in-built support for doing git things inside the editor, but there's a package for it.  It's pretty nice to get something "for free" that you'd have to tinker with in other editors.</p>
-<p>Overall, Atom has come a long way and still has a long way to go.  I've been using it for a few weeks and I'll continue to use it.  I'll encourage new developers to use it, but it needs to be better for experienced programmers who are used to their current workflow to consider switching.  If you're in the market for a new editor, Atom might just be for you.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
 
@@ -366,6 +399,9 @@ libc</li>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
       </li>
       <li class="post">
@@ -376,9 +412,6 @@ libc</li>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
       </li>
     </ul>
   </section>

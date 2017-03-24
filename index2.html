@@ -102,6 +102,111 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-01-30T16:47:00+11:00" pubdate>Mon 30 January 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a>
+    </span>
+  </span>
+<time datetime="2017-01-30T16:47:00+11:00" pubdate>Mon 30 January 2017</time></div>
+
+  <div class="entry-content"><p>Be me, you're a kernel hacker, you make some changes to your kernel, you boot
+test it in QEMU, and it fails to boot. Even worse is the fact that it just hangs
+without any failure message, no stack trace, no nothing. "Now what?" you think
+to yourself.</p>
+<p>You probably do the first thing you learnt in debugging101 and add abundant
+print statements all over the place to try and make some sense of what's
+happening and where it is that you're actually crashing. So you do this, you
+recompile your kernel, boot it in QEMU and lo and behold, nothing... What
+happened? You added all these shiny new print statements, where did the output
+go? The kernel still failed to boot (obviously), but where you were hoping to
+get some clue to go on you were again left with an empty screen. "Maybe I
+didn't print early enough" or "maybe I got the code paths wrong" you think,
+"maybe I just need more prints" even. So lets delve a bit deeper, why didn't
+you see those prints, where did they go, and how can you get at them?</p>
+<h1>__log_buf</h1>
+<p>So what happens when you call printk()? Well what normally happens is,
+depending on the log level you set, the output is sent to the console or logged
+so you can see it in dmesg. But what happens if we haven't registered a console
+yet? Well then we can't print the message can we, so its logged in a buffer,
+kernel log buffer to be exact helpfully named __log_buf.</p>
+<h1>Console Registration</h1>
+<p>So how come I eventually see print statements on my screen? Well at some point
+during the boot process a console is registered with the printk system, and any
+buffered output can now be displayed. On ppc it happens that this occurs in
+register_early_udbg_console() called in setup_arch() from start_kernel(),
+which is the generic kernel entry point. From this point forward when you print
+something it will be displayed on the console, but what if you crash before
+this? What are you supposed to do then?</p>
+<h1>Extracting Early Boot Messages in QEMU</h1>
+<p>And now the moment you've all been waiting for, how do I extract those early
+boot messages in QEMU if my kernel crashes before the console is registered?
+Well it's quite simple really, QEMU is nice enough to allow us to dump guest
+memory, and we know the log buffer is in there some where, so we just need to
+dump the correct part of memory which corresponds to the log buffer.</p>
+<h4>Locating __log_buf</h4>
+<p>Before we can dump the log buffer we need to know where it is. Luckily for us
+this is fairly simple, we just need to dump all the kernel symbols and look for
+the right one.</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">nm</span> <span class="n">vmlinux</span> <span class="o">&gt;</span> <span class="n">tmp</span><span class="p">;</span> <span class="n">grep</span> <span class="n">__log_buf</span> <span class="n">tmp</span><span class="p">;</span>
+<span class="n">c000000000f5e3dc</span> <span class="n">b</span> <span class="n">__log_buf</span>
+</pre></div>
+
+
+<p>We use the nm tool to list all the kernel symbols and output this into some
+temporary file, we can then grep this for the log buffer (which we know to be
+named __log_buf), and presto we are told that it's at kernel address 0xf5e3dc.</p>
+<h4>Dumping Guest Memory</h4>
+<p>It's then simply a case of dumping guest memory from the QEMU console. So first
+we press ^a+c to get us to the QEMU console, then we can use the aptly named
+dump-guest-memory.</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">help</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span>
+<span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">z</span><span class="o">|-</span><span class="n">l</span><span class="o">|-</span><span class="n">s</span><span class="p">]</span> <span class="n">filename</span> <span class="p">[</span><span class="n">begin</span> <span class="n">length</span><span class="p">]</span> <span class="o">--</span> <span class="n">dump</span> <span class="n">guest</span> <span class="n">memory</span> <span class="n">into</span> <span class="n">file</span> <span class="err">&#39;</span><span class="n">filename</span><span class="err">&#39;</span><span class="p">.</span>
+            <span class="o">-</span><span class="nl">p</span><span class="p">:</span> <span class="k">do</span> <span class="n">paging</span> <span class="n">to</span> <span class="n">get</span> <span class="n">guest</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">memory</span> <span class="n">mapping</span><span class="p">.</span>
+            <span class="o">-</span><span class="nl">d</span><span class="p">:</span> <span class="k">return</span> <span class="n">immediately</span> <span class="p">(</span><span class="k">do</span> <span class="n">not</span> <span class="n">wait</span> <span class="k">for</span> <span class="n">completion</span><span class="p">).</span>
+            <span class="o">-</span><span class="nl">z</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">zlib</span> <span class="n">compression</span><span class="p">.</span>
+            <span class="o">-</span><span class="nl">l</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">lzo</span> <span class="n">compression</span><span class="p">.</span>
+            <span class="o">-</span><span class="nl">s</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">snappy</span> <span class="n">compression</span><span class="p">.</span>
+            <span class="nl">begin</span><span class="p">:</span> <span class="n">the</span> <span class="n">starting</span> <span class="n">physical</span> <span class="n">address</span><span class="p">.</span>
+            <span class="nl">length</span><span class="p">:</span> <span class="n">the</span> <span class="n">memory</span> <span class="n">size</span><span class="p">,</span> <span class="n">in</span> <span class="n">bytes</span><span class="p">.</span>
+</pre></div>
+
+
+<p>We just give it a filename for where we want our output to go, we know the
+starting address, we just don't know the length. We could choose some arbitrary
+length, but inspection of the kernel code shows us that:</p>
+<div class="highlight"><pre><span></span><span class="cp">#define __LOG_BUF_LEN (1 &lt;&lt; CONFIG_LOG_BUF_SHIFT)</span>
+<span class="k">static</span> <span class="kt">char</span> <span class="n">__log_buf</span><span class="p">[</span><span class="n">__LOG_BUF_LEN</span><span class="p">]</span> <span class="n">__aligned</span><span class="p">(</span><span class="n">LOG_ALIGN</span><span class="p">);</span>
+</pre></div>
+
+
+<p>Looking at the pseries_defconfig file shows us that the LOG_BUF_SHIFT is set to
+18, and thus we know that the buffer is 2^18 bytes or 256kb. So now we run:</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="n">tmp</span> <span class="mh">0xf5e3dc</span> <span class="mi">262144</span>
+</pre></div>
+
+
+<p>And we now get our log buffer in the file tmp. This can simply be viewed with:</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">hexdump</span> <span class="o">-</span><span class="n">C</span> <span class="n">tmp</span>
+</pre></div>
+
+
+<p>This gives a readable, if poorly formatted output. I'm sure you can find
+something better but I'll leave that as an exercise for the reader.</p>
+<h1>Conclusion</h1>
+<p>So if like me your kernel hangs somewhere early in the boot process and you're
+left without your console output you are now fully equipped to extract the log
+buffer in QEMU and hopefully therein lies the answer to why you failed to boot.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/">Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</a>
       </h1>
     <p class="meta">
@@ -416,73 +521,6 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
 </ul>
 <p>So, next time you wonder how you can test your project on POWER8, request a VM and get to it!</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/07/05/optical-action-at-a-distance/">Optical Action at a Distance</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-07-05T15:23:00+10:00" pubdate>Tue 05 July 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2016-07-05T15:23:00+10:00" pubdate>Tue 05 July 2016</time></div>
-
-  <div class="entry-content"><p>Generally when someone wants to install a Linux distro they start with an ISO
-file. Now we could burn that to a DVD, walk into the server room, and put it in
-our machine, but that's a pain. Instead let's look at how to do this over the
-network with Petitboot!</p>
-<p>At the moment Petitboot won't be able to handle an ISO file unless it's
-mounted in an expected place (eg. as a mounted DVD), so we need to unpack it
-somewhere. Choose somewhere to host the result and unpack the ISO via whatever
-method you prefer. (For example <code>bsdtar -xf /path/to/image.iso</code>).</p>
-<p>You'll get a bunch of files but for our purposes we only care about a few; the
-kernel, the initrd, and the bootloader configuration file. Using
-the Ubuntu 16.04 ppc64el ISO as an example, these are:</p>
-<div class="highlight"><pre><span></span>./install/vmlinux
-./install/initrd.gz.
-./boot/grub/grub.cfg
-</pre></div>
-
-
-<p>In grub.cfg we can see that the boot arguments are actually quite simple:</p>
-<div class="highlight"><pre><span></span>set timeout=-1
-
-menuentry &quot;Install&quot; {
-    linux   /install/vmlinux tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
-    initrd  /install/initrd.gz
-}
-
-menuentry &quot;Rescue mode&quot; {
-    linux   /install/vmlinux rescue/enable=true --- quiet
-    initrd  /install/initrd.gz
-}
-</pre></div>
-
-
-<p>So all we need to do is create a PXE config file that points Petitboot towards
-the correct files.</p>
-<p>We're going to create a PXE config file which you could serve from your DHCP
-server, but that does not mean we need to use PXE - if you just want a quick
-install you only need make these files accessible to Petitboot, and then we can
-use the 'Retrieve config from URL' option to download the files.</p>
-<p>Create a petitboot.conf file somewhere accessible that contains (for Ubuntu):</p>
-<div class="highlight"><pre><span></span>label Install Ubuntu 16.04 Xenial Xerus
-    kernel http://myaccesibleserver/path/to/vmlinux
-    initrd http://myaccesibleserver/path/to/initrd.gz
-    append tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
-</pre></div>
-
-
-<p>Then in Petitboot, select 'Retrieve config from URL' and enter
-<code>http://myaccesibleserver/path/to/petitboot.conf</code>. In the main menu your new
-option should appear - select it and away you go!</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -494,6 +532,9 @@ option should appear - select it and away you go!</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
       </li>
       <li class="post">
@@ -504,9 +545,6 @@ option should appear - select it and away you go!</p></div>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
       </li>
     </ul>
   </section>
