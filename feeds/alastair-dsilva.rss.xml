@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link rel="self" href="https://sthbrx.github.io/feeds/alastair-dsilva.rss.xml"></atom:link><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
+&lt;p&gt;To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
+space to compile the software, as well as 3 sparse 1TB disks to create the
+object store.&lt;/p&gt;
+&lt;p&gt;We will then build &amp;amp; install the Ceph packages, after adding the PowerPC
+optimisiations to the code. This is done, as ceph-deploy will fetch prebuilt
+packages that do not have the performance patches if the packages are not
+installed.&lt;/p&gt;
+&lt;p&gt;Finally, we will use the ceph-deploy to deploy the instance. We will ceph-deploy
+via pip, to avoid file conflicts with the packages that we built.&lt;/p&gt;
+&lt;p&gt;For more information on what each command does, visit the following tutorial,
+upon which which this is based:
+&lt;a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html"&gt;http://palmerville.github.io/2016/04/30/single-node-ceph-install.html&lt;/a&gt;&lt;/p&gt;
+&lt;h3&gt;Virtual Machine Config&lt;/h3&gt;
+&lt;p&gt;Create a virtual machine with at least the following:
+ - 16GB of memory
+ - 16 CPUs
+ - 64GB disk for the root filesystem
+ - 3 x 1TB for the Ceph object store
+ - Ubuntu 16.04 default install (only use the 64GB disk, leave the others unpartitioned)&lt;/p&gt;
+&lt;h3&gt;Initial config&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Enable ssh&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    sudo apt install openssh-server
+    sudo apt update
+    sudo apt upgrade
+    sudo reboot
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ul&gt;
+&lt;li&gt;Install build tools&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    sudo apt install git debhelper
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;Build Ceph&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Clone the Ceph repo by following the instructions here: &lt;a href="http://docs.ceph.com/docs/master/install/clone-source/"&gt;http://docs.ceph.com/docs/master/install/clone-source/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    mkdir &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src&lt;/span&gt;
+&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src&lt;/span&gt;
+&lt;span class="x"&gt;    git clone --recursive https://github.com/ceph/ceph.git  &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; This may take a while&lt;/span&gt;
+&lt;span class="x"&gt;    cd ceph&lt;/span&gt;
+&lt;span class="x"&gt;    git checkout master&lt;/span&gt;
+&lt;span class="x"&gt;    git submodule update --force --init --recursive&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ul&gt;
+&lt;li&gt;Cherry-pick the Power performance patches:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    git remote add kestrels https://github.com/kestrels/ceph.git
+    git fetch --all
+    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ul&gt;
+&lt;li&gt;Install prerequisites&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    ./install-deps.sh
+    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
+    sudo pip3 install ceph-deploy
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ul&gt;
+&lt;li&gt;Build the packages as per the instructions: &lt;a href="http://docs.ceph.com/docs/master/install/build-ceph/"&gt;http://docs.ceph.com/docs/master/install/build-ceph/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src/ceph&lt;/span&gt;
+&lt;span class="x"&gt;    sudo dpkg-buildpackage -J&lt;/span&gt;&lt;span class="p"&gt;$(&lt;/span&gt;&lt;span class="err"&gt;nproc&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="x"&gt; &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; This will take a couple of hours (16 cpus)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ul&gt;
+&lt;li&gt;Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src&lt;/span&gt;
+&lt;span class="x"&gt;    sudo dpkg -i *.deb&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;Create the ceph-deploy user&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    sudo adduser ceph-deploy
+    echo &amp;quot;ceph-deploy ALL = (root) NOPASSWD:ALL&amp;quot; | sudo tee /etc/sudoers.d/ceph-deploy
+    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;Configure the ceph-deploy user environment&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    su - ceph-deploy&lt;/span&gt;
+&lt;span class="x"&gt;    ssh-keygen&lt;/span&gt;
+&lt;span class="x"&gt;    node=`hostname`&lt;/span&gt;
+&lt;span class="x"&gt;    ssh-copy-id ceph-deploy@&lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt;&lt;/span&gt;
+&lt;span class="x"&gt;    mkdir &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/ceph-cluster&lt;/span&gt;
+&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/ceph-cluster&lt;/span&gt;
+&lt;span class="x"&gt;    ceph-deploy new &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt; &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts&lt;/span&gt;
+&lt;span class="x"&gt;    echo &amp;#39;osd pool default size = 2&amp;#39; &amp;gt;&amp;gt; ceph.conf&lt;/span&gt;
+&lt;span class="x"&gt;    echo &amp;#39;osd crush chooseleaf type = 0&amp;#39; &amp;gt;&amp;gt; ceph.conf&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;Complete the Ceph deployment&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    ceph-deploy install &lt;span class="nv"&gt;$node&lt;/span&gt;
+    ceph-deploy mon create-initial
+    drives=&amp;quot;vda vdb vdc&amp;quot;  # the 1TB drives - check that these are correct for your system
+    for drive in &lt;span class="nv"&gt;$drives&lt;/span&gt;; do ceph-deploy disk zap &lt;span class="nv"&gt;$node&lt;/span&gt;:&lt;span class="nv"&gt;$drive&lt;/span&gt;; ceph-deploy osd prepare &lt;span class="nv"&gt;$node&lt;/span&gt;:&lt;span class="nv"&gt;$drive&lt;/span&gt;; done
+    for drive in &lt;span class="nv"&gt;$drives&lt;/span&gt;; do ceph-deploy osd activate &lt;span class="nv"&gt;$node&lt;/span&gt;:/dev/&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;drive&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;1; done
+    ceph-deploy admin &lt;span class="nv"&gt;$node&lt;/span&gt;
+    sudo chmod +r /etc/ceph/ceph.client.admin.keyring
+    ceph -s # Check the state of the cluster
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;Configure CephFS&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    ceph-deploy mds create &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt;&lt;/span&gt;
+&lt;span class="x"&gt;    ceph osd pool create cephfs_data 128&lt;/span&gt;
+&lt;span class="x"&gt;    ceph osd pool create cephfs_metadata 128&lt;/span&gt;
+&lt;span class="x"&gt;    ceph fs new cephfs cephfs_metadata cephfs_data&lt;/span&gt;
+&lt;span class="x"&gt;    sudo systemctl status ceph\*.service ceph\*.target &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; Ensure the ceph-osd, ceph-mon &amp;amp; ceph-mds daemons are running&lt;/span&gt;
+&lt;span class="x"&gt;    sudo mkdir /mnt/cephfs&lt;/span&gt;
+&lt;span class="x"&gt;    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &amp;#39; &amp;#39; -f 3`&lt;/span&gt;
+&lt;span class="x"&gt;    sudo mount -t ceph &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt;:6789:/ /mnt/cephfs -o name=admin,secret=&lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;key&lt;/span&gt;&lt;span class="x"&gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;References&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="http://docs.ceph.com/docs/master/install/clone-source/"&gt;http://docs.ceph.com/docs/master/install/clone-source/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://docs.ceph.com/docs/master/install/build-ceph/"&gt;http://docs.ceph.com/docs/master/install/build-ceph/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html"&gt;http://palmerville.github.io/2016/04/30/single-node-ceph-install.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Alastair D'Silva</dc:creator><pubDate>Wed, 29 Mar 2017 00:00:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-03-29:blog/2017/03/29/evaluating-cephfs-on-power/</guid><category>ceph</category><category>raid</category><category>storage</category></item></channel></rss>
