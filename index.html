@@ -102,6 +102,138 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time></div>
+
+  <div class="entry-content"><p>This post is a bit of a break from the standard IBM fare of this blog,
+as I now work for Canonical. But I have a soft spot for Power from my
+time at IBM - and Canonical officially supports 64-bit, little-endian
+Power - so when I get a spare moment I try to make sure that cool,
+officially-supported technologies work on Power <em>before</em> we end up
+with a customer emergency! So, without further ado, this is the story
+of XDP on Power.</p>
+<h2>XDP</h2>
+<p>eXpress Data Path (XDP) is a cool Linux technology to allow really
+fast processing of network packets.</p>
+<p>Normally in Linux, a packet is received by the network card, an SKB
+(<a href="http://vger.kernel.org/~davem/skb.html">socket buffer</a>) is
+allocated, and the packet is passed up through the networking stack.</p>
+<p>This introduces an inescapable latency penalty: we have to allocate
+some memory and copy stuff around. XDP allows some network cards and
+drivers to process packets early - even before the allocation of the
+SKB. This is much faster, and so has applications in DDOS mitigation
+and other high-speed networking use-cases. The IOVisor project has
+<a href="https://www.iovisor.org/technology/xdp">much more information</a> if you
+want to learn more.</p>
+<h2>eBPF</h2>
+<p>XDP processing is done by an eBPF program. eBPF - the extended
+Berkeley Packet Filter - is an in-kernel virtual machine with a
+limited set of instructions. The kernel can statically validate eBPF
+programs to ensure that they terminate and are memory safe. From this
+it follows that the programs cannot be Turing-complete: they do not
+have backward branches, so they cannot do fancy things like
+loops. Nonetheless, they're surprisingly powerful for packet
+processing and tracing. eBPF programs are translated into efficient
+machine code using in-kernel JIT compilers on many platforms, and
+interpreted on platforms that do not have a JIT. (Yes, there are
+multiple JIT implementations in the kernel. I find this a terrifying
+thought.)</p>
+<p>Rather than requiring people to write raw eBPF programs, you can write
+them in a somewhat-restricted subset of C, and use Clang's eBPF target
+to translate them. This is super handy, as it gives you access to the
+kernel headers - which define a number of useful data structures like
+headers for various network protocols.</p>
+<h2>Trying it</h2>
+<p>There are a few really interesting project that are already up and
+running that allow you to explore XDP without learning the innards of
+both eBPF and the kernel networking stack. I explored the samples in
+the <a href="https://github.com/iovisor/bcc">bcc compiler collection</a> and also
+the samples from the <a href="https://github.com/netoptimizer/prototype-kernel/">netoptimizer/prototype-kernel repository</a>.</p>
+<p>The easiest way to get started with these is with a virtual machine,
+as recent virtio network drivers support XDP. If you are using Ubuntu,
+you can use the <a href="https://help.ubuntu.com/lts/serverguide/cloud-images-and-uvtool.html">uvt-kvm
+tooling</a>
+to trivially set up a VM running Ubuntu Zesty on your local machine.</p>
+<p>Once your VM is installed, you need to shut it down and edit the virsh XML. </p>
+<p>You need 2 vCPUs (or more) and a virtio+vhost network card. You also
+need to edit the 'interface' section and add the following snippet
+(with thanks to the <a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html">xdp-newbies
+list</a>):</p>
+<div class="highlight"><pre><span></span><span class="nt">&lt;driver</span> <span class="na">name=</span><span class="s">&#39;vhost&#39;</span> <span class="na">queues=</span><span class="s">&#39;4&#39;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;host</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;guest</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/driver&gt;</span>
+</pre></div>
+
+
+<p>(If you have more than 2 vCPUs, set the queues parameter to 2x the
+number of vCPUs.)</p>
+<p>Then, install a modern clang (we've had issues with 3.8 - I recommend
+v4+), and the usual build tools.</p>
+<p>I recommend testing with the prototype-kernel tools - the DDOS
+prevention tool is a good demo. Then - on x86 - you just follow their
+instructions. I'm not going to repeat that here.</p>
+<h2>POWERful XDP</h2>
+<p>What happens when you try this on Power? Regular readers of my posts
+will know to expect some
+<a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">minor</a>
+<a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">hitches</a>.</p>
+<p>XDP does not disappoint.</p>
+<p>Firstly, the prototype-kernel repository <a href="https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/Makefile#L92">hard codes x86</a>
+as the architecture for kernel headers. You need to change it for
+powerpc.</p>
+<p>Then, once you get the stuff compiled, and try to run it on a
+current-at-time-of-writing Zesty kernel, you'll hit a massive debug
+splat ending in:</p>
+<div class="highlight"><pre><span></span>32: (61) r1 = *(u32 *)(r8 +12)
+misaligned packet access off 0+18+12 size 4
+load_bpf_file: Permission denied
+</pre></div>
+
+
+<p>It turns out this is because in Ubuntu's Zesty kernel,
+CONFIG_HAS_EFFICIENT_UNALIGNED_ACCESS is not set on ppc64el. Because
+of that, the eBPF verifier will check that all loads are aligned - and
+this load (part of checking some packet header) is not, and so the
+verifier rejects the program. Unaligned access is not enabled because
+the Zesty kernel is being compiled for CPU_POWER7 instead of
+CPU_POWER8, and we don't have efficient unaligned access on POWER7.</p>
+<p>As it turns out, IBM never released any officially supported Power7 LE
+systems - LE was only ever supported on Power8. So, I <a href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699627">filed a bug</a> and
+<a href="https://lists.ubuntu.com/archives/kernel-team/2017-June/085074.html">sent a patch</a>
+to build Zesty kernels for POWER8 instead, and that has been accepted
+and will be part of the next stable update due real soon now.</p>
+<p>Sure enough, if you install a kernel with that config change, you can
+verify the XDP program and load it into the kernel!</p>
+<p>If you have real powerpc hardware, that's enough to use XDP on Power!
+Thanks to <a href="http://michael.ellerman.id.au/">Michael Ellerman</a>,
+maintainer extraordinaire, for verifying this for me.</p>
+<p>If - like me - you don't have ready access to Power hardware, you're
+stuffed. You can't use qemu in TCG mode: to use XDP with a VM, you
+need multi-queue support, which only exists in the vhost driver, which
+is only available for KVM guests. Maybe IBM should release a developer
+workstation. (Hint, hint!)</p>
+<p>Overall, I was pleasantly surprised by how easy things were for people
+with real ppc hardware - it's encouraging to see something not require
+kernel changes!</p>
+<p>eBPF and XDP are definitely growing technologies - as <a href="https://twitter.com/brendangregg/status/866078955530444800">Brendan Gregg notes</a>,
+now is a good time to learn them! (And those on Power have no excuse
+either!)</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
       </h1>
     <p class="meta">
@@ -158,12 +290,12 @@ upon which which this is based:
 <ul>
 <li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><span class="x">    mkdir </span><span class="p">$</span><span class="nv">HOME</span><span class="x">/src</span>
-<span class="x">    cd </span><span class="p">$</span><span class="nv">HOME</span><span class="x">/src</span>
-<span class="x">    git clone --recursive https://github.com/ceph/ceph.git  </span><span class="err">#</span><span class="x"> This may take a while</span>
-<span class="x">    cd ceph</span>
-<span class="x">    git checkout master</span>
-<span class="x">    git submodule update --force --init --recursive</span>
+<div class="highlight"><pre><span></span>    mkdir $HOME/src
+    cd $HOME/src
+    git clone --recursive https://github.com/ceph/ceph.git  # This may take a while
+    cd ceph
+    git checkout master
+    git submodule update --force --init --recursive
 </pre></div>
 
 
@@ -188,16 +320,16 @@ upon which which this is based:
 <ul>
 <li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><span class="x">    cd </span><span class="p">$</span><span class="nv">HOME</span><span class="x">/src/ceph</span>
-<span class="x">    sudo dpkg-buildpackage -J</span><span class="p">$(</span><span class="err">nproc</span><span class="p">)</span><span class="x"> </span><span class="err">#</span><span class="x"> This will take a couple of hours (16 cpus)</span>
+<div class="highlight"><pre><span></span>    cd $HOME/src/ceph
+    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
 </pre></div>
 
 
 <ul>
 <li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
 </ul>
-<div class="highlight"><pre><span></span><span class="x">    cd </span><span class="p">$</span><span class="nv">HOME</span><span class="x">/src</span>
-<span class="x">    sudo dpkg -i *.deb</span>
+<div class="highlight"><pre><span></span>    cd $HOME/src
+    sudo dpkg -i *.deb
 </pre></div>
 
 
@@ -209,15 +341,15 @@ upon which which this is based:
 
 
 <h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span><span class="x">    su - ceph-deploy</span>
-<span class="x">    ssh-keygen</span>
-<span class="x">    node=`hostname`</span>
-<span class="x">    ssh-copy-id ceph-deploy@</span><span class="p">$</span><span class="nv">node</span><span class="x"></span>
-<span class="x">    mkdir </span><span class="p">$</span><span class="nv">HOME</span><span class="x">/ceph-cluster</span>
-<span class="x">    cd </span><span class="p">$</span><span class="nv">HOME</span><span class="x">/ceph-cluster</span>
-<span class="x">    ceph-deploy new </span><span class="p">$</span><span class="nv">node</span><span class="x"> </span><span class="err">#</span><span class="x"> If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span>
-<span class="x">    echo &#39;osd pool default size = 2&#39; &gt;&gt; ceph.conf</span>
-<span class="x">    echo &#39;osd crush chooseleaf type = 0&#39; &gt;&gt; ceph.conf</span>
+<div class="highlight"><pre><span></span>    su - ceph-deploy
+    ssh-keygen
+    node=`hostname`
+    ssh-copy-id ceph-deploy@$node
+    mkdir $HOME/ceph-cluster
+    cd $HOME/ceph-cluster
+    ceph-deploy new $node # If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts
+    echo &#39;osd pool default size = 2&#39; &gt;&gt; ceph.conf
+    echo &#39;osd crush chooseleaf type = 0&#39; &gt;&gt; ceph.conf
 </pre></div>
 
 
@@ -234,14 +366,14 @@ upon which which this is based:
 
 
 <h3>Configure CephFS</h3>
-<div class="highlight"><pre><span></span><span class="x">    ceph-deploy mds create </span><span class="p">$</span><span class="nv">node</span><span class="x"></span>
-<span class="x">    ceph osd pool create cephfs_data 128</span>
-<span class="x">    ceph osd pool create cephfs_metadata 128</span>
-<span class="x">    ceph fs new cephfs cephfs_metadata cephfs_data</span>
-<span class="x">    sudo systemctl status ceph\*.service ceph\*.target </span><span class="err">#</span><span class="x"> Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running</span>
-<span class="x">    sudo mkdir /mnt/cephfs</span>
-<span class="x">    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`</span>
-<span class="x">    sudo mount -t ceph </span><span class="p">$</span><span class="nv">node</span><span class="x">:6789:/ /mnt/cephfs -o name=admin,secret=</span><span class="p">$</span><span class="nv">key</span><span class="x"></span>
+<div class="highlight"><pre><span></span>    ceph-deploy mds create $node
+    ceph osd pool create cephfs_data 128
+    ceph osd pool create cephfs_metadata 128
+    ceph fs new cephfs cephfs_metadata cephfs_data
+    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
+    sudo mkdir /mnt/cephfs
+    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
+    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
 </pre></div>
 
 
@@ -590,8 +722,8 @@ a++;
 <p>So, 100 + 79 = 43 in GF(2^8)</p>
 <p>You may notice we could have done that much more efficiently: we can add numbers in GF(2^8) by just XORing their binary representations together. Subtraction, amusingly, is the same as addition: 0 + x = x =  0 - x, as -1 is congruent to 1 modulo 2.</p>
 <p>So at this point you might be wanting to explore a few additions yourself. Fortuantely there's a lovely tool that will allow you to do that:</p>
-<div class="highlight"><pre><span></span><span class="x">sudo apt install gf-complete-tools</span>
-<span class="x">gf_add </span><span class="p">$</span><span class="nv">A</span><span class="x"> </span><span class="p">$</span><span class="nv">B</span><span class="x"> 8</span>
+<div class="highlight"><pre><span></span>sudo apt install gf-complete-tools
+gf_add $A $B 8
 </pre></div>
 
 
@@ -973,7 +1105,7 @@ rm -rf tests/f_eofblocks
 
 
 <p>I tried to connect to the server:</p>
-<div class="highlight"><pre><span></span><span class="x">sudo mount -t lustre </span><span class="p">$</span><span class="nv">SERVER_IP</span><span class="x">@tcp:/lustre /lustre/</span>
+<div class="highlight"><pre><span></span>sudo mount -t lustre $SERVER_IP@tcp:/lustre /lustre/
 </pre></div>
 
 
@@ -992,8 +1124,8 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 
 
 <p>This looks like one of the new errors introduced in recent GCC versions, and is <a href="https://jira.hpdd.intel.com/browse/LU-8724?focusedCommentId=175244&amp;page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-175244">a known bug</a>. To work around it, I found the following stanza in a <code>lustre/autoconf/lustre-core.m4</code>, and removed the <code>-Werror</code>:</p>
-<div class="highlight"><pre><span></span><span class="x">AS_IF([test </span><span class="p">$</span><span class="nv">target_cpu</span><span class="x"> == &quot;i686&quot; -o </span><span class="p">$</span><span class="nv">target_cpu</span><span class="x"> == &quot;x86_64&quot;],</span>
-<span class="x">        [CFLAGS=&quot;</span><span class="p">$</span><span class="nv">CFLAGS</span><span class="x"> -Wall -Werror&quot;])</span>
+<div class="highlight"><pre><span></span>AS_IF([test $target_cpu == &quot;i686&quot; -o $target_cpu == &quot;x86_64&quot;],
+        [CFLAGS=&quot;$CFLAGS -Wall -Werror&quot;])
 </pre></div>
 
 
@@ -1020,101 +1152,6 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 <p>In the long run, we'd like to make Lustre on Power just as easy as Lustre on x86. (And, of course, more performant!) We'll keep you up to date!</p>
 <p>(Thanks to fellow bloggers Daniel Black and Andrew Donnellan for useful feedback on this post.)</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time></div>
-
-  <div class="entry-content"><p>NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.</p>
-<p>Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.</p>
-<h2>Prerequisites</h2>
-<h3>GPU Drivers and CUDA</h3>
-<p>Firstly, you'll need CUDA and the NVidia drivers.</p>
-<p>You can install CUDA by following the instructions on NVidia's <a href="https://developer.nvidia.com/cuda-downloads">CUDA Downloads</a> page.</p>
-<div class="highlight"><pre><span></span>yum install epel-release
-yum install dkms
-# download the rpm from the NVidia website
-rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
-yum clean expire-cache
-yum install cuda
-# this will take a while...
-</pre></div>
-
-
-<p>Then, we set up a profile file to automatically load CUDA into our path:</p>
-<div class="highlight"><pre><span></span>cat &gt;  /etc/profile.d/cuda_path.sh <span class="err">&lt;</span><span class="nt">&lt;EOF</span>
-<span class="err">#</span> <span class="err">From</span> <span class="err">http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf</span> <span class="err">-</span> <span class="err">4.4.2.1</span>
-<span class="err">export</span> <span class="na">PATH=</span><span class="s">/usr/local/cuda-8.0/bin${PATH:+:${PATH}}</span>
-<span class="err">export</span> <span class="na">LD_LIBRARY_PATH=</span><span class="s">/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}</span>
-<span class="err">EOF</span>
-</pre></div>
-
-
-<p>Now, open a new terminal session and check to see if it works:</p>
-<div class="highlight"><pre><span></span>cuda-install-samples-8.0.sh ~
-cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;&amp; ./bandwidthTest
-</pre></div>
-
-
-<p>If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.</p>
-<h3>Compilers</h3>
-<p>You need a c++ compiler:</p>
-<div class="highlight"><pre><span></span>yum install gcc-c++
-</pre></div>
-
-
-<h2>Building NAMD</h2>
-<p>Once CUDA and the compilers are installed, building NAMD is reasonably straightforward. The one hitch is that because we're using CUDA 8.0, and the NAMD build scripts assume CUDA 7.5, we need to supply an updated <a href="/images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a>. (We also enable code generation for the Pascal in this file.)</p>
-<p>We've documented the entire process as a script which you can <a href="/images/namd/install-namd.sh">download</a>. We'd recommend executing the commands one by one, but if you're brave you can run the script directly.</p>
-<p>The script will fetch NAMD 2.12 and build it for you, but won't install it. It will look for the CUDA override file in the directory you are running the script from, and will automatically move it into the correct place so it is picked up by the build system..</p>
-<p>The script compiles for a single multicore machine setup, rather than for a cluster. However, it should be a good start for an Ethernet or Infiniband setup.</p>
-<p>If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get <code>charm++ built successfully.</code> at the end, you should be OK.</p>
-<h2>Testing NAMD</h2>
-<p>We have been testing NAMD using the STMV files available from the <a href="http://www.ks.uiuc.edu/Research/namd/utilities/">NAMD website</a>:</p>
-<div class="highlight"><pre><span></span>cd NAMD_2.12_Source/Linux-POWER-g++
-wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
-tar -xf stmv.tar.gz
-sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
-</pre></div>
-
-
-<p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
-<p>You should see messages about finding and using GPUs:</p>
-<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
-</pre></div>
-
-
-<p>This should be <em>significantly</em> faster than on non-NVLink machines - we saw a gain of about 2x in speed going from a machine with Nvidia K80s to a Minsky. If things aren't faster for you, let us know!</p>
-<h2>Downloads</h2>
-<ul>
-<li><a href="/images/namd/install-namd.sh">Install script for CentOS</a></li>
-<li><a href="/images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a></li>
-</ul>
-<h2>Other notes</h2>
-<p>Namd requires some libraries, some of which they supply as binary downloads on <a href="http://www.ks.uiuc.edu/Research/namd/libraries/">their website</a>.
-Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:</p>
-<div class="highlight"><pre><span></span>/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
-/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
-</pre></div>
-
-
-<p>The script we supply should get these right automatically.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -1124,6 +1161,9 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
       </li>
@@ -1135,9 +1175,6 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
       </li>
     </ul>
   </section>
@@ -1158,7 +1195,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>  </section>
+    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>

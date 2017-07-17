@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link rel="self" href="https://sthbrx.github.io/feeds/daniel-black.rss.xml"></atom:link><lastBuildDate>Wed, 01 Feb 2017 08:32:00 +1100</lastBuildDate><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Daniel Black</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 01 Feb 2017 08:32:00 +1100</lastBuildDate><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
 &lt;p&gt;Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.&lt;/p&gt;
 &lt;h2&gt;Prerequisites&lt;/h2&gt;
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
@@ -75,7 +75,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;/pre&gt;&lt;/div&gt;
 
 
-&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-02-01:blog/2017/02/01/namd-on-nvlink/</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-02-01:/blog/2017/02/01/namd-on-nvlink/</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
 &lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky), but also work for RHEL 7 - just swap CentOS for RHEL.&lt;/p&gt;
 &lt;h3&gt;Prerequisites&lt;/h3&gt;
 &lt;p&gt;Before you power on the system, ensure that you have the following items:&lt;/p&gt;
@@ -139,7 +139,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 
 &lt;h2&gt;Step 4: Creating a USB device and booting&lt;/h2&gt;
 &lt;p&gt;At this point, your IPMI console should be contain a Petitboot bootloader menu as illustrated below and you are ready to install Centos 7 on your server.&lt;/p&gt;
-&lt;p&gt;&lt;img alt="Petitboot menu over IPMI" src="/images/centos7-minsky/petitboot-centos7-usb-topmenu.png" /&gt; &lt;/p&gt;
+&lt;p&gt;&lt;img alt="Petitboot menu over IPMI" src="/images/centos7-minsky/petitboot-centos7-usb-topmenu.png"&gt; &lt;/p&gt;
 &lt;p&gt;Use one of the following USB devices:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;USB attached DVD player with a single USB cable to stay under 1.0 Amps, or&lt;/li&gt;
@@ -152,7 +152,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;li&gt;Arrow up to select the CentOS boot option. Press &lt;em&gt;e&lt;/em&gt; (Edit) to open the Petitboot Option Editor window&lt;/li&gt;
 &lt;li&gt;Move the cursor to the Boot arguments section and to include the following information: &lt;code&gt;ro inst.stage2=hd:LABEL=CentOS_7_ppc64le:/ console=hvc0 ip=dhcp&lt;/code&gt; (if using RHEL the LABEL will be similar to &lt;code&gt;RHEL-7.3\x20Server.ppc64le:/&lt;/code&gt;)&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img alt="Petitboot edited &amp;quot;Install CentOS AltArch 7 (64-bit kernel)" src="/images/centos7-minsky/petitboot-centos7-usb-option-editor-menu.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Petitboot edited &amp;quot;Install CentOS AltArch 7 (64-bit kernel)" src="/images/centos7-minsky/petitboot-centos7-usb-option-editor-menu.png"&gt;&lt;/p&gt;
 &lt;p&gt;Notes about the boot arguments:   &lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;ip=dhcp&lt;/code&gt; to ensure network is started for VNC installation.&lt;/li&gt;
@@ -168,11 +168,11 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;h2&gt;Step 5: Complete your installation&lt;/h2&gt;
 &lt;p&gt;After you select to boot the CentOS installer, the installer wizard walks you through the steps.  &lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;If the CentOS installer was able to obtain a network address via DHCP, it will present an option to enable the VNC. If no option is presented check your network cables. &lt;img alt="VNC option" src="/images/centos7-minsky/anaconda-centos7-text-start.png" /&gt;&lt;/li&gt;
-&lt;li&gt;Select the &lt;em&gt;Start VNC&lt;/em&gt; option and it will provide an OS server IP adress. Note that this will be different to the BMC address previously optained. &lt;img alt="VNC option selected" src="/images/centos7-minsky/anaconda-centos7-vnc-selected.png" /&gt;&lt;/li&gt;
+&lt;li&gt;If the CentOS installer was able to obtain a network address via DHCP, it will present an option to enable the VNC. If no option is presented check your network cables. &lt;img alt="VNC option" src="/images/centos7-minsky/anaconda-centos7-text-start.png"&gt;&lt;/li&gt;
+&lt;li&gt;Select the &lt;em&gt;Start VNC&lt;/em&gt; option and it will provide an OS server IP adress. Note that this will be different to the BMC address previously optained. &lt;img alt="VNC option selected" src="/images/centos7-minsky/anaconda-centos7-vnc-selected.png"&gt;&lt;/li&gt;
 &lt;li&gt;Run a VNC client program on your PC or notebook and connect to the OS server IP address.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img alt="VNC of Installer" src="/images/centos7-minsky/anaconda-centos7-vnc-start.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="VNC of Installer" src="/images/centos7-minsky/anaconda-centos7-vnc-start.png"&gt;&lt;/p&gt;
 &lt;p&gt;During the install over VNC, there are a couple of consoles active. To switch between them in the ipmitool terminal, press &lt;em&gt;ctrl-b&lt;/em&gt; and then between &lt;em&gt;1&lt;/em&gt;-&lt;em&gt;4&lt;/em&gt; as indicated.&lt;/p&gt;
 &lt;p&gt;Using the VNC client program:&lt;/p&gt;
 &lt;ol&gt;
@@ -180,7 +180,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;li&gt;Select a device from "Local Standard Disks"&lt;/li&gt;
 &lt;li&gt;Select "Full disk summary and boot device"&lt;/li&gt;
 &lt;li&gt;Select the device again from "Selected Disks" with the Boot enabled&lt;/li&gt;
-&lt;li&gt;Select "Do not install boot loader" from device. &lt;img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png" /&gt; which results in &lt;img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png" /&gt;.&lt;/li&gt;
+&lt;li&gt;Select "Do not install boot loader" from device. &lt;img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png"&gt; which results in &lt;img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png"&gt;.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;Without disabling boot loader, the installer complains about &lt;code&gt;an invalid stage1 device&lt;/code&gt;. I suspect it needs a manual Prep partition of 10M to make the installer happy.&lt;/p&gt;
 &lt;p&gt;If you have a local Centos repository  you can set this by selecting "Install Source" - the directories at this url should look like &lt;a href="http://mirror.centos.org/altarch/7/os/ppc64le/"&gt;CentOS's Install Source for ppc64le&lt;/a&gt;.&lt;/p&gt;
@@ -209,4 +209,4 @@ For more information, see the following resources:&lt;/p&gt;
 &lt;li&gt;&lt;a href="https://www.ibm.com/developerworks/community/groups/service/html/communityview?communityUuid=fe313521-2e95-46f2-817d-44a4f27eba32"&gt;The Linux on Power Community&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://developer.ibm.com/linuxonpower/category/announcements/"&gt;The Linux on Power Developer Center&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://twitter.com/ibmpowerlinux"&gt;Follow us @ibmpowerlinux&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Black</dc:creator><pubDate>Mon, 30 Jan 2017 08:54:33 +1100</pubDate><guid>tag:sthbrx.github.io,2017-01-30:blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</guid><category>S822LC for hpc</category><category>hpc</category><category>centos</category><category>centos7</category><category>p8</category><category>bmc</category><category>RHEL</category></item></channel></rss>
+&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Black</dc:creator><pubDate>Mon, 30 Jan 2017 08:54:33 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-01-30:/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</guid><category>S822LC for hpc</category><category>hpc</category><category>centos</category><category>centos7</category><category>p8</category><category>bmc</category><category>RHEL</category></item></channel></rss>

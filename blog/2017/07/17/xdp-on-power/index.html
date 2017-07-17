@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>XDP on Power &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">XDP on Power</h1>
+    <p class="meta">
+<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time>    </p>
+</header>
+
+  <div class="entry-content"><p>This post is a bit of a break from the standard IBM fare of this blog,
+as I now work for Canonical. But I have a soft spot for Power from my
+time at IBM - and Canonical officially supports 64-bit, little-endian
+Power - so when I get a spare moment I try to make sure that cool,
+officially-supported technologies work on Power <em>before</em> we end up
+with a customer emergency! So, without further ado, this is the story
+of XDP on Power.</p>
+<h2>XDP</h2>
+<p>eXpress Data Path (XDP) is a cool Linux technology to allow really
+fast processing of network packets.</p>
+<p>Normally in Linux, a packet is received by the network card, an SKB
+(<a href="http://vger.kernel.org/~davem/skb.html">socket buffer</a>) is
+allocated, and the packet is passed up through the networking stack.</p>
+<p>This introduces an inescapable latency penalty: we have to allocate
+some memory and copy stuff around. XDP allows some network cards and
+drivers to process packets early - even before the allocation of the
+SKB. This is much faster, and so has applications in DDOS mitigation
+and other high-speed networking use-cases. The IOVisor project has
+<a href="https://www.iovisor.org/technology/xdp">much more information</a> if you
+want to learn more.</p>
+<h2>eBPF</h2>
+<p>XDP processing is done by an eBPF program. eBPF - the extended
+Berkeley Packet Filter - is an in-kernel virtual machine with a
+limited set of instructions. The kernel can statically validate eBPF
+programs to ensure that they terminate and are memory safe. From this
+it follows that the programs cannot be Turing-complete: they do not
+have backward branches, so they cannot do fancy things like
+loops. Nonetheless, they're surprisingly powerful for packet
+processing and tracing. eBPF programs are translated into efficient
+machine code using in-kernel JIT compilers on many platforms, and
+interpreted on platforms that do not have a JIT. (Yes, there are
+multiple JIT implementations in the kernel. I find this a terrifying
+thought.)</p>
+<p>Rather than requiring people to write raw eBPF programs, you can write
+them in a somewhat-restricted subset of C, and use Clang's eBPF target
+to translate them. This is super handy, as it gives you access to the
+kernel headers - which define a number of useful data structures like
+headers for various network protocols.</p>
+<h2>Trying it</h2>
+<p>There are a few really interesting project that are already up and
+running that allow you to explore XDP without learning the innards of
+both eBPF and the kernel networking stack. I explored the samples in
+the <a href="https://github.com/iovisor/bcc">bcc compiler collection</a> and also
+the samples from the <a href="https://github.com/netoptimizer/prototype-kernel/">netoptimizer/prototype-kernel repository</a>.</p>
+<p>The easiest way to get started with these is with a virtual machine,
+as recent virtio network drivers support XDP. If you are using Ubuntu,
+you can use the <a href="https://help.ubuntu.com/lts/serverguide/cloud-images-and-uvtool.html">uvt-kvm
+tooling</a>
+to trivially set up a VM running Ubuntu Zesty on your local machine.</p>
+<p>Once your VM is installed, you need to shut it down and edit the virsh XML. </p>
+<p>You need 2 vCPUs (or more) and a virtio+vhost network card. You also
+need to edit the 'interface' section and add the following snippet
+(with thanks to the <a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html">xdp-newbies
+list</a>):</p>
+<div class="highlight"><pre><span></span><span class="nt">&lt;driver</span> <span class="na">name=</span><span class="s">&#39;vhost&#39;</span> <span class="na">queues=</span><span class="s">&#39;4&#39;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;host</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;guest</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/driver&gt;</span>
+</pre></div>
+
+
+<p>(If you have more than 2 vCPUs, set the queues parameter to 2x the
+number of vCPUs.)</p>
+<p>Then, install a modern clang (we've had issues with 3.8 - I recommend
+v4+), and the usual build tools.</p>
+<p>I recommend testing with the prototype-kernel tools - the DDOS
+prevention tool is a good demo. Then - on x86 - you just follow their
+instructions. I'm not going to repeat that here.</p>
+<h2>POWERful XDP</h2>
+<p>What happens when you try this on Power? Regular readers of my posts
+will know to expect some
+<a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">minor</a>
+<a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">hitches</a>.</p>
+<p>XDP does not disappoint.</p>
+<p>Firstly, the prototype-kernel repository <a href="https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/Makefile#L92">hard codes x86</a>
+as the architecture for kernel headers. You need to change it for
+powerpc.</p>
+<p>Then, once you get the stuff compiled, and try to run it on a
+current-at-time-of-writing Zesty kernel, you'll hit a massive debug
+splat ending in:</p>
+<div class="highlight"><pre><span></span>32: (61) r1 = *(u32 *)(r8 +12)
+misaligned packet access off 0+18+12 size 4
+load_bpf_file: Permission denied
+</pre></div>
+
+
+<p>It turns out this is because in Ubuntu's Zesty kernel,
+CONFIG_HAS_EFFICIENT_UNALIGNED_ACCESS is not set on ppc64el. Because
+of that, the eBPF verifier will check that all loads are aligned - and
+this load (part of checking some packet header) is not, and so the
+verifier rejects the program. Unaligned access is not enabled because
+the Zesty kernel is being compiled for CPU_POWER7 instead of
+CPU_POWER8, and we don't have efficient unaligned access on POWER7.</p>
+<p>As it turns out, IBM never released any officially supported Power7 LE
+systems - LE was only ever supported on Power8. So, I <a href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699627">filed a bug</a> and
+<a href="https://lists.ubuntu.com/archives/kernel-team/2017-June/085074.html">sent a patch</a>
+to build Zesty kernels for POWER8 instead, and that has been accepted
+and will be part of the next stable update due real soon now.</p>
+<p>Sure enough, if you install a kernel with that config change, you can
+verify the XDP program and load it into the kernel!</p>
+<p>If you have real powerpc hardware, that's enough to use XDP on Power!
+Thanks to <a href="http://michael.ellerman.id.au/">Michael Ellerman</a>,
+maintainer extraordinaire, for verifying this for me.</p>
+<p>If - like me - you don't have ready access to Power hardware, you're
+stuffed. You can't use qemu in TCG mode: to use XDP with a VM, you
+need multi-queue support, which only exists in the vhost driver, which
+is only available for KVM guests. Maybe IBM should release a developer
+workstation. (Hint, hint!)</p>
+<p>Overall, I was pleasantly surprised by how easy things were for people
+with real ppc hardware - it's encouraging to see something not require
+kernel changes!</p>
+<p>eBPF and XDP are definitely growing technologies - as <a href="https://twitter.com/brendangregg/status/866078955530444800">Brendan Gregg notes</a>,
+now is a good time to learn them! (And those on Power have no excuse
+either!)</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a class="category" href="https://sthbrx.github.io/tag/power.html">power</a>,    <a class="category" href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a class="category" href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2017  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2017/07/17/xdp-on-power/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/';
+    var disqus_title = 'XDP on Power';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>

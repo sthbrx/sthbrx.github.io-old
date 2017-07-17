@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link rel="self" href="https://sthbrx.github.io/feeds/alastair-dsilva.rss.xml"></atom:link><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Alastair D'Silva</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
 &lt;p&gt;To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
 space to compile the software, as well as 3 sparse 1TB disks to create the
 object store.&lt;/p&gt;
@@ -41,12 +41,12 @@ upon which which this is based:
 &lt;ul&gt;
 &lt;li&gt;Clone the Ceph repo by following the instructions here: &lt;a href="http://docs.ceph.com/docs/master/install/clone-source/"&gt;http://docs.ceph.com/docs/master/install/clone-source/&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    mkdir &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src&lt;/span&gt;
-&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src&lt;/span&gt;
-&lt;span class="x"&gt;    git clone --recursive https://github.com/ceph/ceph.git  &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; This may take a while&lt;/span&gt;
-&lt;span class="x"&gt;    cd ceph&lt;/span&gt;
-&lt;span class="x"&gt;    git checkout master&lt;/span&gt;
-&lt;span class="x"&gt;    git submodule update --force --init --recursive&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    mkdir $HOME/src
+    cd $HOME/src
+    git clone --recursive https://github.com/ceph/ceph.git  # This may take a while
+    cd ceph
+    git checkout master
+    git submodule update --force --init --recursive
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -71,16 +71,16 @@ upon which which this is based:
 &lt;ul&gt;
 &lt;li&gt;Build the packages as per the instructions: &lt;a href="http://docs.ceph.com/docs/master/install/build-ceph/"&gt;http://docs.ceph.com/docs/master/install/build-ceph/&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src/ceph&lt;/span&gt;
-&lt;span class="x"&gt;    sudo dpkg-buildpackage -J&lt;/span&gt;&lt;span class="p"&gt;$(&lt;/span&gt;&lt;span class="err"&gt;nproc&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="x"&gt; &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; This will take a couple of hours (16 cpus)&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    cd $HOME/src/ceph
+    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;ul&gt;
 &lt;li&gt;Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)&lt;/li&gt;
 &lt;/ul&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/src&lt;/span&gt;
-&lt;span class="x"&gt;    sudo dpkg -i *.deb&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    cd $HOME/src
+    sudo dpkg -i *.deb
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -92,15 +92,15 @@ upon which which this is based:
 
 
 &lt;h3&gt;Configure the ceph-deploy user environment&lt;/h3&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    su - ceph-deploy&lt;/span&gt;
-&lt;span class="x"&gt;    ssh-keygen&lt;/span&gt;
-&lt;span class="x"&gt;    node=`hostname`&lt;/span&gt;
-&lt;span class="x"&gt;    ssh-copy-id ceph-deploy@&lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt;&lt;/span&gt;
-&lt;span class="x"&gt;    mkdir &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/ceph-cluster&lt;/span&gt;
-&lt;span class="x"&gt;    cd &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="x"&gt;/ceph-cluster&lt;/span&gt;
-&lt;span class="x"&gt;    ceph-deploy new &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt; &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts&lt;/span&gt;
-&lt;span class="x"&gt;    echo &amp;#39;osd pool default size = 2&amp;#39; &amp;gt;&amp;gt; ceph.conf&lt;/span&gt;
-&lt;span class="x"&gt;    echo &amp;#39;osd crush chooseleaf type = 0&amp;#39; &amp;gt;&amp;gt; ceph.conf&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    su - ceph-deploy
+    ssh-keygen
+    node=`hostname`
+    ssh-copy-id ceph-deploy@$node
+    mkdir $HOME/ceph-cluster
+    cd $HOME/ceph-cluster
+    ceph-deploy new $node # If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts
+    echo &amp;#39;osd pool default size = 2&amp;#39; &amp;gt;&amp;gt; ceph.conf
+    echo &amp;#39;osd crush chooseleaf type = 0&amp;#39; &amp;gt;&amp;gt; ceph.conf
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -117,14 +117,14 @@ upon which which this is based:
 
 
 &lt;h3&gt;Configure CephFS&lt;/h3&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;    ceph-deploy mds create &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt;&lt;/span&gt;
-&lt;span class="x"&gt;    ceph osd pool create cephfs_data 128&lt;/span&gt;
-&lt;span class="x"&gt;    ceph osd pool create cephfs_metadata 128&lt;/span&gt;
-&lt;span class="x"&gt;    ceph fs new cephfs cephfs_metadata cephfs_data&lt;/span&gt;
-&lt;span class="x"&gt;    sudo systemctl status ceph\*.service ceph\*.target &lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="x"&gt; Ensure the ceph-osd, ceph-mon &amp;amp; ceph-mds daemons are running&lt;/span&gt;
-&lt;span class="x"&gt;    sudo mkdir /mnt/cephfs&lt;/span&gt;
-&lt;span class="x"&gt;    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &amp;#39; &amp;#39; -f 3`&lt;/span&gt;
-&lt;span class="x"&gt;    sudo mount -t ceph &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;node&lt;/span&gt;&lt;span class="x"&gt;:6789:/ /mnt/cephfs -o name=admin,secret=&lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;key&lt;/span&gt;&lt;span class="x"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    ceph-deploy mds create $node
+    ceph osd pool create cephfs_data 128
+    ceph osd pool create cephfs_metadata 128
+    ceph fs new cephfs cephfs_metadata cephfs_data
+    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp;amp; ceph-mds daemons are running
+    sudo mkdir /mnt/cephfs
+    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &amp;#39; &amp;#39; -f 3`
+    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -133,4 +133,4 @@ upon which which this is based:
 &lt;li&gt;&lt;a href="http://docs.ceph.com/docs/master/install/clone-source/"&gt;http://docs.ceph.com/docs/master/install/clone-source/&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="http://docs.ceph.com/docs/master/install/build-ceph/"&gt;http://docs.ceph.com/docs/master/install/build-ceph/&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html"&gt;http://palmerville.github.io/2016/04/30/single-node-ceph-install.html&lt;/a&gt;&lt;/li&gt;
-&lt;/ol&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Alastair D'Silva</dc:creator><pubDate>Wed, 29 Mar 2017 00:00:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-03-29:blog/2017/03/29/evaluating-cephfs-on-power/</guid><category>ceph</category><category>raid</category><category>storage</category></item></channel></rss>
+&lt;/ol&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Alastair D'Silva</dc:creator><pubDate>Wed, 29 Mar 2017 00:00:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-03-29:/blog/2017/03/29/evaluating-cephfs-on-power/</guid><category>ceph</category><category>raid</category><category>storage</category></item></channel></rss>

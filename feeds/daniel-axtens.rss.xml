@@ -1,5 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link rel="self" href="https://sthbrx.github.io/feeds/daniel-axtens.rss.xml"></atom:link><lastBuildDate>Fri, 24 Mar 2017 10:08:00 +1100</lastBuildDate><item><title>Erasure Coding for Programmers, Part 2</title><link>https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/</link><description>&lt;p&gt;We left &lt;a href="/blog/2017/03/20/erasure-coding-for-programmers-part-1/"&gt;part 1&lt;/a&gt; having explored GF(2^8) and RAID 6, and asking the question "what does all this have to do with Erasure Codes?"&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Daniel Axtens</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 17 Jul 2017 10:08:00 +1000</lastBuildDate><item><title>XDP on Power</title><link>https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/</link><description>&lt;p&gt;This post is a bit of a break from the standard IBM fare of this blog,
+as I now work for Canonical. But I have a soft spot for Power from my
+time at IBM - and Canonical officially supports 64-bit, little-endian
+Power - so when I get a spare moment I try to make sure that cool,
+officially-supported technologies work on Power &lt;em&gt;before&lt;/em&gt; we end up
+with a customer emergency! So, without further ado, this is the story
+of XDP on Power.&lt;/p&gt;
+&lt;h2&gt;XDP&lt;/h2&gt;
+&lt;p&gt;eXpress Data Path (XDP) is a cool Linux technology to allow really
+fast processing of network packets.&lt;/p&gt;
+&lt;p&gt;Normally in Linux, a packet is received by the network card, an SKB
+(&lt;a href="http://vger.kernel.org/~davem/skb.html"&gt;socket buffer&lt;/a&gt;) is
+allocated, and the packet is passed up through the networking stack.&lt;/p&gt;
+&lt;p&gt;This introduces an inescapable latency penalty: we have to allocate
+some memory and copy stuff around. XDP allows some network cards and
+drivers to process packets early - even before the allocation of the
+SKB. This is much faster, and so has applications in DDOS mitigation
+and other high-speed networking use-cases. The IOVisor project has
+&lt;a href="https://www.iovisor.org/technology/xdp"&gt;much more information&lt;/a&gt; if you
+want to learn more.&lt;/p&gt;
+&lt;h2&gt;eBPF&lt;/h2&gt;
+&lt;p&gt;XDP processing is done by an eBPF program. eBPF - the extended
+Berkeley Packet Filter - is an in-kernel virtual machine with a
+limited set of instructions. The kernel can statically validate eBPF
+programs to ensure that they terminate and are memory safe. From this
+it follows that the programs cannot be Turing-complete: they do not
+have backward branches, so they cannot do fancy things like
+loops. Nonetheless, they're surprisingly powerful for packet
+processing and tracing. eBPF programs are translated into efficient
+machine code using in-kernel JIT compilers on many platforms, and
+interpreted on platforms that do not have a JIT. (Yes, there are
+multiple JIT implementations in the kernel. I find this a terrifying
+thought.)&lt;/p&gt;
+&lt;p&gt;Rather than requiring people to write raw eBPF programs, you can write
+them in a somewhat-restricted subset of C, and use Clang's eBPF target
+to translate them. This is super handy, as it gives you access to the
+kernel headers - which define a number of useful data structures like
+headers for various network protocols.&lt;/p&gt;
+&lt;h2&gt;Trying it&lt;/h2&gt;
+&lt;p&gt;There are a few really interesting project that are already up and
+running that allow you to explore XDP without learning the innards of
+both eBPF and the kernel networking stack. I explored the samples in
+the &lt;a href="https://github.com/iovisor/bcc"&gt;bcc compiler collection&lt;/a&gt; and also
+the samples from the &lt;a href="https://github.com/netoptimizer/prototype-kernel/"&gt;netoptimizer/prototype-kernel repository&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;The easiest way to get started with these is with a virtual machine,
+as recent virtio network drivers support XDP. If you are using Ubuntu,
+you can use the &lt;a href="https://help.ubuntu.com/lts/serverguide/cloud-images-and-uvtool.html"&gt;uvt-kvm
+tooling&lt;/a&gt;
+to trivially set up a VM running Ubuntu Zesty on your local machine.&lt;/p&gt;
+&lt;p&gt;Once your VM is installed, you need to shut it down and edit the virsh XML. &lt;/p&gt;
+&lt;p&gt;You need 2 vCPUs (or more) and a virtio+vhost network card. You also
+need to edit the 'interface' section and add the following snippet
+(with thanks to the &lt;a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html"&gt;xdp-newbies
+list&lt;/a&gt;):&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;driver&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;vhost&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;queues=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;4&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;host&lt;/span&gt; &lt;span class="na"&gt;tso4=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;tso6=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ecn=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ufo=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;guest&lt;/span&gt; &lt;span class="na"&gt;tso4=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;tso6=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ecn=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ufo=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class="nt"&gt;&amp;lt;/driver&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;(If you have more than 2 vCPUs, set the queues parameter to 2x the
+number of vCPUs.)&lt;/p&gt;
+&lt;p&gt;Then, install a modern clang (we've had issues with 3.8 - I recommend
+v4+), and the usual build tools.&lt;/p&gt;
+&lt;p&gt;I recommend testing with the prototype-kernel tools - the DDOS
+prevention tool is a good demo. Then - on x86 - you just follow their
+instructions. I'm not going to repeat that here.&lt;/p&gt;
+&lt;h2&gt;POWERful XDP&lt;/h2&gt;
+&lt;p&gt;What happens when you try this on Power? Regular readers of my posts
+will know to expect some
+&lt;a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/"&gt;minor&lt;/a&gt;
+&lt;a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/"&gt;hitches&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;XDP does not disappoint.&lt;/p&gt;
+&lt;p&gt;Firstly, the prototype-kernel repository &lt;a href="https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/Makefile#L92"&gt;hard codes x86&lt;/a&gt;
+as the architecture for kernel headers. You need to change it for
+powerpc.&lt;/p&gt;
+&lt;p&gt;Then, once you get the stuff compiled, and try to run it on a
+current-at-time-of-writing Zesty kernel, you'll hit a massive debug
+splat ending in:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;32: (61) r1 = *(u32 *)(r8 +12)
+misaligned packet access off 0+18+12 size 4
+load_bpf_file: Permission denied
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;It turns out this is because in Ubuntu's Zesty kernel,
+CONFIG_HAS_EFFICIENT_UNALIGNED_ACCESS is not set on ppc64el. Because
+of that, the eBPF verifier will check that all loads are aligned - and
+this load (part of checking some packet header) is not, and so the
+verifier rejects the program. Unaligned access is not enabled because
+the Zesty kernel is being compiled for CPU_POWER7 instead of
+CPU_POWER8, and we don't have efficient unaligned access on POWER7.&lt;/p&gt;
+&lt;p&gt;As it turns out, IBM never released any officially supported Power7 LE
+systems - LE was only ever supported on Power8. So, I &lt;a href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699627"&gt;filed a bug&lt;/a&gt; and
+&lt;a href="https://lists.ubuntu.com/archives/kernel-team/2017-June/085074.html"&gt;sent a patch&lt;/a&gt;
+to build Zesty kernels for POWER8 instead, and that has been accepted
+and will be part of the next stable update due real soon now.&lt;/p&gt;
+&lt;p&gt;Sure enough, if you install a kernel with that config change, you can
+verify the XDP program and load it into the kernel!&lt;/p&gt;
+&lt;p&gt;If you have real powerpc hardware, that's enough to use XDP on Power!
+Thanks to &lt;a href="http://michael.ellerman.id.au/"&gt;Michael Ellerman&lt;/a&gt;,
+maintainer extraordinaire, for verifying this for me.&lt;/p&gt;
+&lt;p&gt;If - like me - you don't have ready access to Power hardware, you're
+stuffed. You can't use qemu in TCG mode: to use XDP with a VM, you
+need multi-queue support, which only exists in the vhost driver, which
+is only available for KVM guests. Maybe IBM should release a developer
+workstation. (Hint, hint!)&lt;/p&gt;
+&lt;p&gt;Overall, I was pleasantly surprised by how easy things were for people
+with real ppc hardware - it's encouraging to see something not require
+kernel changes!&lt;/p&gt;
+&lt;p&gt;eBPF and XDP are definitely growing technologies - as &lt;a href="https://twitter.com/brendangregg/status/866078955530444800"&gt;Brendan Gregg notes&lt;/a&gt;,
+now is a good time to learn them! (And those on Power have no excuse
+either!)&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 17 Jul 2017 10:08:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-07-17:/blog/2017/07/17/xdp-on-power/</guid><category>xdp</category><category>power</category><category>networking</category><category>remoteposts</category></item><item><title>Erasure Coding for Programmers, Part 2</title><link>https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/</link><description>&lt;p&gt;We left &lt;a href="/blog/2017/03/20/erasure-coding-for-programmers-part-1/"&gt;part 1&lt;/a&gt; having explored GF(2^8) and RAID 6, and asking the question "what does all this have to do with Erasure Codes?"&lt;/p&gt;
 &lt;p&gt;Basically, the thinking goes "RAID 6 is cool, but what if, instead of two parity disks, we had an arbitrary number of parity disks?"&lt;/p&gt;
 &lt;p&gt;How would we do that? Well, let's introduce our new best friend: Coding Theory!&lt;/p&gt;
 &lt;p&gt;Say we want to transmit some data across an error-prone medium. We don't know where the errors might occur, so we add some extra information to allow us to detect and possibly correct for errors. This is a code. Codes are a largish field of engineering, but rather than show off my knowledge about systematic linear block codes, let's press on.&lt;/p&gt;
@@ -192,7 +305,7 @@ a = vec_ld(0, (unsigned char *) data);
 &lt;li&gt;&lt;a href="https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19900019023.pdf"&gt;Tutorial on Reed-Solomon Error Correction Coding&lt;/a&gt; (PDF), William A. Geisel, NASA&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19900019023.pdf"&gt;Reed-Solomon error correction&lt;/a&gt; (PDF), BBC R&amp;amp;D White Paper WHP 031, C. K. P. Clarke.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;For a more rigorous mathematical approach to rings and fields, a university mathematics course may be of interest. For more on coding theory, a university course in electronics engineering may be helpful.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Fri, 24 Mar 2017 10:08:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-03-24:blog/2017/03/24/erasure-coding-for-programmers-part-2/</guid><category>erasure</category><category>raid</category><category>storage</category></item><item><title>Erasure Coding for Programmers, Part 1</title><link>https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/</link><description>&lt;p&gt;Erasure coding is an increasingly popular storage technology - allowing the same level of fault tolerance as replication with a significantly reduced storage footprint.&lt;/p&gt;
+&lt;p&gt;For a more rigorous mathematical approach to rings and fields, a university mathematics course may be of interest. For more on coding theory, a university course in electronics engineering may be helpful.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Fri, 24 Mar 2017 10:08:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-03-24:/blog/2017/03/24/erasure-coding-for-programmers-part-2/</guid><category>erasure</category><category>raid</category><category>storage</category></item><item><title>Erasure Coding for Programmers, Part 1</title><link>https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/</link><description>&lt;p&gt;Erasure coding is an increasingly popular storage technology - allowing the same level of fault tolerance as replication with a significantly reduced storage footprint.&lt;/p&gt;
 &lt;p&gt;Increasingly, erasure coding is available 'out of the box' on storage solutions such as Ceph and OpenStack Swift. Normally, you'd just pull in a library like &lt;a href="https://github.com/01org/isa-l"&gt;ISA-L&lt;/a&gt; or &lt;a href="http://jerasure.org"&gt;jerasure&lt;/a&gt;, and set some config options, and you'd be done.&lt;/p&gt;
 &lt;p&gt;This post is not about that. This post is about how I went from knowing nothing about erasure coding to writing POWER optimised routines to make it go fast. (These are in the process of being polished for upstream at the moment.) If you want to understand how erasure coding works under the hood - and in particular if you're interested in writing optimised routines to make it run quickly in your platform - this is for you.&lt;/p&gt;
 &lt;h2&gt;What are erasure codes anyway?&lt;/h2&gt;
@@ -301,8 +414,8 @@ a++;
 &lt;p&gt;So, 100 + 79 = 43 in GF(2^8)&lt;/p&gt;
 &lt;p&gt;You may notice we could have done that much more efficiently: we can add numbers in GF(2^8) by just XORing their binary representations together. Subtraction, amusingly, is the same as addition: 0 + x = x =  0 - x, as -1 is congruent to 1 modulo 2.&lt;/p&gt;
 &lt;p&gt;So at this point you might be wanting to explore a few additions yourself. Fortuantely there's a lovely tool that will allow you to do that:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;sudo apt install gf-complete-tools&lt;/span&gt;
-&lt;span class="x"&gt;gf_add &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;A&lt;/span&gt;&lt;span class="x"&gt; &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;B&lt;/span&gt;&lt;span class="x"&gt; 8&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo apt install gf-complete-tools
+gf_add $A $B 8
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -583,7 +696,7 @@ vxor v1, v2, v1
 &lt;p&gt;I'm glad you asked.&lt;/p&gt;
 &lt;p&gt;Galois Field arithmetic, and its application in RAID 6 is the basis for erasure coding. (It's also the basis for CRCs - two for the price of one!)&lt;/p&gt;
 &lt;p&gt;But, that's all to come in part 2, which will definitely be published before 7 April!&lt;/p&gt;
-&lt;p&gt;Many thanks to Sarah Axtens who reviewed the mathematical content of this post and suggested significant improvements. All errors and gross oversimplifications remain my own. Thanks also to the OzLabs crew for their feedback and comments.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 20 Mar 2017 10:43:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-03-20:blog/2017/03/20/erasure-coding-for-programmers-part-1/</guid><category>erasure</category><category>raid</category><category>storage</category></item><item><title>High Power Lustre</title><link>https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/</link><description>&lt;p&gt;(Most of the hard work here was done by fellow blogger Rashmica - I just verified her instructions and wrote up this post.)&lt;/p&gt;
+&lt;p&gt;Many thanks to Sarah Axtens who reviewed the mathematical content of this post and suggested significant improvements. All errors and gross oversimplifications remain my own. Thanks also to the OzLabs crew for their feedback and comments.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 20 Mar 2017 10:43:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-03-20:/blog/2017/03/20/erasure-coding-for-programmers-part-1/</guid><category>erasure</category><category>raid</category><category>storage</category></item><item><title>High Power Lustre</title><link>https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/</link><description>&lt;p&gt;(Most of the hard work here was done by fellow blogger Rashmica - I just verified her instructions and wrote up this post.)&lt;/p&gt;
 &lt;p&gt;&lt;a href="http://lustre.org/"&gt;Lustre&lt;/a&gt; is a high-performance clustered file system. Traditionally the Lustre client and server have run on x86, but both the server and client will also work on Power. Here's how to get them running.&lt;/p&gt;
 &lt;h1&gt;Server&lt;/h1&gt;
 &lt;p&gt;Lustre normally requires a patched 'enterprise' kernel - normally an old RHEL, CentOS or SUSE kernel. We tested with a CentOS 7.3 kernel. We tried to follow &lt;a href="https://wiki.hpdd.intel.com/pages/viewpage.action?pageId=52104622"&gt;the Intel instructions&lt;/a&gt; for building the kernel as much as possible - any deviations we had to make are listed below.&lt;/p&gt;
@@ -665,7 +778,7 @@ rm -rf tests/f_eofblocks
 
 
 &lt;p&gt;I tried to connect to the server:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;sudo mount -t lustre &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;SERVER_IP&lt;/span&gt;&lt;span class="x"&gt;@tcp:/lustre /lustre/&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo mount -t lustre $SERVER_IP@tcp:/lustre /lustre/
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -684,8 +797,8 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 
 
 &lt;p&gt;This looks like one of the new errors introduced in recent GCC versions, and is &lt;a href="https://jira.hpdd.intel.com/browse/LU-8724?focusedCommentId=175244&amp;amp;page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-175244"&gt;a known bug&lt;/a&gt;. To work around it, I found the following stanza in a &lt;code&gt;lustre/autoconf/lustre-core.m4&lt;/code&gt;, and removed the &lt;code&gt;-Werror&lt;/code&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="x"&gt;AS_IF([test &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;target_cpu&lt;/span&gt;&lt;span class="x"&gt; == &amp;quot;i686&amp;quot; -o &lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;target_cpu&lt;/span&gt;&lt;span class="x"&gt; == &amp;quot;x86_64&amp;quot;],&lt;/span&gt;
-&lt;span class="x"&gt;        [CFLAGS=&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;$&lt;/span&gt;&lt;span class="nv"&gt;CFLAGS&lt;/span&gt;&lt;span class="x"&gt; -Wall -Werror&amp;quot;])&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;AS_IF([test $target_cpu == &amp;quot;i686&amp;quot; -o $target_cpu == &amp;quot;x86_64&amp;quot;],
+        [CFLAGS=&amp;quot;$CFLAGS -Wall -Werror&amp;quot;])
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -710,7 +823,7 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 &lt;p&gt;The obvious next steps are following up the disabled tests in e2fsprogs, and doing a lot of internal performance and functionality testing.&lt;/p&gt;
 &lt;p&gt;Happily, it looks like Lustre might be in the mainline kernel before too long - parts have already started to go in to staging. This will make our lives a lot easier: for example, the breakage between 4.4 and 4.8 would probably have already been picked up and fixed if it was the main kernel tree rather than an out-of-tree patch set.&lt;/p&gt;
 &lt;p&gt;In the long run, we'd like to make Lustre on Power just as easy as Lustre on x86. (And, of course, more performant!) We'll keep you up to date!&lt;/p&gt;
-&lt;p&gt;(Thanks to fellow bloggers Daniel Black and Andrew Donnellan for useful feedback on this post.)&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 13 Feb 2017 16:29:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-02-13:blog/2017/02/13/high-power-lustre/</guid><category>lustre</category><category>hpc</category></item><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
+&lt;p&gt;(Thanks to fellow bloggers Daniel Black and Andrew Donnellan for useful feedback on this post.)&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 13 Feb 2017 16:29:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-02-13:/blog/2017/02/13/high-power-lustre/</guid><category>lustre</category><category>hpc</category></item><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
 &lt;p&gt;Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.&lt;/p&gt;
 &lt;h2&gt;Prerequisites&lt;/h2&gt;
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
@@ -786,7 +899,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;/pre&gt;&lt;/div&gt;
 
 
-&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-02-01:blog/2017/02/01/namd-on-nvlink/</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>linux.conf.au 2017 review</title><link>https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/</link><description>&lt;p&gt;I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.&lt;/p&gt;
+&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-02-01:/blog/2017/02/01/namd-on-nvlink/</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>linux.conf.au 2017 review</title><link>https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/</link><description>&lt;p&gt;I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.&lt;/p&gt;
 &lt;p&gt;I received some really interesting feedback so I've taken the opportunity to write some of it down to complement the talk videos and slides that are online. (And to remind me to follow up on it!)&lt;/p&gt;
 &lt;h2&gt;Miniconf talk: Sparse Warnings&lt;/h2&gt;
 &lt;p&gt;My kernel miniconf talk was on sparse warnings (&lt;a href="https://github.com/daxtens/sparse-warnings-talk/blob/master/talk.pdf"&gt;pdf slides&lt;/a&gt;, &lt;a href="https://www.youtube.com/watch?v=hmCukzpevUc"&gt;23m video&lt;/a&gt;).&lt;/p&gt;
@@ -830,9 +943,9 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;li&gt;
 &lt;p&gt;I was 'gently encouraged' to try to do better with how long the process takes to run - if for no other reason than to avoid burning more coal. This is a fair point. I did not explain very well what I meant with diminishing returns in the talk: there's &lt;em&gt;lots&lt;/em&gt; you could do to make the process faster, it's just comes at the cost of the simplicity that I really wanted when I first started the project. I am working (on and off) on better ways to deal with this by considering the dependency graph.&lt;/p&gt;
 &lt;/li&gt;
-&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 31 Jan 2017 16:07:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-01-31:blog/2017/01/31/linuxconfau-2017-review/</guid><category>conferences</category></item><item><title>Get off my lawn: separating Docker workloads using cgroups</title><link>https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</link><description>&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
+&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 31 Jan 2017 16:07:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-01-31:/blog/2017/01/31/linuxconfau-2017-review/</guid><category>conferences</category></item><item><title>Get off my lawn: separating Docker workloads using cgroups</title><link>https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</link><description>&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
 &lt;p&gt;Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.&lt;/p&gt;
-&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;So, &lt;strong&gt;can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.&lt;/p&gt;
 &lt;p&gt;For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is &lt;a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf"&gt;the relevant RedBook (PDF)&lt;/a&gt;, chapter 2.&lt;/p&gt;
@@ -846,10 +959,10 @@ NUMA node17 CPU(s):    64-95
 
 
 &lt;p&gt;Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or &lt;code&gt;cgroups&lt;/code&gt; for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called &lt;code&gt;cpuset&lt;/code&gt;, which can control CPU affinity, and restrict memory allocation to a NUMA node.&lt;/p&gt;
-&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
+&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:docker
-&lt;span class="nb"&gt;echo&lt;/span&gt; 32-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
-&lt;span class="nb"&gt;echo&lt;/span&gt; 1,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;32&lt;/span&gt;-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -861,10 +974,10 @@ NUMA node17 CPU(s):    64-95
 
 
 &lt;p&gt;Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?&lt;/p&gt;
-&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png"&gt;&lt;/p&gt;
 &lt;p&gt;It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:perf-cgroup
-&lt;span class="nb"&gt;echo&lt;/span&gt; 0-31 &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;-31 &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
 &lt;/pre&gt;&lt;/div&gt;
@@ -878,24 +991,24 @@ root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --nu
 
 
 &lt;p&gt;And the result?&lt;/p&gt;
-&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 0-31" src="/images/dja/cgroup2.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 0-31" src="/images/dja/cgroup2.png"&gt;&lt;/p&gt;
 &lt;p&gt;It works! My benchmark results also suggest this is sufficient isolation, and the rest of the team is happy to have more build resources to play with.&lt;/p&gt;
 &lt;p&gt;There are some boring loose ends to tie up: if a build job does anything outside of docker (like clone a git repo), that doesn't come under the docker cgroup, and we have to interact with systemd. Because systemd doesn't know about cpuset, this is &lt;em&gt;quite&lt;/em&gt; fiddly. We also want this in a systemd unit so it runs on start up, and we want some code to tear it down. But I'll spare you the gory details.&lt;/p&gt;
 &lt;p&gt;In summary, cgroups are surprisingly powerful and simple to work with, especially in conjunction with Docker and NUMA on Power!&lt;/p&gt;
 &lt;div class="footnote"&gt;
-&lt;hr /&gt;
+&lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:3"&gt;
-&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 27 Jul 2016 13:30:00 +1000</pubDate><guid>tag:sthbrx.github.io,2016-07-27:blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</guid><category>cgroups</category><category>numa</category><category>p8</category></item><item><title>And now for something completely different: approximate computing</title><link>https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/</link><description>&lt;p&gt;In early February I had the opportunity to go the the NICTA Systems Summer School, where Cyril and I were invited to represent IBM. There were a number of excellent talks across a huge range of systems related subjects, but the one that has stuck with me the most was a talk given by &lt;a href="http://homes.cs.washington.edu/~luisceze/"&gt;Luis Ceze&lt;/a&gt;  on a topic called approximate computing. So here, in hopes that you too find it interesting, is a brief run-down on what I learned.&lt;/p&gt;
+&lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 27 Jul 2016 13:30:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-07-27:/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</guid><category>cgroups</category><category>numa</category><category>p8</category></item><item><title>And now for something completely different: approximate computing</title><link>https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/</link><description>&lt;p&gt;In early February I had the opportunity to go the the NICTA Systems Summer School, where Cyril and I were invited to represent IBM. There were a number of excellent talks across a huge range of systems related subjects, but the one that has stuck with me the most was a talk given by &lt;a href="http://homes.cs.washington.edu/~luisceze/"&gt;Luis Ceze&lt;/a&gt;  on a topic called approximate computing. So here, in hopes that you too find it interesting, is a brief run-down on what I learned.&lt;/p&gt;
 &lt;p&gt;Approximate computing is fundamentally about trading off accuracy for something else - often speed or power consumption. Initially this sounded like a very weird proposition: computers do things like 'running your operating system' and 'reading from and writing to disks': things you need to always be absolutely correct if you want anything vaguely resembling reliability. It turns out that this is actually not as big a roadblock as I had assumed - you can work around it fairly easily.&lt;/p&gt;
 &lt;p&gt;The model proposed for approximate computing is as follows. You divide your computation up into two classes: 'precise', and 'approximate'. You use 'precise' computations when you need to get exact answers: so for example if you are constructing a JPEG file, you want the JPEG header to be exact. Then you have approximate computations: so for example the contents of your image can be approximate.&lt;/p&gt;
 &lt;p&gt;For correctness, you have to establish some boundaries: you say that precise data can be used in approximate calculations, but that approximate data isn't allowed to cross back over and pollute precise calculations. This, while intuitively correct, poses some problems in practise: when you want to write out your approximate JPEG data, you need an operation that allows you to 'bless' (or in their terms 'endorse') some approximate data so it can be used in the precise file system operations.&lt;/p&gt;
@@ -903,7 +1016,7 @@ root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --nu
 &lt;p&gt;However, the approximate computing really shines when you can bring it all the way down to the hardware level. The first thing they tried was a CPU with both 'approximate' and precise execution engines, but this turned out not to have the power savings hoped for. What seemed to work really well was a model where some approximate calculations could be identified ahead of time, and then replaced with neural networks in hardware. These neural networks approximated the calculations, but did so at significantly lower power levels. This sounded like a really promising concept, and it will be interesting to see if this goes anywhere over the next few years.&lt;/p&gt;
 &lt;p&gt;There's a lot of work evaluating the quality of the approximate result, for cases where the set of inputs is known, and when the inputs is not known. This is largely beyond my understanding, so I'll simply refer you to some of the papers &lt;a href="http://sampa.cs.washington.edu/research/approximation/enerj.html"&gt;listed on the website&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;The final thing covered in the talk was bringing approximate computing into current paradigms by just being willing to accept higher user-visible error rates. For example, they hacked up a network stack to accept packets with invalid checksums. This has had mixed results so far. A question I had (but didn't get around to asking!) would be whether the mathematical properties of checksums (i.e. that they can correct a certain number of bit errors) could be used to correct some of the errors, rather than just accepting/rejecting them blindly. Perhaps by first attempting to correct errors using the checksums, we will be able to fix the simpler errors, reducing the error rate visible to the user.&lt;/p&gt;
-&lt;p&gt;Overall, I found the NICTA Systems Summer School to be a really interesting experience (and I hope to blog more about it soon). If you're a university student in Australia, or an academic, see if you can make it in 2017!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-03-15:blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/</guid><category>conferences</category></item><item><title>linux.conf.au 2016: A set of brief thoughts</title><link>https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</link><description>&lt;p&gt;Recently most of us attended LCA2016. This is one set of reflections on what we heard and what we've thought since. (Hopefully not the only set of reflections that will be posted on this blog either!)&lt;/p&gt;
+&lt;p&gt;Overall, I found the NICTA Systems Summer School to be a really interesting experience (and I hope to blog more about it soon). If you're a university student in Australia, or an academic, see if you can make it in 2017!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-03-15:/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/</guid><category>conferences</category></item><item><title>linux.conf.au 2016: A set of brief thoughts</title><link>https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</link><description>&lt;p&gt;Recently most of us attended LCA2016. This is one set of reflections on what we heard and what we've thought since. (Hopefully not the only set of reflections that will be posted on this blog either!)&lt;/p&gt;
 &lt;p&gt;LCA was 2 days of miniconferences plus 3 days of talks. Here, I've picked some of the more interesting talks I attended, and I've written down some thoughts. If you find the thoughts interesting, you can click through and watch the whole talk video, because LCA is awesome like that.&lt;/p&gt;
 &lt;h4&gt;Life is better with Rust's community automation&lt;/h4&gt;
 &lt;p&gt;&lt;a href="https://www.youtube.com/watch?v=dIageYT0Vgg"&gt;This talk&lt;/a&gt; is probably the one that's had the biggest impact on our team so far. We were really impressed by the community automation that Rust has: the way they can respond to pull requests from new community members in a way that lets them keep their code quality high and be nice to everyone at the same time.&lt;/p&gt;
@@ -918,7 +1031,7 @@ root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --nu
 &lt;p&gt;Paul McKenney is a parallel programming genius - he literally &lt;a href="https://www.kernel.org/pub/linux/kernel/people/paulmck/perfbook/perfbook.html"&gt;'wrote the book'&lt;/a&gt; (or at least, wrote &lt;em&gt;a&lt;/em&gt; book!) on it. &lt;a href="https://www.youtube.com/watch?v=1nfpjHTWaUc"&gt;His talk&lt;/a&gt; is - as always - a brain-stretching look at parallel programming within the RCU subsystem of the Linux kernel. In particular, the tree structure for locking that he presents is really interesting and quite a clever way of scaling what at first seems to be a necessarily global lock.&lt;/p&gt;
 &lt;p&gt;I'd also really recommed &lt;a href="https://www.youtube.com/watch?v=tFmajPt0_hI"&gt;RCU Mutation Testing&lt;/a&gt;, from the kernel miniconf, also by Paul.&lt;/p&gt;
 &lt;h4&gt;What I've learned as the kernel docs maintainer&lt;/h4&gt;
-&lt;p&gt;As an extra bonus: I mention &lt;a href="https://www.youtube.com/watch?v=gsJXf6oSbAE"&gt;this talk&lt;/a&gt;, just to say "why on earth have we still not fixed the Linux kernel &lt;a href="https://www.kernel.org/doc/linux/README"&gt;README&lt;/a&gt;"?!!?&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2016-03-15:blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</guid><category>conferences</category></item><item><title>Docker: Just Stop Using AUFS</title><link>https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/</link><description>&lt;p&gt;Docker's default storage driver on most Ubuntu installs is AUFS.&lt;/p&gt;
+&lt;p&gt;As an extra bonus: I mention &lt;a href="https://www.youtube.com/watch?v=gsJXf6oSbAE"&gt;this talk&lt;/a&gt;, just to say "why on earth have we still not fixed the Linux kernel &lt;a href="https://www.kernel.org/doc/linux/README"&gt;README&lt;/a&gt;"?!!?&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Tue, 15 Mar 2016 11:30:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-03-15:/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/</guid><category>conferences</category></item><item><title>Docker: Just Stop Using AUFS</title><link>https://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/</link><description>&lt;p&gt;Docker's default storage driver on most Ubuntu installs is AUFS.&lt;/p&gt;
 &lt;p&gt;Don't use it. Use Overlay instead. Here's why.&lt;/p&gt;
 &lt;p&gt;First, some background. I'm testing the performance of the basic LAMP
 stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
@@ -930,18 +1043,18 @@ hardware threads and 128 GB of memory. But I was finding that it was
 only just keeping pace with a 2 core Intel VM on BlueMix.&lt;/p&gt;
 &lt;p&gt;Why? Well, my first point of call was to observe a compilation under
 &lt;code&gt;top&lt;/code&gt;. The header is below.&lt;/p&gt;
-&lt;p&gt;&lt;img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png"&gt;&lt;/p&gt;
 &lt;p&gt;Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
 deeper.&lt;/p&gt;
 &lt;p&gt;My next port of call for analysis of CPU-bound workloads is
 &lt;code&gt;perf&lt;/code&gt;. &lt;code&gt;perf top&lt;/code&gt; reports astounding quantities of time in
 spin-locks:&lt;/p&gt;
-&lt;p&gt;&lt;img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png"&gt;&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;perf top -g&lt;/code&gt; gives us some more information: the time is in system
 calls. &lt;code&gt;open()&lt;/code&gt; and &lt;code&gt;stat()&lt;/code&gt; are the key culprits, and we can see a
 number of file system functions are in play in the call-chains of the
 spinlocks.&lt;/p&gt;
-&lt;p&gt;&lt;img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png"&gt;&lt;/p&gt;
 &lt;p&gt;Why are open and stat slow? Well, I know that the files are on an AUFS
 mount. (&lt;code&gt;docker info&lt;/code&gt; will tell you what you're using if you're not
 sure.) So, being something of a kernel hacker, I set out to find out
@@ -971,7 +1084,7 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;/ul&gt;
 &lt;p&gt;Having moved my base container across, I set off another build.&lt;/p&gt;
 &lt;p&gt;The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:&lt;/p&gt;
-&lt;p&gt;&lt;img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png"&gt;&lt;/p&gt;
 &lt;p&gt;The compiles went from taking painfully long to astonishingly fast. Winning.&lt;/p&gt;
 &lt;p&gt;So in conclusion:&lt;/p&gt;
 &lt;ul&gt;
@@ -988,17 +1101,17 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;If you want something less disruptive than the btrfs or dm storage drivers&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;...then drop AUFS and switch to Overlay today.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Fri, 30 Oct 2015 13:30:00 +1100</pubDate><guid>tag:sthbrx.github.io,2015-10-30:blog/2015/10/30/docker-just-stop-using-aufs/</guid><category>aufs</category><category>overlay</category><category>performance</category></item><item><title>A tale of two Dockers</title><link>https://sthbrx.github.io/blog/2015/10/12/a-tale-of-two-dockers/</link><description>&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
+&lt;p&gt;...then drop AUFS and switch to Overlay today.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Fri, 30 Oct 2015 13:30:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2015-10-30:/blog/2015/10/30/docker-just-stop-using-aufs/</guid><category>aufs</category><category>overlay</category><category>performance</category></item><item><title>A tale of two Dockers</title><link>https://sthbrx.github.io/blog/2015/10/12/a-tale-of-two-dockers/</link><description>&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
 &lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
 &lt;p&gt;Docker: what is it?&lt;/p&gt;
 &lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
-&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
-&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
 &lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
 &lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
-&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
 &lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
 &lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
@@ -1015,15 +1128,15 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
-&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4" rel="footnote"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref-4"&gt;&lt;a class="footnote-ref" href="#fn-4"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
 &lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
 &lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
 &lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
 &lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
 &lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
-&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5" rel="footnote"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png" /&gt;&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref-5"&gt;&lt;a class="footnote-ref" href="#fn-5"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png"&gt;&lt;/p&gt;
 &lt;h2&gt;Docker pain points&lt;/h2&gt;
 &lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
 &lt;ol&gt;
@@ -1037,34 +1150,34 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6" rel="footnote"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref-6"&gt;&lt;a class="footnote-ref" href="#fn-6"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;h2&gt;Final words&lt;/h2&gt;
 &lt;p&gt;Docker provides me with a lot of useful tools in software development: both in terms of building and testing. Making use of it requires a certain amount of careful design thought, but when applied thoughtfully it can make life significantly easier.&lt;/p&gt;
 &lt;div class="footnote"&gt;
-&lt;hr /&gt;
+&lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:3"&gt;
-&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:4"&gt;
-&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref-4" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:5"&gt;
-&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref-5" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:6"&gt;
-&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref-6" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 12 Oct 2015 14:14:00 +1100</pubDate><guid>tag:sthbrx.github.io,2015-10-12:blog/2015/10/12/a-tale-of-two-dockers/</guid><category>php</category><category>peformance</category></item><item><title>Running ppc64le_hello on real hardware</title><link>https://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/</link><description>&lt;p&gt;So today I saw &lt;a href="https://github.com/andreiw/ppc64le_hello"&gt;Freestanding “Hello World” for OpenPower&lt;/a&gt; on &lt;a href="https://news.ycombinator.com/item?id=9649490"&gt;Hacker News&lt;/a&gt;. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.&lt;/p&gt;
+&lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 12 Oct 2015 14:14:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2015-10-12:/blog/2015/10/12/a-tale-of-two-dockers/</guid><category>php</category><category>peformance</category></item><item><title>Running ppc64le_hello on real hardware</title><link>https://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/</link><description>&lt;p&gt;So today I saw &lt;a href="https://github.com/andreiw/ppc64le_hello"&gt;Freestanding “Hello World” for OpenPower&lt;/a&gt; on &lt;a href="https://news.ycombinator.com/item?id=9649490"&gt;Hacker News&lt;/a&gt;. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.&lt;/p&gt;
 &lt;p&gt;Firstly, clone the repo, and, as mentioned in the README, comment out &lt;code&gt;mambo_write&lt;/code&gt;. Build it.&lt;/p&gt;
 &lt;p&gt;Grab &lt;a href="https://github.com/open-power/op-build"&gt;op-build&lt;/a&gt;, and build a Habanero defconfig. To save yourself a fair bit of time, first edit &lt;code&gt;openpower/configs/habanero_defconfig&lt;/code&gt; to answer &lt;code&gt;n&lt;/code&gt; about a custom kernel source. That'll save you hours of waiting for git.&lt;/p&gt;
 &lt;p&gt;This will build you a PNOR that will boot a linux kernel with Petitboot. This is almost what you want: you need Skiboot, Hostboot and a bunch of the POWER specific bits and bobs, but you don't actually want the Linux boot kernel.&lt;/p&gt;
@@ -1225,7 +1338,7 @@ EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
 
 
 &lt;p&gt;That may be easy to fix, but again I haven't had time to trace it.&lt;/p&gt;
-&lt;p&gt;All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 03 Jun 2015 12:16:00 +1000</pubDate><guid>tag:sthbrx.github.io,2015-06-03:blog/2015/06/03/ppc64le-hello-on-real-hardware/</guid></item><item><title>Joining the CAPI project</title><link>https://sthbrx.github.io/blog/2015/05/27/joining-the-capi-project/</link><description>&lt;p&gt;(I wrote this blog post a couple of months ago, but it's still quite relevant.)&lt;/p&gt;
+&lt;p&gt;All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 03 Jun 2015 12:16:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2015-06-03:/blog/2015/06/03/ppc64le-hello-on-real-hardware/</guid></item><item><title>Joining the CAPI project</title><link>https://sthbrx.github.io/blog/2015/05/27/joining-the-capi-project/</link><description>&lt;p&gt;(I wrote this blog post a couple of months ago, but it's still quite relevant.)&lt;/p&gt;
 &lt;p&gt;Hi, I'm Daniel! I work in OzLabs, part of IBM's Australian Development Labs. Recently, I've been assigned to the CAPI project, and I've been given the opportunity to give you an idea of what this is, and what I'll be up to in the future!&lt;/p&gt;
 &lt;h2&gt;What even is CAPI?&lt;/h2&gt;
 &lt;p&gt;To help you understand CAPI, think back to the time before computers. We had a variety of machines: machines to build things, to check things, to count things, but they were all specialised --- good at one and only one thing.&lt;/p&gt;
@@ -1238,9 +1351,9 @@ EA 0xFFFFFFF000 -&amp;gt; hash 0xFFFFFFF -&amp;gt; pteg 0x3FF8 = unmap
 &lt;p&gt;Previously, developing this interface – this connection between a generalist processor and a specialist machine – has been particularly difficult. The interface between processors and these specialised machines – known as &lt;em&gt;accelerators&lt;/em&gt; – has also tended to suffer from bottlenecks and inefficiencies.&lt;/p&gt;
 &lt;p&gt;This is the problem CAPI solves. CAPI provides a simpler and more optimised way to interface specialised hardware accelerators with IBM's most recent line of processors, POWER8. It's a common 'language' that the processor and the accelerator talk, that makes it much easier to build the hardware side and easier to program the software side. In our Canberra lab, we're working primarily on the operating system side of this. We are working with some external companies who are building CAPI devices and the optimised software products which use them.&lt;/p&gt;
 &lt;p&gt;From a technical point of view, CAPI provides &lt;em&gt;coherent&lt;/em&gt; access to system memory and processor caches, eliminating a major bottleneck in using external devices as accelerators. This is illustrated really well by the following graphic from &lt;a href="https://www.youtube.com/watch?v=4ZyXc12J6FA"&gt;an IBM promotional video&lt;/a&gt;. In the non-CAPI case, you can see there's a lot of data (the little boxes) stalled in the PCIe subsystem, whereas with CAPI, the accelerator has direct access to the memory subsystem, which makes everything go faster.&lt;/p&gt;
-&lt;p&gt;&lt;img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png" /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Slide showing CAPI's memory access" src="/images/dja/capi-memory.png"&gt;&lt;/p&gt;
 &lt;h2&gt;Uses of CAPI&lt;/h2&gt;
 &lt;p&gt;CAPI technology is already powering a few really cool products.&lt;/p&gt;
 &lt;p&gt;Firstly, we have an implementation of Redis that sits on top of flash storage connected over CAPI. Or, to take out the buzzwords, CAPI lets us do really, really fast NoSQL databases. There's &lt;a href="https://www.youtube.com/watch?v=cCmFc_0xsvA"&gt;a video online&lt;/a&gt; giving more details.&lt;/p&gt;
 &lt;p&gt;Secondly, our partner &lt;a href="http://www.mellanox.com/page/products_dyn?product_family=201&amp;amp;mtag=connectx_4_vpi_card"&gt;Mellanox&lt;/a&gt; is using CAPI to make network cards that run at speeds of up to 100Gb/s.&lt;/p&gt;
-&lt;p&gt;CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 27 May 2015 15:08:00 +1000</pubDate><guid>tag:sthbrx.github.io,2015-05-27:blog/2015/05/27/joining-the-capi-project/</guid><category>capi</category></item></channel></rss>
+&lt;p&gt;CAPI is also part of IBM's OpenPOWER initiative, where we're trying to grow a community of companies around our POWER system designs. So in many ways, CAPI is both a really cool technology, and a brand new ecosystem that we're growing here in the Canberra labs. It's very cool to be a part of!&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 27 May 2015 15:08:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2015-05-27:/blog/2015/05/27/joining-the-capi-project/</guid><category>capi</category></item></channel></rss>
