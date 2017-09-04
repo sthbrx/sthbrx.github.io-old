@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed - Docker</title><link href="http://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/feeds/docker.atom.xml" rel="self"></link><id>http://sthbrx.github.io/</id><updated>2016-07-27T13:30:00+10:00</updated><entry><title>Get off my lawn: separating Docker workloads using cgroups</title><link href="http://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/" rel="alternate"></link><published>2016-07-27T13:30:00+10:00</published><updated>2016-07-27T13:30:00+10:00</updated><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2016-07-27:/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</id><summary type="html">&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
+&lt;p&gt;Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.&lt;/p&gt;
+&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;So, &lt;strong&gt;can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.&lt;/p&gt;
+&lt;p&gt;For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is &lt;a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf"&gt;the relevant RedBook (PDF)&lt;/a&gt;, chapter 2.&lt;/p&gt;
+&lt;p&gt;We could achieve the isolation we want by dividing up CPUs and NUMA nodes between the competing workloads. Fortunately, all of the hardware NUMA information is plumbed nicely into Linux. Each P8 socket gets a corresponding NUMA node. &lt;code&gt;lscpu&lt;/code&gt; will tell you what CPUs correspond to which NUMA nodes (although what it calls a CPU we would call a hardware thread). If you install &lt;code&gt;numactl&lt;/code&gt;, you can use &lt;code&gt;numactl -H&lt;/code&gt; to get even more details.&lt;/p&gt;
+&lt;p&gt;In our case, the relevant &lt;code&gt;lscpu&lt;/code&gt; output is thus:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;NUMA node0 CPU(s):     0-31
+NUMA node1 CPU(s):     96-127
+NUMA node16 CPU(s):    32-63
+NUMA node17 CPU(s):    64-95
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or &lt;code&gt;cgroups&lt;/code&gt; for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called &lt;code&gt;cpuset&lt;/code&gt;, which can control CPU affinity, and restrict memory allocation to a NUMA node.&lt;/p&gt;
+&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:docker
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;32&lt;/span&gt;-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;mem_hardwall&lt;/code&gt; prevents memory allocations under docker from spilling over into the one remaining NUMA node.&lt;/p&gt;
+&lt;p&gt;So, does this work? I created a container with sysbench and then ran the following:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@0d3f339d4181:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --num-threads&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;128&lt;/span&gt; --max-requests&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;10000000&lt;/span&gt; run
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?&lt;/p&gt;
+&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png"&gt;&lt;/p&gt;
+&lt;p&gt;It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:perf-cgroup
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;-31 &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Docker conveniently lets us put new containers under a different cgroup, which means we can simply do:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;dja@p88 ~&amp;gt; docker run -it --rm --cgroup-parent&lt;span class="o"&gt;=&lt;/span&gt;/perf-cgroup/ ppc64le/ubuntu bash
+root@b037049f94de:/# &lt;span class="c1"&gt;# ... install sysbench&lt;/span&gt;
+root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --num-threads&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;128&lt;/span&gt; --max-requests&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;10000000&lt;/span&gt; run
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;And the result?&lt;/p&gt;
+&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 0-31" src="/images/dja/cgroup2.png"&gt;&lt;/p&gt;
+&lt;p&gt;It works! My benchmark results also suggest this is sufficient isolation, and the rest of the team is happy to have more build resources to play with.&lt;/p&gt;
+&lt;p&gt;There are some boring loose ends to tie up: if a build job does anything outside of docker (like clone a git repo), that doesn't come under the docker cgroup, and we have to interact with systemd. Because systemd doesn't know about cpuset, this is &lt;em&gt;quite&lt;/em&gt; fiddly. We also want this in a systemd unit so it runs on start up, and we want some code to tear it down. But I'll spare you the gory details.&lt;/p&gt;
+&lt;p&gt;In summary, cgroups are surprisingly powerful and simple to work with, especially in conjunction with Docker and NUMA on Power!&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr&gt;
+&lt;ol&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</summary><content type="html">&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
+&lt;p&gt;Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.&lt;/p&gt;
+&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;So, &lt;strong&gt;can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.&lt;/p&gt;
+&lt;p&gt;For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is &lt;a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf"&gt;the relevant RedBook (PDF)&lt;/a&gt;, chapter 2.&lt;/p&gt;
+&lt;p&gt;We could achieve the isolation we want by dividing up CPUs and NUMA nodes between the competing workloads. Fortunately, all of the hardware NUMA information is plumbed nicely into Linux. Each P8 socket gets a corresponding NUMA node. &lt;code&gt;lscpu&lt;/code&gt; will tell you what CPUs correspond to which NUMA nodes (although what it calls a CPU we would call a hardware thread). If you install &lt;code&gt;numactl&lt;/code&gt;, you can use &lt;code&gt;numactl -H&lt;/code&gt; to get even more details.&lt;/p&gt;
+&lt;p&gt;In our case, the relevant &lt;code&gt;lscpu&lt;/code&gt; output is thus:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;NUMA node0 CPU(s):     0-31
+NUMA node1 CPU(s):     96-127
+NUMA node16 CPU(s):    32-63
+NUMA node17 CPU(s):    64-95
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or &lt;code&gt;cgroups&lt;/code&gt; for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called &lt;code&gt;cpuset&lt;/code&gt;, which can control CPU affinity, and restrict memory allocation to a NUMA node.&lt;/p&gt;
+&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:docker
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;32&lt;/span&gt;-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;mem_hardwall&lt;/code&gt; prevents memory allocations under docker from spilling over into the one remaining NUMA node.&lt;/p&gt;
+&lt;p&gt;So, does this work? I created a container with sysbench and then ran the following:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@0d3f339d4181:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --num-threads&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;128&lt;/span&gt; --max-requests&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;10000000&lt;/span&gt; run
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?&lt;/p&gt;
+&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png"&gt;&lt;/p&gt;
+&lt;p&gt;It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:perf-cgroup
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;-31 &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Docker conveniently lets us put new containers under a different cgroup, which means we can simply do:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;dja@p88 ~&amp;gt; docker run -it --rm --cgroup-parent&lt;span class="o"&gt;=&lt;/span&gt;/perf-cgroup/ ppc64le/ubuntu bash
+root@b037049f94de:/# &lt;span class="c1"&gt;# ... install sysbench&lt;/span&gt;
+root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --num-threads&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;128&lt;/span&gt; --max-requests&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;10000000&lt;/span&gt; run
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;And the result?&lt;/p&gt;
+&lt;p&gt;&lt;img alt="htop screenshot, showing load only on CPUs 0-31" src="/images/dja/cgroup2.png"&gt;&lt;/p&gt;
+&lt;p&gt;It works! My benchmark results also suggest this is sufficient isolation, and the rest of the team is happy to have more build resources to play with.&lt;/p&gt;
+&lt;p&gt;There are some boring loose ends to tie up: if a build job does anything outside of docker (like clone a git repo), that doesn't come under the docker cgroup, and we have to interact with systemd. Because systemd doesn't know about cpuset, this is &lt;em&gt;quite&lt;/em&gt; fiddly. We also want this in a systemd unit so it runs on start up, and we want some code to tear it down. But I'll spare you the gory details.&lt;/p&gt;
+&lt;p&gt;In summary, cgroups are surprisingly powerful and simple to work with, especially in conjunction with Docker and NUMA on Power!&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr&gt;
+&lt;ol&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><category term="cgroups"></category><category term="numa"></category><category term="p8"></category></entry><entry><title>Docker: Just Stop Using AUFS</title><link href="http://sthbrx.github.io/blog/2015/10/30/docker-just-stop-using-aufs/" rel="alternate"></link><published>2015-10-30T13:30:00+11:00</published><updated>2015-10-30T13:30:00+11:00</updated><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2015-10-30:/blog/2015/10/30/docker-just-stop-using-aufs/</id><summary type="html">&lt;p&gt;Docker's default storage driver on most Ubuntu installs is AUFS.&lt;/p&gt;
+&lt;p&gt;Don't use it. Use Overlay instead. Here's why.&lt;/p&gt;
+&lt;p&gt;First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See &lt;a href="/blog/2015/10/12/a-tale-of-two-dockers/"&gt;my previous post&lt;/a&gt; for more info.)&lt;/p&gt;
+&lt;p&gt;Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.&lt;/p&gt;
+&lt;p&gt;Why? Well, my first point of call was to observe a compilation under
+&lt;code&gt;top&lt;/code&gt;. The header is below.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png"&gt;&lt;/p&gt;
+&lt;p&gt;Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.&lt;/p&gt;
+&lt;p&gt;My next port of call for analysis of CPU-bound workloads is
+&lt;code&gt;perf&lt;/code&gt;. &lt;code&gt;perf top&lt;/code&gt; reports astounding quantities of time in
+spin-locks:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png"&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;perf top -g&lt;/code&gt; gives us some more information: the time is in system
+calls. &lt;code&gt;open()&lt;/code&gt; and &lt;code&gt;stat()&lt;/code&gt; are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png"&gt;&lt;/p&gt;
+&lt;p&gt;Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (&lt;code&gt;docker info&lt;/code&gt; will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)&lt;/p&gt;
+&lt;p&gt;Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. &lt;a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html"&gt;This presentation is particularly good.&lt;/a&gt;
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
+&lt;p&gt;It's also easy to set up on Ubuntu:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;export/save any docker containers you care about.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;add &lt;code&gt;--storage-driver=overlay&lt;/code&gt; option to &lt;code&gt;DOCKER_OPTS&lt;/code&gt; in &lt;code&gt;/etc/default/docker&lt;/code&gt;, and restart docker (&lt;code&gt;service docker restart&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;import/load the containters you exported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;verify that things work, then clear away your old storage directory (&lt;code&gt;/var/lib/docker/aufs&lt;/code&gt;). &lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Having moved my base container across, I set off another build.&lt;/p&gt;
+&lt;p&gt;The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png"&gt;&lt;/p&gt;
+&lt;p&gt;The compiles went from taking painfully long to astonishingly fast. Winning.&lt;/p&gt;
+&lt;p&gt;So in conclusion:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;If you use Docker for something that involves open()ing or stat()ing files&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want your machine to do real work, rather than spin in spinlocks&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want to use code that's upstream and thus much better supported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want something less disruptive than the btrfs or dm storage drivers&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;...then drop AUFS and switch to Overlay today.&lt;/p&gt;</summary><content type="html">&lt;p&gt;Docker's default storage driver on most Ubuntu installs is AUFS.&lt;/p&gt;
+&lt;p&gt;Don't use it. Use Overlay instead. Here's why.&lt;/p&gt;
+&lt;p&gt;First, some background. I'm testing the performance of the basic LAMP
+stack on POWER. (LAMP is Linux + Apache + MySQL/MariaDB + PHP, by the
+way.) To do more reliable and repeatable tests, I do my builds and
+tests in Docker containers. (See &lt;a href="/blog/2015/10/12/a-tale-of-two-dockers/"&gt;my previous post&lt;/a&gt; for more info.)&lt;/p&gt;
+&lt;p&gt;Each test downloads the source of Apache, MariaDB and PHP, and builds
+them. This should be quick: the POWER8 system I'm building on has 160
+hardware threads and 128 GB of memory. But I was finding that it was
+only just keeping pace with a 2 core Intel VM on BlueMix.&lt;/p&gt;
+&lt;p&gt;Why? Well, my first point of call was to observe a compilation under
+&lt;code&gt;top&lt;/code&gt;. The header is below.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top header, showing over 70 percent of CPU time spent in the kernel" src="/images/dja/aufs/top-bad.png"&gt;&lt;/p&gt;
+&lt;p&gt;Over 70% of CPU time is spent in the kernel?! That's weird. Let's dig
+deeper.&lt;/p&gt;
+&lt;p&gt;My next port of call for analysis of CPU-bound workloads is
+&lt;code&gt;perf&lt;/code&gt;. &lt;code&gt;perf top&lt;/code&gt; reports astounding quantities of time in
+spin-locks:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top, showing 80 percent of time in a spinlock" src="/images/dja/aufs/perf-top-spinlock.png"&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;perf top -g&lt;/code&gt; gives us some more information: the time is in system
+calls. &lt;code&gt;open()&lt;/code&gt; and &lt;code&gt;stat()&lt;/code&gt; are the key culprits, and we can see a
+number of file system functions are in play in the call-chains of the
+spinlocks.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="display from perf top -g, showing syscalls and file ops" src="/images/dja/aufs/perf-top-syscalls.png"&gt;&lt;/p&gt;
+&lt;p&gt;Why are open and stat slow? Well, I know that the files are on an AUFS
+mount. (&lt;code&gt;docker info&lt;/code&gt; will tell you what you're using if you're not
+sure.) So, being something of a kernel hacker, I set out to find out
+why. This did not go well. AUFS isn't upstream, it's a separate patch
+set. Distros have been trying to deprecate it for years. Indeed, RHEL
+doesn't ship it. (To it's credit, Docker seems to be trying to move
+away from it.)&lt;/p&gt;
+&lt;p&gt;Wanting to avoid the minor nightmare that is an out-of-tree patchset,
+I looked at other storage drivers for Docker. &lt;a href="https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html"&gt;This presentation is particularly good.&lt;/a&gt;
+My choices are pretty simple: AUFS, btrfs, device-mapper or
+Overlay. Overlay was an obvious choice: it doesn't need me to set up
+device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
+&lt;p&gt;It's also easy to set up on Ubuntu:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;export/save any docker containers you care about.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;add &lt;code&gt;--storage-driver=overlay&lt;/code&gt; option to &lt;code&gt;DOCKER_OPTS&lt;/code&gt; in &lt;code&gt;/etc/default/docker&lt;/code&gt;, and restart docker (&lt;code&gt;service docker restart&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;import/load the containters you exported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;verify that things work, then clear away your old storage directory (&lt;code&gt;/var/lib/docker/aufs&lt;/code&gt;). &lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Having moved my base container across, I set off another build.&lt;/p&gt;
+&lt;p&gt;The first thing I noticed is that images are much slower to create with Overlay. But once that finishes, and a compile starts, things run much better:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="top, showing close to zero system time, and around 90 percent user time" src="/images/dja/aufs/top-good.png"&gt;&lt;/p&gt;
+&lt;p&gt;The compiles went from taking painfully long to astonishingly fast. Winning.&lt;/p&gt;
+&lt;p&gt;So in conclusion:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;If you use Docker for something that involves open()ing or stat()ing files&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want your machine to do real work, rather than spin in spinlocks&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want to use code that's upstream and thus much better supported&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If you want something less disruptive than the btrfs or dm storage drivers&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;...then drop AUFS and switch to Overlay today.&lt;/p&gt;</content><category term="aufs"></category><category term="overlay"></category><category term="performance"></category></entry><entry><title>A tale of two Dockers</title><link href="http://sthbrx.github.io/blog/2015/10/12/a-tale-of-two-dockers/" rel="alternate"></link><published>2015-10-12T14:14:00+11:00</published><updated>2015-10-12T14:14:00+11:00</updated><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2015-10-12:/blog/2015/10/12/a-tale-of-two-dockers/</id><summary type="html">&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
+&lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
+&lt;p&gt;Docker: what is it?&lt;/p&gt;
+&lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
+&lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
+&lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
+&lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
+&lt;p&gt;What Docker does well is not something novel, but the engineering feat of bringing together fine-grained control, isolation and immutability, and – importantly – a tool-chain that is easier to use than any of the alternatives. Docker's tool-chain eases a lot of pain points with regards to building containers: it's vastly simpler than chroots, and easier to customise than most VM setups. Docker also has a number of engineering tricks to reduce the disk space overhead of isolation.&lt;/p&gt;
+&lt;p&gt;So, to summarise: Docker provides a toolkit for isolated, immutable, finely controlled containers to run executables and services.&lt;/p&gt;
+&lt;h2&gt;Docker in development: why?&lt;/h2&gt;
+&lt;p&gt;I don't run network services at work; I do performance work. So how do I use Docker?&lt;/p&gt;
+&lt;p&gt;There are two things I do with Docker: I build PHP 5, and do performance regression testing on PHP 7. They're good case studies of how isolation and immutability provide real benefits in development and testing, and how the Docker tool chain makes life a lot nicer that previous solutions.&lt;/p&gt;
+&lt;h3&gt;PHP 5 builds&lt;/h3&gt;
+&lt;p&gt;I use the &lt;em&gt;isolation&lt;/em&gt; that Docker provides to make building PHP 5 easier. PHP 5 depends on an old version of Bison, version 2. Ubuntu and Debian long since moved to version 3. There are a few ways I could have solved this:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;I could just install the old version directly on my system in &lt;code&gt;/usr/local/&lt;/code&gt;, and hope everything still works and nothing else picks up Bison 2 when it needs Bison 3. Or I could install it somewhere else and remember to change my path correctly before I build PHP 5.&lt;/li&gt;
+&lt;li&gt;I could roll a chroot by hand. Even with tools like debootstrap and schroot, working in chroots is a painful process.&lt;/li&gt;
+&lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref-4"&gt;&lt;a class="footnote-ref" href="#fn-4"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
+&lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
+&lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
+&lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
+&lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref-5"&gt;&lt;a class="footnote-ref" href="#fn-5"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png"&gt;&lt;/p&gt;
+&lt;h2&gt;Docker pain points&lt;/h2&gt;
+&lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Docker was apparently written by people who had no concept that platforms other than x86 exist. This leads to major issues for cross-architectural setups. For instance, Docker identifies images by a name and a revision. For example, &lt;code&gt;ubuntu&lt;/code&gt; is the name of an image, and &lt;code&gt;15.04&lt;/code&gt; is a revision. There's no ability to specify an architecture. So, how you do specify that you want, say, a 64-bit, little-endian PowerPC build of an image versus an x86 build? There have been a couple of approaches, both of which are pretty bad. You could name the image differently: say &lt;code&gt;ubuntu_ppc64le&lt;/code&gt;. You can also just cheat and override the &lt;code&gt;ubuntu&lt;/code&gt; name with an architecture specific version. Both of these break some assumptions in the Docker ecosystem and are a pain to work with.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Image building is incredibly inflexible. If you have one system that requires a proxy, and one that does not, you need different Dockerfiles. As far as I can tell, there are no simple ways to hook in any changes between systems into a generic Dockerfile. This is largely by design, but it's still really annoying when you have one system behind a firewall and one system out on the public cloud (as I do in the PHP 7 setup).&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref-6"&gt;&lt;a class="footnote-ref" href="#fn-6"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Final words&lt;/h2&gt;
+&lt;p&gt;Docker provides me with a lot of useful tools in software development: both in terms of building and testing. Making use of it requires a certain amount of careful design thought, but when applied thoughtfully it can make life significantly easier.&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr&gt;
+&lt;ol&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref-4" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref-5" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref-6" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</summary><content type="html">&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
+&lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
+&lt;p&gt;Docker: what is it?&lt;/p&gt;
+&lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
+&lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
+&lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
+&lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
+&lt;p&gt;What Docker does well is not something novel, but the engineering feat of bringing together fine-grained control, isolation and immutability, and – importantly – a tool-chain that is easier to use than any of the alternatives. Docker's tool-chain eases a lot of pain points with regards to building containers: it's vastly simpler than chroots, and easier to customise than most VM setups. Docker also has a number of engineering tricks to reduce the disk space overhead of isolation.&lt;/p&gt;
+&lt;p&gt;So, to summarise: Docker provides a toolkit for isolated, immutable, finely controlled containers to run executables and services.&lt;/p&gt;
+&lt;h2&gt;Docker in development: why?&lt;/h2&gt;
+&lt;p&gt;I don't run network services at work; I do performance work. So how do I use Docker?&lt;/p&gt;
+&lt;p&gt;There are two things I do with Docker: I build PHP 5, and do performance regression testing on PHP 7. They're good case studies of how isolation and immutability provide real benefits in development and testing, and how the Docker tool chain makes life a lot nicer that previous solutions.&lt;/p&gt;
+&lt;h3&gt;PHP 5 builds&lt;/h3&gt;
+&lt;p&gt;I use the &lt;em&gt;isolation&lt;/em&gt; that Docker provides to make building PHP 5 easier. PHP 5 depends on an old version of Bison, version 2. Ubuntu and Debian long since moved to version 3. There are a few ways I could have solved this:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;I could just install the old version directly on my system in &lt;code&gt;/usr/local/&lt;/code&gt;, and hope everything still works and nothing else picks up Bison 2 when it needs Bison 3. Or I could install it somewhere else and remember to change my path correctly before I build PHP 5.&lt;/li&gt;
+&lt;li&gt;I could roll a chroot by hand. Even with tools like debootstrap and schroot, working in chroots is a painful process.&lt;/li&gt;
+&lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref-4"&gt;&lt;a class="footnote-ref" href="#fn-4"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
+&lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
+&lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
+&lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
+&lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref-5"&gt;&lt;a class="footnote-ref" href="#fn-5"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png"&gt;&lt;/p&gt;
+&lt;h2&gt;Docker pain points&lt;/h2&gt;
+&lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Docker was apparently written by people who had no concept that platforms other than x86 exist. This leads to major issues for cross-architectural setups. For instance, Docker identifies images by a name and a revision. For example, &lt;code&gt;ubuntu&lt;/code&gt; is the name of an image, and &lt;code&gt;15.04&lt;/code&gt; is a revision. There's no ability to specify an architecture. So, how you do specify that you want, say, a 64-bit, little-endian PowerPC build of an image versus an x86 build? There have been a couple of approaches, both of which are pretty bad. You could name the image differently: say &lt;code&gt;ubuntu_ppc64le&lt;/code&gt;. You can also just cheat and override the &lt;code&gt;ubuntu&lt;/code&gt; name with an architecture specific version. Both of these break some assumptions in the Docker ecosystem and are a pain to work with.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Image building is incredibly inflexible. If you have one system that requires a proxy, and one that does not, you need different Dockerfiles. As far as I can tell, there are no simple ways to hook in any changes between systems into a generic Dockerfile. This is largely by design, but it's still really annoying when you have one system behind a firewall and one system out on the public cloud (as I do in the PHP 7 setup).&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref-6"&gt;&lt;a class="footnote-ref" href="#fn-6"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Final words&lt;/h2&gt;
+&lt;p&gt;Docker provides me with a lot of useful tools in software development: both in terms of building and testing. Making use of it requires a certain amount of careful design thought, but when applied thoughtfully it can make life significantly easier.&lt;/p&gt;
+&lt;div class="footnote"&gt;
+&lt;hr&gt;
+&lt;ol&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref-4" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref-5" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id="fn-6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref-6" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><category term="php"></category><category term="performance"></category></entry></feed>

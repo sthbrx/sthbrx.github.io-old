@@ -1,5 +1,234 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Cyril Bur</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Fri, 24 Jun 2016 16:30:00 +1000</lastBuildDate><item><title>Kernel interfaces and vDSO test</title><link>https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/</link><description>&lt;h3&gt;Getting Suckered&lt;/h3&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Cyril Bur</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Fri, 01 Sep 2017 12:00:00 +1000</lastBuildDate><item><title>memcmp() for POWER8 - part II</title><link>https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/</link><description>&lt;p&gt;This entry is a followup to part I which you should absolutely read
+&lt;a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/"&gt;here&lt;/a&gt; before continuing
+on.&lt;/p&gt;
+&lt;h2&gt;Where we left off&lt;/h2&gt;
+&lt;p&gt;We concluded that while a vectorised &lt;code&gt;memcmp()&lt;/code&gt; is a win, there are
+some cases where it won't quite perform.&lt;/p&gt;
+&lt;h2&gt;The overhead of enabling ALTIVEC&lt;/h2&gt;
+&lt;p&gt;In the kernel we explicitly don't touch ALTIVEC unless we need to,
+this means that in the general case we can leave the userspace
+registers in place and not have do anything to service a syscall for a
+process.&lt;/p&gt;
+&lt;p&gt;This means that if we do want to use ALTIVEC in the kernel, there is
+some setup that must be done. Notably, we must enable the facility (a
+potentially time consuming move to MSR), save off the registers (if
+userspace we using them) and an inevitable restore later on.&lt;/p&gt;
+&lt;p&gt;If all this needs to be done for a &lt;code&gt;memcmp()&lt;/code&gt; in the order of tens of
+bytes then it really wasn't worth it.&lt;/p&gt;
+&lt;p&gt;There are two reasons that &lt;code&gt;memcmp()&lt;/code&gt; might go for a small number of
+bytes, firstly and trivially detectable is simply that parameter n is
+small. The other is harder to detect, if the memcmp() is going to fail
+(return non zero) early then it also wasn't worth enabling ALTIVEC.&lt;/p&gt;
+&lt;h2&gt;Detecting early failures&lt;/h2&gt;
+&lt;p&gt;Right at the start of &lt;code&gt;memcmp()&lt;/code&gt;, before enabling ALTIVEC, the first
+64 bytes are checked using general purpose registers. Why the first 64
+bytes, well why not? In a strange twist of fate 64 bytes happens to be
+the amount of bytes in four ALTIVEC registers (128 bits per register,
+so 16 bytes multiplied by 4) and by utter coincidence that happens to
+be the stride of the ALTIVEC compare loop.&lt;/p&gt;
+&lt;h2&gt;What does this all look like&lt;/h2&gt;
+&lt;p&gt;Well unlike part I the results appear slightly less consistent across
+three runs of measurement but there are some very key differences with
+part I. The trends do appear to be the same across all three runs,
+just less pronounced - why this is is unclear.&lt;/p&gt;
+&lt;p&gt;The difference between run two and run three clipped at deltas of
+1000ns is interesting:
+&lt;img alt="Sample 2: Deltas below 1000ns" src="/images/power8_memcmp/v2deltas2-1000.png" title="Sample 2: Deltas below 1000ns"&gt;&lt;/p&gt;
+&lt;p&gt;vs&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Sample 3: Deltas below 1000ns" src="/images/power8_memcmp/v2deltas3-1000.png" title="Sample 3: Deltas below 1000ns"&gt;&lt;/p&gt;
+&lt;p&gt;The results are similar except for a spike in the amount of deltas in
+the unpatched kernel at around 600ns. This is not present in the first
+sample (deltas1) of data. There are a number of reasons why this spike
+could have appeared here, it is possible that the kernel or hardware
+did something under the hood, prefetch could have brought deltas for a
+&lt;code&gt;memcmp()&lt;/code&gt; that would otherwise have yielded a greater delta into the
+600ns range.&lt;/p&gt;
+&lt;p&gt;What these two graphs do both demonstrate quite clearly is that
+optimisations down at the sub 100ns end have resulted in more sub
+100ns deltas for the patched kernel, a significant win over the
+original data. Zooming out and looking at a graph which includes
+deltas up to 5000ns shows that the sub 100ns delta optimisations
+haven't noticeably slowed the performance of long duration &lt;code&gt;memcmp()&lt;/code&gt;,
+&lt;img alt="Samply 2: Deltas below 5000ns" src="/images/power8_memcmp/v2deltas2-5000.png" title="Sample 2: Deltas below 5000ns"&gt;.&lt;/p&gt;
+&lt;h2&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;The small amount of extra development effort has yielded tangible
+results in reducing the low end &lt;code&gt;memcmp()&lt;/code&gt; times. This second round of
+data collection and performance analysis only confirms the that for
+any significant amount of comparison, a vectorised loop is
+significantly quicker.&lt;/p&gt;
+&lt;p&gt;The results obtained here show no downside to adopting this approach
+for all power8 and onwards chips as this new version of the patch
+solves the performance regression for small compares.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Cyril Bur</dc:creator><pubDate>Fri, 01 Sep 2017 12:00:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-09-01:/blog/2017/09/01/memcmp-for-power8-part-ii/</guid><category>performance</category><category>power</category></item><item><title>memcmp() for POWER8</title><link>https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/</link><description>&lt;h2&gt;Userspace&lt;/h2&gt;
+&lt;p&gt;When writing C programs in userspace there is libc which does so much
+of the heavy lifting. One important thing libc provides is portability
+in performing syscalls, that is, you don't need to know the
+architectural details of performing a syscall on each architecture
+your program might be compiled for. Another important feature that
+libc provides for the average userspace programmer is highly optimised
+routines to do things that are usually performance critical. It would
+be extremely inefficient for each userspace programmer if they had to
+implement even the naive version of these functions let alone
+optimised versions. Let us take &lt;code&gt;memcmp()&lt;/code&gt; for example, I could
+trivially implement this in C like:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="nf"&gt;memcmp&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;uint8_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;p1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;uint8_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;p2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;n&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+    &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="n"&gt;n&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;p1&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="n"&gt;p2&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt;
+            &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;p1&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;p2&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt;
+            &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;However, while it is incredibly portable it is simply not going to
+perform, which is why the nice people who write libc have highly
+optimised ones in assembly for each architecture.&lt;/p&gt;
+&lt;h2&gt;Kernel&lt;/h2&gt;
+&lt;p&gt;When writing code for the Linux kernel, there isn't the luxury of a
+fully featured libc since it expects (and needs) to be in userspace,
+therefore we need to implement the features we need ourselves. Linux
+doesn't need all the features but something like &lt;code&gt;memcmp()&lt;/code&gt; is
+definitely a requirement.&lt;/p&gt;
+&lt;p&gt;There have been some recent optimisations in &lt;a href="https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=sysdeps/powerpc/powerpc64/power8/memcmp.S;h=46b9c0067ad7cd74a36c4800ebfe03eb1be0311e;hb=dec4a7105edcdbabdcac5f358f5bc5dca4f4ed1b" title="power8 optimised memcmp"&gt;glibc&lt;/a&gt; from which the
+kernel could benefit too! The question to be asked is, does the glibc
+optimised &lt;code&gt;power8_memcmp()&lt;/code&gt; actually go faster or is it all smoke and
+mirrors?&lt;/p&gt;
+&lt;h2&gt;Benchmarking &lt;code&gt;memcmp()&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;With things like &lt;code&gt;memcmp()&lt;/code&gt; it is actually quite easy to choose
+datasets which can make any implementation look good. For example; the
+new &lt;code&gt;power8_memcmp()&lt;/code&gt; makes use of the vector unit of the power8
+processor, in order to do so in the kernel there must be a small
+amount of setup code so that the rest of the kernel knows that the
+vector unit has been used and it correctly saves and restores the
+userspace vector registers. This means that &lt;code&gt;power8_memcmp()&lt;/code&gt; has a
+slightly larger overhead than the current one, so for small compares
+or compares which are different early on then the newer 'faster'
+&lt;code&gt;power8_memcmp()&lt;/code&gt; might actually not perform as well. For any kind of
+large compare however, using the vector unit should outperform a CPU
+register load and compare loop. It is for this reason that I wanted to
+avoid using micro benchmarks and use a 'real world' test as much as
+possible.&lt;/p&gt;
+&lt;p&gt;The biggest user of &lt;code&gt;memcmp()&lt;/code&gt; in the kernel, at least on POWER is Kernel
+Samepage Merging (KSM). KSM provides code to inspect all the pages of
+a running system to determine if they're identical and deduplicate
+them if possible. This kind of feature allows for memory overcommit
+when used in a KVM host environment as guest kernels are likely to
+have a lot of similar, readonly pages which can be merged with no
+overhead afterwards. In order to determine if the pages are the same
+KSM must do a lot of page sized &lt;code&gt;memcmp()&lt;/code&gt;.&lt;/p&gt;
+&lt;h2&gt;Performance&lt;/h2&gt;
+&lt;p&gt;Performing a lot of page sized &lt;code&gt;memcmp()&lt;/code&gt; is the one flaw with this
+test, the sizes of the &lt;code&gt;memcmp()&lt;/code&gt; don't vary, hopefully the data will be
+'random' enough that we can still observe differences in the two
+approaches.&lt;/p&gt;
+&lt;p&gt;My approach for testing involved getting the delta of &lt;code&gt;ktime_get()&lt;/code&gt;
+across calls to &lt;code&gt;memcmp()&lt;/code&gt; in &lt;code&gt;memcmp_pages()&lt;/code&gt; (mm/ksm.c). This actually
+generated massive amounts of data, so, for consistency the following
+analysis is performed on the first 400MB of deltas collected.&lt;/p&gt;
+&lt;p&gt;The host was compiled with &lt;code&gt;powernv_defconfig&lt;/code&gt; and run out of a
+ramdisk. For consistency the host was rebooted between each run so as
+to not have any previous tests affect the next. The host was rebooted
+a total of six times, the first three with my 'patched'
+&lt;code&gt;power8_memcmp()&lt;/code&gt; kernel was booted the second three times with just
+my data collection patch applied, the 'vanilla' kernel. Both
+kernels are based off &lt;code&gt;4.13-rc3&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Each boot the following script was run and the resulting deltas file
+saved somewhere before reboot. The command line argument was always
+15.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="ch"&gt;#!/bin/sh&lt;/span&gt;
+
+ppc64_cpu --smt&lt;span class="o"&gt;=&lt;/span&gt;off
+
+&lt;span class="c1"&gt;#Host actually boots with ksm off but be sure&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &amp;gt; /sys/kernel/mm/ksm/run
+
+&lt;span class="c1"&gt;#Scan a lot of pages&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;999999&lt;/span&gt; &amp;gt; /sys/kernel/mm/ksm/pages_to_scan
+
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Starting QEMUs&amp;quot;&lt;/span&gt;
+&lt;span class="nv"&gt;i&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;0&lt;/span&gt;
+&lt;span class="k"&gt;while&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$i&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; -lt &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt; &lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;do&lt;/span&gt;
+    qemu-system-ppc64 -smp &lt;span class="m"&gt;1&lt;/span&gt; -m 1G -nographic -vga none &lt;span class="se"&gt;\&lt;/span&gt;
+        -machine pseries,accel&lt;span class="o"&gt;=&lt;/span&gt;kvm,kvm-type&lt;span class="o"&gt;=&lt;/span&gt;HV &lt;span class="se"&gt;\&lt;/span&gt;
+        -kernel guest.kernel  -initrd guest.initrd &lt;span class="se"&gt;\&lt;/span&gt;
+        -monitor pty -serial pty &lt;span class="p"&gt;&amp;amp;&lt;/span&gt;
+    &lt;span class="nv"&gt;i&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;$(&lt;/span&gt;expr &lt;span class="nv"&gt;$i&lt;/span&gt; + &lt;span class="m"&gt;1&lt;/span&gt;&lt;span class="k"&gt;)&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;done&lt;/span&gt;
+
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Letting all the VMs boot&amp;quot;&lt;/span&gt;
+sleep &lt;span class="m"&gt;30&lt;/span&gt;
+
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Turning KSM om&amp;quot;&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt; &amp;gt; /sys/kernel/mm/ksm/run
+
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Letting KSM do its thing&amp;quot;&lt;/span&gt;
+sleep 2m
+
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &amp;gt; /sys/kernel/mm/ksm/run
+
+dd &lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;/sys/kernel/debug/ksm/memcmp_deltas &lt;span class="nv"&gt;of&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;deltas &lt;span class="nv"&gt;bs&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;4096&lt;/span&gt; &lt;span class="nv"&gt;count&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;100&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The guest kernel was a &lt;code&gt;pseries_le_defconfig&lt;/code&gt; &lt;code&gt;4.13-rc3&lt;/code&gt; with the same
+ramdisk the host used. It booted to the login prompt and was left to
+idle.&lt;/p&gt;
+&lt;h2&gt;Analysis&lt;/h2&gt;
+&lt;p&gt;A variety of histograms were then generated in an attempt to see how
+the behaviour of &lt;code&gt;memcmp()&lt;/code&gt; changed between the two implementations.
+It should be noted here that the y axis in the following graphs is a
+log scale as there were a lot of small deltas. The first observation
+is that the vanilla kernel had more smaller deltas, this is made
+particularly evident by the 'tally' points which are a running total
+of all deltas with less than the tally value.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Sample 1 - Deltas below 200ns" src="/images/power8_memcmp/deltas1-200.png" title="Sample 1: Deltas below 200ns"&gt;
+Graph 1 depicting the vanilla kernel having a greater amount of small
+(sub 20ns) deltas than the patched kernel. The green points rise
+faster (left to right) and higher than the yellow points.&lt;/p&gt;
+&lt;p&gt;Still looking at the tallies, &lt;a href="/images/power8_memcmp/deltas1-200.png" title="Sample 1: Deltas below 200ns"&gt;graph 1&lt;/a&gt; also shows that the tally
+of deltas is very close by the 100ns mark, which means that the
+overhead of &lt;code&gt;power8_memcmp()&lt;/code&gt; is not too great.&lt;/p&gt;
+&lt;p&gt;The problem with looking at only deltas under 200ns is that the
+performance results we want, that is, the difference between the
+algorithms is being masked by things like cache effects. To avoid this
+problem is may be wise to look at longer running (larger delta)
+&lt;code&gt;memcmp()&lt;/code&gt; calls.&lt;/p&gt;
+&lt;p&gt;The following graph plots all deltas below 5000ns - still relatively
+short calls to &lt;code&gt;memcmp()&lt;/code&gt; but an interesting trend emerges:
+&lt;img alt="Sample 1 - Deltas below 5000ns" src="/images/power8_memcmp/deltas1-5000.png" title="Sample 1: Deltas below 5000ns"&gt;
+Graph 2 shows that above 500ns the blue (patched kernel) points appear
+to have all shifted left with respect to the purple (vanilla kernel)
+points. This shows that for any &lt;code&gt;memcmp()&lt;/code&gt; which will take more than
+500ns to get a result it is favourable to use &lt;code&gt;power8_memcmp()&lt;/code&gt; and it
+is only detrimental to use  &lt;code&gt;power8_memcmp()&lt;/code&gt; if the time will be
+under 50ns (a conservative estimate).&lt;/p&gt;
+&lt;p&gt;It is worth noting that &lt;a href="/images/power8_memcmp/deltas1-200.png" title="Sample 1: Deltas below 200ns"&gt;graph 1&lt;/a&gt; and &lt;a href="/images/power8_memcmp/deltas1-5000.png" title="Sample 1: Deltas below 5000ns"&gt;graph 2&lt;/a&gt; are generated by
+combining the first run of data collected from the vanilla and patched
+kernels. All the deltas for both runs are can be viewed separately
+&lt;a href="/images/power8_memcmp/vanilla_deltas1.png" title="All vanilla deltas"&gt;here for vanilla&lt;/a&gt; and &lt;a href="/images/power8_memcmp/patched_deltas1.png" title="All patched deltas"&gt;here for patched&lt;/a&gt;. Finally, the results
+from the other four runs look very much identical and provide me with
+a fair amount of confidence that these results make sense.&lt;/p&gt;
+&lt;h2&gt;Conclusions&lt;/h2&gt;
+&lt;p&gt;It is important to separate possible KSM optimisations with generic
+&lt;code&gt;memcmp()&lt;/code&gt; optimisations, for example, perhaps KSM shouldn't be
+calling &lt;code&gt;memcmp()&lt;/code&gt; if it suspects the first byte will differ. On the
+other hand, things that &lt;code&gt;power8_memcmp()&lt;/code&gt; could do (which it currently
+doesn't) is check the length parameter and perhaps avoid the overhead
+of enabling kernel vector if the compare is less than some small
+amount of bytes.&lt;/p&gt;
+&lt;p&gt;It does seem like at least for the 'average case' glibcs
+&lt;code&gt;power8_memcmp()&lt;/code&gt; is an improvement over what we have now.&lt;/p&gt;
+&lt;h2&gt;Future work&lt;/h2&gt;
+&lt;p&gt;A second round of data collection and plotting of delta vs position of
+first byte to differ should confirm these results, this would mean a
+more invasive patch to KSM.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Cyril Bur</dc:creator><pubDate>Mon, 07 Aug 2017 12:00:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-08-07:/blog/2017/08/07/memcmp-for-power8/</guid><category>performance</category><category>power</category></item><item><title>Kernel interfaces and vDSO test</title><link>https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/</link><description>&lt;h3&gt;Getting Suckered&lt;/h3&gt;
 &lt;p&gt;Last week a colleague of mine came up to me and showed me some of the
 &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; on PowerPC and asked why on earth does it fail
 &lt;a href="https://github.com/nlynch-mentor/vdsotest"&gt;vdsotest&lt;/a&gt;. I should come

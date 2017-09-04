@@ -102,6 +102,179 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/02/15/panic/">Panic, flushing and compromise</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-02-15T14:22:00+11:00" pubdate>Mon 15 February 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
+    </span>
+  </span>
+<time datetime="2016-02-15T14:22:00+11:00" pubdate>Mon 15 February 2016</time></div>
+
+  <div class="entry-content"><p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
+<p>The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely <a href="https://github.com/open-power/skiboot">skiboot</a>, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that <a href="https://github.com/open-power/skiboot/blob/master/core/opal.c">skiboot exposes</a>, <code>opal_poll_events()</code> (which then calls <code>opal_run_pollers()</code>), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.</p>
+<p>Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.</p>
+<p>Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.</p>
+<p>There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the <code>opal_cec_reboot()</code> function.  So all we need to do is flush out the console buffer:</p>
+<div class="highlight"><pre><span></span><span class="k">static</span> <span class="n">int64</span> <span class="nf">opal_cec_reboot</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;OPAL: Reboot request...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+
+    <span class="n">console_complete_flush</span><span class="p">();</span> <span class="c1">// &lt;-- what I added</span>
+
+    <span class="c1">// rebooting stuff happens here...</span>
+
+    <span class="k">return</span> <span class="n">OPAL_SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>Writing a complete flushing function was pretty easy, then call it from the power down and reboot functions.  Easy, all nicely contained in firmware.</p>
+<p>Now, what if the kernel isn't configured to reboot after panic.  Or, what if the reboot timer is really long?  Do you want to wait 3 minutes to see your panic output?  Probably not.  We need to call the pollers after panic.</p>
+<p>First, I had to figure out what the kernel actually <em>does</em> when it panics.  Let's have a look at the <a href="https://github.com/torvalds/linux/blob/master/kernel/panic.c">panic function itself</a> to figure out where we could work some code in.</p>
+<p>In the <code>panic()</code> function, the easiest place I found to put in some code was <code>panic_blink()</code>.  This is supposed to be a function to blink the LEDs on your keyboard when the kernel is panicking, but we could set it to <code>opal_poll_events()</code> and it'd work fine.  There, problem solved!</p>
+<p>Oh, wait.  That will never get accepted upstream, ever.  Let's try again.</p>
+<p>Well, there are <code>#ifdef</code>s in the code that are architecture specific, for s390 and SPARC.  I could add an <code>#ifdef</code> to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from <code>arch/powerpc</code>, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.</p>
+<p>As a kernel noob, I found myself digging into what every function called by <code>panic()</code> actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:</p>
+<div class="highlight"><pre><span></span>    <span class="n">kmsg_dump</span><span class="p">(</span><span class="n">KMSG_DUMP_PANIC</span><span class="p">);</span>
+</pre></div>
+
+
+<p>It turns out <code>kmsg_dump()</code> does what it says: dumps messages from the kernel.  Different parts of the kernel can register their own dumpers, so the kernel can have a variety of dumpers for different purposes.  One existing example in OpenPOWER is a kmsg dumper that stores messages in <code>nvram</code> (non-volatile RAM), so you can find it after you reboot.</p>
+<p>Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call <code>opal_poll_events()</code> a whole bunch of times, right?  That <em>would</em> work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.</p>
+<p>Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.</p>
+<p>In the end, it looks like this:</p>
+<div class="highlight"><pre><span></span><span class="cm">/*</span>
+<span class="cm"> * Console output is controlled by OPAL firmware.  The kernel regularly calls</span>
+<span class="cm"> * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,</span>
+<span class="cm"> * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message</span>
+<span class="cm"> * may not be completely printed.  This function does not actually dump the</span>
+<span class="cm"> * message, it just ensures that OPAL completely flushes the console buffer.</span>
+<span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">force_opal_console_flush</span><span class="p">(</span><span class="k">struct</span> <span class="n">kmsg_dumper</span> <span class="o">*</span><span class="n">dumper</span><span class="p">,</span>
+                                     <span class="k">enum</span> <span class="n">kmsg_dump_reason</span> <span class="n">reason</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+    <span class="kt">int64_t</span> <span class="n">ret</span><span class="p">;</span>
+
+    <span class="cm">/*</span>
+<span class="cm">     * Outside of a panic context the pollers will continue to run,</span>
+<span class="cm">     * so we don&#39;t need to do any special flushing.</span>
+<span class="cm">     */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">reason</span> <span class="o">!=</span> <span class="n">KMSG_DUMP_PANIC</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">opal_check_token</span><span class="p">(</span><span class="n">OPAL_CONSOLE_FLUSH</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">opal_console_flush</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="n">OPAL_UNSUPPORTED</span> <span class="o">||</span> <span class="n">ret</span> <span class="o">==</span> <span class="n">OPAL_PARAMETER</span><span class="p">)</span>
+            <span class="k">return</span><span class="p">;</span>
+
+        <span class="cm">/* Incrementally flush until there&#39;s nothing left */</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">opal_console_flush</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="n">OPAL_SUCCESS</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="cm">/*</span>
+<span class="cm">         * If OPAL_CONSOLE_FLUSH is not implemented in the firmware,</span>
+<span class="cm">         * the console can still be flushed by calling the polling</span>
+<span class="cm">         * function enough times to flush the buffer.  We don&#39;t know</span>
+<span class="cm">         * how much output still needs to be flushed, but we can be</span>
+<span class="cm">         * generous since the kernel is in panic and doesn&#39;t need</span>
+<span class="cm">         * to do much else.</span>
+<span class="cm">         */</span>
+        <span class="n">printk</span><span class="p">(</span><span class="n">KERN_NOTICE</span> <span class="s">&quot;opal: OPAL_CONSOLE_FLUSH missing.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1024</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">opal_poll_events</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>You can find the full code in-tree <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c">here</a>.</p>
+<p>And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/">Evolving into a systems programmer</a>
+      </h1>
+    <p class="meta">
+<time datetime="2015-11-06T11:13:00+11:00" pubdate>Fri 06 November 2015</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
+    </span>
+  </span>
+<time datetime="2015-11-06T11:13:00+11:00" pubdate>Fri 06 November 2015</time></div>
+
+  <div class="entry-content"><p>In a previous life I tutored first year computing. The university I
+attended had a policy of using C to introduce first years to programming.
+One of the most rewarding aspects of teaching is opening doors of
+possibility to people by sharing my knowledge.</p>
+<p>Over the years I had a mixture of computer science or computer engineering
+students as well as other disciplines of engineering who were required to
+learn the basics (notably electrical and mechanical). Each class was
+different and the initial knowledge always varied greatly. The beauty of
+teaching C meant that there was never someone who truly knew it all, heck,
+I didn't and still don't. The other advantage of teaching C is that I could
+very quickly spot the hackers, the shy person at the back of the room who's
+eyes light up when you know you've correctly explained pointers (to them
+anyway) or when asked "What happens if you use a negative index into an
+array" and the smile they would make upon hearing "What do you think happens".</p>
+<p>Right there I would see the makings of a hacker, and this post is dedicated
+to you or to anyone who wants to be a hacker. I've been asked "What did you
+do to get where you are?", "How do I get into Linux?" (vague much) at
+careers fairs. I never quite know what to say, here goes a braindump.</p>
+<p>Start with the basics, one of the easiest way we tested the first years was
+to tell them they can't use parts of libc. That was a great exam, taking
+aside those who didn't read the question and used <code>strlen()</code> when they were
+explicitly told they couldn't <code>#include &lt;string.h&gt;</code> a true hacker doesn't
+need libc, understand it won't always be there. I thought of this example
+because only two weeks ago I was writing code in an environment where I
+didn't have libc. Ok sure, if you've got it, use it, just don't crumble
+when you don't. Oh how I wish I could have told those students who argued
+that it was a pointless question that they were objectively wrong.</p>
+<p>Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
+a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
+it's intense but perhaps understand the beauty of GCC, know what it's doing
+for you. There is a variety of little 8 bit processors you can play with
+these days.</p>
+<p>At all levels of my teaching I saw almost everyone get something which
+'worked', and that's fine, it probably does but I'm here to tell you that
+it doesn't work until you know why it works. I'm all for the 'try it and
+see' approach but once you've tried it you have to explain why the
+behaviour changed otherwise you didn't fix it. As an extension to that,
+know how your tools work, I don't think anyone would expect you to be able
+to write tools to the level of complexity of GCC or GDB or Valgrind but
+have a rough idea as to how they achieve their goals.</p>
+<p>A hacker is paranoid, yes, <code>malloc()</code> fails. Linux might just decide now
+isn't a good time for you to <code>open()</code> and your <code>fopen()</code> calling function had
+better be cool with that. A hacker also doesn't rely on the kindness of the
+operating system theres an <code>munmap()</code> for a reason. Nor should you even
+completely trust it, what are you leaving around in memory?</p>
+<p>Above all do a it for the fun of it, so many of my students asked how I
+knew everything I knew (I was only a year ahead of them in my first year of
+teaching) and put simply, write code on a Saturday night.</p>
+<p>None of these things do or don't make you a hacker, being a hacker is a
+frame of mind and a way of thinking but all of the above helps.</p>
+<p>Unfortunately there isn't a single path, I might even say it is a path that
+chooses you. Odds are you're here because you approached me at some point
+and asked me one of those questions I never quite know how to answer.
+Perhaps this is the path, at the very least you're asking questions and
+approaching people. I'm hope I did on the day, but once again, all the very
+best with your endeavours into the future</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
       </h1>
     <p class="meta">
@@ -360,228 +533,6 @@ device mapper on a cloud VM, or reformat things as btrfs.</p>
 </ol>
 </div></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/">Running ppc64le_hello on real hardware</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-03T12:16:00+10:00" pubdate>Wed 03 June 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2015-06-03T12:16:00+10:00" pubdate>Wed 03 June 2015</time></div>
-
-  <div class="entry-content"><p>So today I saw <a href="https://github.com/andreiw/ppc64le_hello">Freestanding “Hello World” for OpenPower</a> on <a href="https://news.ycombinator.com/item?id=9649490">Hacker News</a>. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.</p>
-<p>Firstly, clone the repo, and, as mentioned in the README, comment out <code>mambo_write</code>. Build it.</p>
-<p>Grab <a href="https://github.com/open-power/op-build">op-build</a>, and build a Habanero defconfig. To save yourself a fair bit of time, first edit <code>openpower/configs/habanero_defconfig</code> to answer <code>n</code> about a custom kernel source. That'll save you hours of waiting for git.</p>
-<p>This will build you a PNOR that will boot a linux kernel with Petitboot. This is almost what you want: you need Skiboot, Hostboot and a bunch of the POWER specific bits and bobs, but you don't actually want the Linux boot kernel.</p>
-<p>Then, based on <code>op-build/openpower/package/openpower-pnor/openpower-pnor.mk</code>, we look through the output of <code>op-build</code> for a  <code>create_pnor_image.pl</code> command, something like this monstrosity:</p>
-<p><code>PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt</code></p>
-<p>Replace the <code>-bootkernel</code> arguement with the path to ppc64le_hello, e.g.: <code>-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello</code></p>
-<p>Don't forget to move it into place! </p>
-<div class="highlight"><pre><span></span>mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
-</pre></div>
-
-
-<p>Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.</p>
-<div class="highlight"><pre><span></span>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &lt;path to&gt;/habanero.pnor
-</pre></div>
-
-
-<p>It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:</p>
-<div class="highlight"><pre><span></span>[11012941323,5] INIT: Starting kernel at 0x20010000, fdt at 0x3044db68 (size 0x11cc3)
-Hello OPAL!
-           _start = 0x20010000
-                              _bss   = 0x20017E28
-                                                 _stack = 0x20018000
-                                                                    _end   = 0x2001A000
-                                                                                       KPCR   = 0x20017E50
-                                                                                                          OPAL   = 0x30000000
-                                                                                                                             FDT    = 0x3044DB68
-                                                                                                                                                CPU0 not found?
-
-                                                                                                                                                               Pick your poison:
-                                                                                                                                                                                Choices: (MMU = disabled):
-                                                                                                                                                                                                             (d) 5s delay
-                                                                                                                                                                                                                            (e) test exception
-    (n) test nested exception
-                                (f) dump FDT
-                                               (M) enable MMU
-                                                                (m) disable MMU
-                                                                                  (t) test MMU
-                                                                                                 (u) test non-priviledged code
-                                                                                                                                 (I) enable ints
-                                                                                                                                                   (i) disable ints
-                                                                                                                                                                      (H) enable HV dec
-                                                                                                                                                                                          (h) disable HV dec
-                                                                                                                                                                                                               (q) poweroff
-                                                                                                                                                                                                                             1.42486|ERRL|Dumping errors reported prior to registration
-</pre></div>
-
-
-<p>Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to <code>cpu_init</code> in main.c to test for a PowerPC POWER8:</p>
-<div class="highlight"><pre><span></span>    <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">cpu0_node</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">cpu0_node</span> <span class="o">=</span> <span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span> <span class="s">&quot;/cpus/PowerPC,POWER8@20&quot;</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">cpu0_node</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">printk</span><span class="p">(</span><span class="s">&quot;CPU0 not found?</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-        <span class="k">return</span><span class="p">;</span>
-    <span class="p">}</span>
-</pre></div>
-
-
-<p>This is definitely the <em>wrong</em> way to do this, but it works for now.</p>
-<p>Now, correcting for weird wrapping, we get:</p>
-<div class="highlight"><pre><span></span>Hello OPAL!
-_start = 0x20010000
-_bss   = 0x20017E28
-_stack = 0x20018000
-_end   = 0x2001A000
-KPCR   = 0x20017E50
-OPAL   = 0x30000000
-FDT    = 0x3044DB68
-Assuming default SLB size
-SLB size = 0x20
-TB freq = 512000000
-[13205442015,3] OPAL: Trying a CPU re-init with flags: 0x2
-Unrecoverable exception stack top @ 0x20019EC8
-HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
-SLB entries:
-1: E 0x8000000 V 0x4000000000000400
-EA 0x20040000 -&gt; hash 0x20040 -&gt; pteg 0x200 = RA 0x20040000
-EA 0x20041000 -&gt; hash 0x20041 -&gt; pteg 0x208 = RA 0x20041000
-EA 0x20042000 -&gt; hash 0x20042 -&gt; pteg 0x210 = RA 0x20042000
-EA 0x20043000 -&gt; hash 0x20043 -&gt; pteg 0x218 = RA 0x20043000
-EA 0x20044000 -&gt; hash 0x20044 -&gt; pteg 0x220 = RA 0x20044000
-EA 0x20045000 -&gt; hash 0x20045 -&gt; pteg 0x228 = RA 0x20045000
-EA 0x20046000 -&gt; hash 0x20046 -&gt; pteg 0x230 = RA 0x20046000
-EA 0x20047000 -&gt; hash 0x20047 -&gt; pteg 0x238 = RA 0x20047000
-EA 0x20048000 -&gt; hash 0x20048 -&gt; pteg 0x240 = RA 0x20048000
-...
-</pre></div>
-
-
-<p>The weird wrapping seems to be caused by NULLs getting printed to OPAL, but I haven't traced what causes that.</p>
-<p>Anyway, now it largely works! Here's a transcript of some things it can do on real hardware.</p>
-<div class="highlight"><pre><span></span>Choices: (MMU = disabled):
-   (d) 5s delay
-   (e) test exception
-   (n) test nested exception
-   (f) dump FDT
-   (M) enable MMU
-   (m) disable MMU
-   (t) test MMU
-   (u) test non-priviledged code
-   (I) enable ints
-   (i) disable ints
-   (H) enable HV dec
-   (h) disable HV dec
-   (q) poweroff
-&lt;press e&gt;
-Testing exception handling...
-sc(feed) =&gt; 0xFEEDFACE
-Choices: (MMU = disabled):
-   (d) 5s delay
-   (e) test exception
-   (n) test nested exception
-   (f) dump FDT
-   (M) enable MMU
-   (m) disable MMU
-   (t) test MMU
-   (u) test non-priviledged code
-   (I) enable ints
-   (i) disable ints
-   (H) enable HV dec
-   (h) disable HV dec
-   (q) poweroff
-&lt;press t&gt;
-EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = RA 0x20010000
-mapped 0xFFFFFFF000 to 0x20010000 correctly
-EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
-EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = RA 0x20011000
-mapped 0xFFFFFFF000 to 0x20011000 incorrectly
-EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
-Choices: (MMU = disabled):
-   (d) 5s delay
-   (e) test exception
-   (n) test nested exception
-   (f) dump FDT
-   (M) enable MMU
-   (m) disable MMU
-   (t) test MMU
-   (u) test non-priviledged code
-   (I) enable ints
-   (i) disable ints
-   (H) enable HV dec
-   (h) disable HV dec
-   (q) poweroff
-&lt;press u&gt;
-EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = RA 0x20080000
-returning to user code
-returning to kernel code
-EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
-</pre></div>
-
-
-<p>I also tested the other functions and they all seem to work. Running non-priviledged code with the MMU on works. Dumping the FDT and the 5s delay both worked, although they tend to stress IPMI a <em>lot</em>. The delay seems to correspond well with real time as well.</p>
-<p>It does tend to error out and reboot quite often, usually on the menu screen, for reasons that are not clear to me. It usually starts with something entirely uninformative from Hostboot, like this:</p>
-<div class="highlight"><pre><span></span>1.41801|ERRL|Dumping errors reported prior to registration
-  2.89873|Ignoring boot flags, incorrect version 0x0
-</pre></div>
-
-
-<p>That may be easy to fix, but again I haven't had time to trace it.</p>
-<p>All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/06/02/autoboot/">Petitboot Autoboot Changes</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time></div>
-
-  <div class="entry-content"><p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
-<h2>Old &amp; Busted</h2>
-<p>For some context, here is the old (or current depending on what you're running) section of the configuration screen.</p>
-<p><img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg"></p>
-<p>This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.</p>
-<p>A side note about default options: it is important to note that not all boot options are valid <em>autoboot</em> options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.</p>
-<h2>New Hotness</h2>
-<p>Below is the new autoboot configuration.</p>
-<p><img alt="New Autoboot" src="/images/sammj/newstyle.jpg"></p>
-<p>The new design allows you to specify an ordered list of autoboot options.
-The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).</p>
-<p>Selecting the first button, 'Add Device' brings up the following screen:</p>
-<p><img alt="Device Selection" src="/images/sammj/devices.jpg"></p>
-<p>From here you can select any device or <em>class</em> of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').</p>
-<p>This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
-You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).</p>
-<p>Presently you can add any option into the list and order them how you like - which means you can do silly things like this:</p>
-<p><img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg"></p>
-<h2>IPMI</h2>
-<p>Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!</p>
-<p>If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:</p>
-<p><img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg"></p>
-<hr>
-<p>That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index8.html">&larr; Older</a>
 
@@ -593,6 +544,12 @@ You can retain the original behaviour by only putting one option into the list (
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/">memcmp() for POWER8 - part II</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/">memcmp() for POWER8</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
       </li>
       <li class="post">
@@ -600,12 +557,6 @@ You can retain the original behaviour by only putting one option into the list (
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
       </li>
     </ul>
   </section>
@@ -626,7 +577,7 @@ You can retain the original behaviour by only putting one option into the list (
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>

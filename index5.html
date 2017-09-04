@@ -102,6 +102,144 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/">SROP Mitigation</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
+    </span>
+  </span>
+<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time></div>
+
+  <div class="entry-content"><h2>What is SROP?</h2>
+<p>Sigreturn Oriented Programming - a general technique that can be used as an exploit, or as a backdoor to exploit another vulnerability.</p>
+<h2>Okay, but what is it?</h2>
+<p>Yeah... Let me take you through some relevant background info, where I skimp on the details and give you the general picture.</p>
+<p>In Linux, software interrupts are called signals. More about signals <a href="http://www.thegeekstuff.com/2012/03/linux-signals-fundamentals/">here</a>! Generally a signal will convey some information from the kernel and so most signals will have a specific signal handler (some code that deals with the signal) setup.</p>
+<p>Signals are asynchronous - ie they can be sent to a process/program at anytime. When a signal arrives for a process, the kernel suspends the process. The kernel then saves the 'context' of the process - all the general purpose registers (GPRs), the stack pointer, the next-instruction pointer etc - into a structure called a 'sigframe'. The sigframe is stored on the stack, and then the kernel runs the signal handler. At the very end of the signal handler, it calls a special system call called 'sigreturn' - indicating to the kernel that the signal has been dealt with. The kernel then grabs the sigframe from the stack, restores the process's context and resumes the execution of the process.</p>
+<p>This is the rough mental picture you should have:</p>
+<p><img alt="Double Format" src="/images/rashmica/picture.png"></p>
+<h2>Okay... but you still haven't explained what SROP is..?</h2>
+<p>Well, if you insist...</p>
+<p>The above process was designed so that the kernel does not need to keep track of what signals it has delivered. The kernel assumes that the sigframe it takes off the stack was legitimately put there by the kernel because of a signal. This is where we can trick the kernel!</p>
+<p>If we can construct a fake sigframe, put it on the stack, and call sigreturn, the kernel will assume that the sigframe is one it put there before and will load the contents of the fake context into the CPU's registers and 'resume' execution from where the fake sigframe tells it to. And that is what SROP is!</p>
+<h2>Well that sounds cool, show me!</h2>
+<p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
+<p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
+<p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
+<div class="highlight"><pre><span></span><span class="k">struct</span> <span class="n">rt_sigframe</span> <span class="p">{</span>
+        <span class="k">struct</span> <span class="n">ucontext</span> <span class="n">uc</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
+        <span class="k">struct</span> <span class="n">siginfo</span> <span class="n">__user</span> <span class="o">*</span><span class="n">pinfo</span><span class="p">;</span>
+        <span class="kt">void</span> <span class="n">__user</span> <span class="o">*</span><span class="n">puc</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">siginfo</span> <span class="n">info</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">user_cookie</span><span class="p">;</span>
+        <span class="cm">/* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */</span>
+        <span class="kt">char</span> <span class="n">abigap</span><span class="p">[</span><span class="n">USER_REDZONE_SIZE</span><span class="p">];</span>
+<span class="p">}</span> <span class="n">__attribute__</span> <span class="p">((</span><span class="n">aligned</span> <span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
+</pre></div>
+
+
+<p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
+<div class="highlight"><pre><span></span><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
+<span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r13</span> <span class="nf">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
+<span class="k">struct</span> <span class="n">ucontext</span> <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
+
+<span class="cm">/* We need a system thread id so copy the one from this process */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R13</span><span class="p">]</span> <span class="o">=</span> <span class="n">r13</span><span class="p">;</span>
+
+<span class="cm">/*  Set the context&#39;s stack pointer to where the current stack pointer is pointing */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r1</span><span class="p">;</span>
+</pre></div>
+
+
+<p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
+<div class="highlight"><pre><span></span><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">test_function</span><span class="p">;</span>
+</pre></div>
+
+
+<p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
+<div class="highlight"><pre><span></span><span class="cm">/* Set MSR bit if LE */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x01</span><span class="p">;</span>
+</pre></div>
+
+
+<p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
+<p><strong>Secondly</strong> we have to put it on the stack:</p>
+<div class="highlight"><pre><span></span><span class="cm">/* Set current stack pointer to our fake context */</span>
+<span class="n">r1</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
+</pre></div>
+
+
+<p><strong>Thirdly</strong>, we call sigreturn:</p>
+<div class="highlight"><pre><span></span><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
+<span class="k">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="k">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+</pre></div>
+
+
+<p>When the kernel receives the sigreturn call, it looks at the userspace stack pointer for the ucontext and loads this in. As we have put valid values in the ucontext, the kernel assumes that this is a valid sigframe that it set up earlier and loads the contents of the ucontext in the CPU's registers "and resumes" execution of the process from the address we pointed the NIP to.</p>
+<p>Obviously, you need something worth executing at this address, but sadly that next part is not in my job description. This is a nice gateway into the kernel though and would pair nicely with another kernel vulnerability.  If you are interested in some more in depth examples, have a read of <a href="http://www.cs.vu.nl/~herbertb/papers/srop_sp14.pdf">this</a> paper.</p>
+<h2>So how can we mitigate this?</h2>
+<p>Well, I'm glad you asked. We need some way of distinguishing between sigframes that were put there legitimately by the kernel and 'fake' sigframes. The current idea that is being thrown around is cookies, and you can see the x86 discussion <a href="https://lkml.org/lkml/2016/3/29/788">here</a>.</p>
+<p>The proposed solution is to give every sighand struct a randomly generated value. When the kernel constructs a sigframe for a process, it stores a 'cookie' with the sigframe. The cookie is a hash of the cookie's location and the random value stored in the sighand struct for the process. When the kernel receives a sigreturn, it hashes the location where the cookie should be with the randomly generated number in sighand struct - if this matches the cookie, the cookie is zeroed,  the sigframe is valid and the kernel will restore this context.  If the cookies do not match, the sigframe is not restored.</p>
+<p>Potential issues:</p>
+<ul>
+<li>Multithreading: Originally the random number was suggested to be stored in the task struct. However, this would break multi-threaded applications as every thread has its own task struct. As the sighand struct is shared by threads, this should not adversely affect multithreaded applications.</li>
+<li>Cookie location: At first I put the cookie on top of the sigframe. However some code in userspace assumed that all the space between the signal handler and the sigframe  was essentially up for grabs and would zero the cookie before I could read the cookie value. Putting the cookie below the sigframe was also a no-go due to the ABI-gap (a gap below the stack pointer that signal code cannot touch) being a part of the sigframe. Putting the cookie inside the sigframe, just above the ABI gap has been fine with all the tests I have run so far!</li>
+<li>Movement of sigframe: If you move the sigframe on the stack, the cookie value will no longer be valid... I don't think that this is something that you should be doing, and have not yet come across a scenario that does this. </li>
+</ul>
+<p>For a more in-depth explanation of SROP, click <a href="https://lwn.net/Articles/676803/">here</a>.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/05/13/tell-me-about-petitboot/">Tell Me About Petitboot</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2016-05-13T15:23:00+10:00" pubdate>Fri 13 May 2016</time></div>
+
+  <div class="entry-content"><p>A Google search for 'Petitboot' brings up results from a number of places, some describing its use on <a href="https://www.ibm.com/support/knowledgecenter/linuxonibm/liabp/liabppetitboot.htm">POWER servers</a>, others talking about how to use it on the <a href="http://jk.ozlabs.org/projects/petitboot/">PS3</a>, in varying levels of detail. I tend to get a lot of general questions about Petitboot and its behaviour, and have had a few requests for a broad "Welcome to Petitboot" blog, suggesting that existing docs deal with more specific topics.. or that people just aren't reading them :)</p>
+<p>So today we're going to take a bit of a crash course in the what, why, and possibly how of Petitboot. I won't delve too much into technical details, and this will be focussed on Petitboot in POWER land since that's where I spend most of my time.
+Here we go!</p>
+<h2>What</h2>
+<p>Aside from a whole lot of firmware and kernel logs flying past, the first thing you'll see when booting a POWER server<sup>In OPAL mode at least...</sup> is Petitboot's main menu:</p>
+<p><img alt="Main Menu" src="/images/sammj/mainmenu.png"></p>
+<p>Petitboot is the first interact-able component a user will see. The word 'BIOS' gets thrown around a lot when discussing this area, but that is wrong, and the people using that word are wrong.</p>
+<p>When the OPAL firmware layer <a href="https://github.com/open-power/skiboot">Skiboot</a> has finished its own set up, it loads a certain binary (stored on the BMC) into memory and jumps into it. This could hypothetically be anything, but for any POWER server right now it is 'Skiroot'. Skiroot is a full Linux kernel and userspace, which runs Petitboot. People often say Petitboot when they mean Skiroot - technically Petitboot is the server and UI processes that happen to run within Skiroot, and Skiroot is the full kernel and rootfs package. This is more obvious when you look at the <a href="https://github.com/open-power/op-build">op-build</a> project - Petitboot is a package built as part of the kernel and rootfs created by Buildroot.</p>
+<p>Petitboot is made of two major parts - the UI processes (one for each available console), and the 'discover' server. The discover server updates the UI processes, manages and scans available disks and network devices, and performs the actual booting of host operating systems. The UI, running in ncurses, displays these options, allows the user to edit boot options and system configuration, and tells the server which boot option to kexec.</p>
+<h2>Why</h2>
+<p>The 'why' delves into some of the major architectural differences between a POWER machine and your average x86 machine which, as always, could spread over several blog posts and/or a textbook.</p>
+<p>POWER processors don't boot themselves, instead the attached Baseboard Management Controller (BMC) does a lot of low-level poking that gets the primary processor into a state where it is ready to execute instructions. PowerVM systems would then jump directly into the PHYP hypervisor - any subsequent OS, be it AIX or Linux, would then run as a 'partition' under this hypervisor.</p>
+<p>What we all really want though is to run Linux directly on the hardware, which meant a new boot process would have to be thought up while still maintaining compatibility with PowerVM so systems could be booted in either mode. Thus became OPAL, and its implementation <a href="https://github.com/open-power/skiboot">Skiboot</a>. Skipping over <em>so much</em> detail, the system ends up booting into Skiboot which acts as our firmware layer. Skiboot isn't interactive and doesn't really care about things like disks, so it loads another binary into memory and executes it - Skiroot!</p>
+<p>Skiroot exists as an alternative to writing a whole new bootloader just for POWER in OPAL mode, or going through the effort to port an existing bootloader to understand the specifics of POWER. Why do all that when Linux already exists and already knows how to handle disks, network interfaces, and a thousand other things? Not to mention that when Linux gains support for fancy new devices so do we, and adding new features of our own is as simple as writing your average Linux program.</p>
+<p>Skiroot itself (not including Skiboot) is roughly comparable to UEFI, or at least much more so than legacy BIOS implementations. But whereas UEFI tends to be a monolithic blob of fairly platform-specific code (in practice), Skiroot is simply a small Linux environment that anyone could put together with Buildroot.</p>
+<p>A much better insight into the development and motivation behind Skiroot and Petitboot is available in Jeremy's <a href="https://www.youtube.com/watch?v=oxmMJMibZQ8">LCA2013 talk</a></p>
+<h2>Back to Petitboot</h2>
+<p>Petitboot is the part of the 'bootloader' that <em>did</em> need to be written, because users probably wouldn't be too thrilled if they had to manually mount disks and kexec their kernels every time they booted the machine. The Petitboot server process mounts any available disk devices and scans them for available operating systems. That's not to say that it scans the entire disk, because otherwise you could be waiting for quite some time, but rather it looks in a list of common locations for bootloader configuration files. This is handy because it means the operating system doesn't need to have any knowledge of Petitboot - it just uses its usual install scripts and Petitboot reads them to know what is available.
+At the same time Petitboot makes PXE requests on configured network interfaces so we can netboot, and allows these various sources to be given relative priorities for auto-boot, plus a number of other ways to specially configure booting behaviour.</p>
+<p>A particularly neat feature of existing in a Linux environment is the ability to easily recover from boot problems; whereas on another system you might need to use a Live CD to fix a misconfiguration or recover a broken filesystem, in Skiroot you can just drop to the shell and fix the issue right there.</p>
+<p>In summary, Petitboot/Skiroot is a small but capable Linux environment that every OPAL POWER machine boots into, gathering up all the various local and remote boot possibilities, and presenting them to you in a state-of-the-art ncurses interface. Petitboot updates all the time, and if you come across a feature that you think Petitboot is missing, patches are very welcome at <a href="mailto:petitboot@lists.ozlabs.org">petitboot@lists.ozlabs.org</a> (or hassle me on IRC)!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/05/12/doubles-in-hex-and-why-kernel-addresses-2/">Doubles in hex and why Kernel addresses ~= -2</a>
       </h1>
     <p class="meta">
@@ -375,116 +513,6 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 <p>Linus Torvalds famously explained why he prefers email over GitHub pull requests <a href="https://github.com/torvalds/linux/pull/17">here</a>, using <a href="https://groups.google.com/forum/#!topic/linux.kernel/w957vpu3PPU">this</a> pull request from Ben Herrenschmidt as an example of why git's own pull request format is superior to that of GitHub.  Damien Lespiau, who is working on the freedesktop Patchwork fork, <a href="http://damien.lespiau.name/2016/02/augmenting-mailing-lists-with-patchwork.html">outlines on his blog</a> all the issues he has with mailing list workflows and why he thinks mailing lists are a relic of the past.  His work on Patchwork has gone a long way to help fix those problems, however I don't think mailing lists are outdated and superceded, I think they are timeless.  They are a technology-agnostic, simple and free system that will still be around if GitHub dies or alienates its community.</p>
 <p>That said, there's still the case of the missing features.  What about automated testing?  What about developer feedback?  What about making a maintainer's life easier?  We've been working on improving these issues, and I'll outline how we're approaching them in a future post.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/">No Network For You</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-03-21T15:23:00+11:00" pubdate>Mon 21 March 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2016-03-21T15:23:00+11:00" pubdate>Mon 21 March 2016</time></div>
-
-  <div class="entry-content"><p>In POWER land <a href="https://en.wikipedia.org/wiki/Intelligent_Platform_Management_Interface">IPMI</a> is mostly known as the method to access the machine's console and start interacting with Petitboot. However it also has a plethora of other features, handily described in the 600ish page <a href="http://www.intel.com/content/www/us/en/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html">IPMI specification</a> (which you can go read yourself).</p>
-<p>One especially relevant feature to Petitboot however is the 'chassis bootdev' command, which you can use to tell Petitboot to ignore any existing boot order, and only consider boot options of the type you specify (eg. 'network', 'disk', or 'setup' to not boot at all). Support for this has been in Petitboot for a while and should work on just about any machine you can get your hands on.</p>
-<h2>Network Overrides</h2>
-<p>Over in OpenPOWER<sup>1</sup> land however, someone took this idea and pushed it further - why not allow the network configuration to be overwritten too? This isn't in the IPMI spec, but if you cast your gaze down to page 398 where the spec lays out the entire format of the IPMI request, there is a certain field named "OEM Parameters". This is an optional amount of space set aside for whatever you like, which in this case is going to be data describing an override of the network config.</p>
-<p>This allows a user to tell Petitboot over IPMI to either;</p>
-<ul>
-<li>Disable the network completely,</li>
-<li>Set a particular interface to use DHCP, or</li>
-<li>Set a particular interface to use a specific static configuration.</li>
-</ul>
-<p>Any of these options will cause any existing network configurations to be ignored.</p>
-<h2>Building the Request</h2>
-<p>Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H $yourbmc -U $user -P $pass raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1
-</pre></div>
-
-
-<p>Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:</p>
-<div class="highlight"><pre><span></span>Specify the &quot;chassis bootdev&quot; command, field 96, data field 1:
-    0x00 0x08 0x61 0x80
-
-Unique value that Petitboot recognises:
-    0x21 0x70 0x62 0x21
-
-Version field (1)
-    0x00 0x01 ..   ..
-
-Size of the hardware address (6):
-    ..   ..   0x06 ..
-
-Size of the IP address (IPv4/IPv6):
-    ..   ..   ..   0x04
-
-Hardware (MAC) address:
-    0xf4 0x52 0x14 0xf3
-    0x01 0xdf ..   ..
-
-&#39;Ignore flag&#39; and DHCP/Static flag (DHCP is 0)
-    ..   ..   0x00 0x01
-
-(Below fields only required if setting a static IP)
-
-IP Address:
-    0x0a 0x3d 0xa1 0x42
-
-Subnet Mask (eg, /16):
-    0x10 ..   ..   ..
-Gateway IP Address:
-    ..   0x0a 0x3d 0x02
-    0x01
-</pre></div>
-
-
-<p>Clearing a network override is as simple as making a request empty aside from the header:</p>
-<div class="highlight"><pre><span></span>0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
-</pre></div>
-
-
-<p>You can also read back the request over IPMI with this request:</p>
-<div class="highlight"><pre><span></span>0x00 0x09 0x61 0x00 0x00
-</pre></div>
-
-
-<p>That's it! Ideally this is something you would be scripting rather than bashing out on the keyboard - the main use case at the moment is as a way to force a machine to netboot against a known good source, rather than whatever may be available on its other interfaces.</p>
-<p>[1] The reason this is only available on OpenPOWER machines at the moment is that support for the IPMI command itself depends on the BMC firmware, and non-OpenPOWER machines use an FSP which is a different platform.</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time></div>
-
-  <div class="entry-content"><p>In early February I had the opportunity to go the the NICTA Systems Summer School, where Cyril and I were invited to represent IBM. There were a number of excellent talks across a huge range of systems related subjects, but the one that has stuck with me the most was a talk given by <a href="http://homes.cs.washington.edu/~luisceze/">Luis Ceze</a>  on a topic called approximate computing. So here, in hopes that you too find it interesting, is a brief run-down on what I learned.</p>
-<p>Approximate computing is fundamentally about trading off accuracy for something else - often speed or power consumption. Initially this sounded like a very weird proposition: computers do things like 'running your operating system' and 'reading from and writing to disks': things you need to always be absolutely correct if you want anything vaguely resembling reliability. It turns out that this is actually not as big a roadblock as I had assumed - you can work around it fairly easily.</p>
-<p>The model proposed for approximate computing is as follows. You divide your computation up into two classes: 'precise', and 'approximate'. You use 'precise' computations when you need to get exact answers: so for example if you are constructing a JPEG file, you want the JPEG header to be exact. Then you have approximate computations: so for example the contents of your image can be approximate.</p>
-<p>For correctness, you have to establish some boundaries: you say that precise data can be used in approximate calculations, but that approximate data isn't allowed to cross back over and pollute precise calculations. This, while intuitively correct, poses some problems in practise: when you want to write out your approximate JPEG data, you need an operation that allows you to 'bless' (or in their terms 'endorse') some approximate data so it can be used in the precise file system operations.</p>
-<p>In the talk we were shown an implementation of this model in Java, called <a href="http://sampa.cs.washington.edu/research/approximation/enerj.html">EnerJ</a>. EnerJ allows you to label variables with either <code>@Precise</code> if you're dealing with precise data, or <code>@Approx</code> if you're dealing with approximate data. The compiler was modified so that it would do all sorts of weird things when it knew it was dealing with approximate data: for example, drop loop iterations entirely, do things in entirely non-determistic ways - all sorts of fun stuff. It turns out this works surprisingly well.</p>
-<p>However, the approximate computing really shines when you can bring it all the way down to the hardware level. The first thing they tried was a CPU with both 'approximate' and precise execution engines, but this turned out not to have the power savings hoped for. What seemed to work really well was a model where some approximate calculations could be identified ahead of time, and then replaced with neural networks in hardware. These neural networks approximated the calculations, but did so at significantly lower power levels. This sounded like a really promising concept, and it will be interesting to see if this goes anywhere over the next few years.</p>
-<p>There's a lot of work evaluating the quality of the approximate result, for cases where the set of inputs is known, and when the inputs is not known. This is largely beyond my understanding, so I'll simply refer you to some of the papers <a href="http://sampa.cs.washington.edu/research/approximation/enerj.html">listed on the website</a>.</p>
-<p>The final thing covered in the talk was bringing approximate computing into current paradigms by just being willing to accept higher user-visible error rates. For example, they hacked up a network stack to accept packets with invalid checksums. This has had mixed results so far. A question I had (but didn't get around to asking!) would be whether the mathematical properties of checksums (i.e. that they can correct a certain number of bit errors) could be used to correct some of the errors, rather than just accepting/rejecting them blindly. Perhaps by first attempting to correct errors using the checksums, we will be able to fix the simpler errors, reducing the error rate visible to the user.</p>
-<p>Overall, I found the NICTA Systems Summer School to be a really interesting experience (and I hope to blog more about it soon). If you're a university student in Australia, or an academic, see if you can make it in 2017!</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index6.html">&larr; Older</a>
 
@@ -496,6 +524,12 @@ Gateway IP Address:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/">memcmp() for POWER8 - part II</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/">memcmp() for POWER8</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
       </li>
       <li class="post">
@@ -503,12 +537,6 @@ Gateway IP Address:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
       </li>
     </ul>
   </section>
@@ -529,7 +557,7 @@ Gateway IP Address:
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/peformance.html">peformance</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
