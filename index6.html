@@ -102,6 +102,101 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/03/22/getting-logs-out-of-things/">Getting logs out of things</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-03-22T18:00:00+11:00" pubdate>Tue 22 March 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2016-03-22T18:00:00+11:00" pubdate>Tue 22 March 2016</time></div>
+
+  <div class="entry-content"><p>Here at OzLabs, we have an unfortunate habit of making our shiny Power computers very sad, which is a common problem in systems programming and kernel hacking. When this happens, we like having logs. In particular, we like to have the kernel log and the OPAL firmware log, which are, very surprisingly, rather helpful when debugging kernel and firmware issues.</p>
+<p>Here's how to get them.</p>
+<h2>From userspace</h2>
+<p>You're lucky enough that your machine is still up, yay! As every Linux sysadmin knows, you can just grab the kernel log using <code>dmesg</code>.</p>
+<p>As for the OPAL log: we can simply ask OPAL to tell us where its log is located in memory, copy it from there, and hand it over to userspace. In Linux, as per standard Unix conventions, we do this by exposing the log as a file, which can be found in <code>/sys/firmware/opal/msglog</code>.</p>
+<p>Annoyingly, the <code>msglog</code> file reports itself as size 0 (I'm not sure exactly why, but I <em>think</em> it's due to limitations in sysfs), so if you try to copy the file with <code>cp</code>, you end up with just a blank file. However, you can read it with <code>cat</code> or <code>less</code>.</p>
+<h2>From <code>xmon</code></h2>
+<p><code>xmon</code> is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with <code>kgdb</code>. On our development systems, we often configure <code>xmon</code> to automatically begin debugging whenever we hit an oops or panic (using <code>xmon=on</code> on the kernel command line, or the <code>XMON_DEFAULT</code> Kconfig option). It can also be manually triggered:</p>
+<div class="highlight"><pre><span></span>root@p86:~# echo x &gt; /proc/sysrq-trigger
+sysrq: SysRq : Entering xmon
+cpu 0x7: Vector: 0  at [c000000fcd717a80]
+pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+sp: c000000fcd717be0
+msr: 9000000000009033
+current = 0xc000000fcd689200
+paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
+pid   = 7127, comm = bash
+Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
+enter ? for help
+7:mon&gt;
+</pre></div>
+
+
+<p>From <code>xmon</code>, simply type <code>dl</code> to dump out the kernel log. If you'd like to page through the log rather than dump the entire thing at once, use <code>#&lt;n&gt;</code> to split it into groups of <code>n</code> lines.</p>
+<p>Until recently, it wasn't as easy to extract the OPAL log without knowing magic offsets. A couple of months ago, I was debugging a nasty CAPI issue and got rather frustrated by this, so one day when I had a couple of hours free I <a href="http://patchwork.ozlabs.org/patch/581775/">refactored</a> the existing sysfs interface and <a href="http://patchwork.ozlabs.org/patch/581774/">added</a> the <code>do</code> command to <code>xmon</code>. These patches will be included from kernel 4.6-rc1 onwards.</p>
+<p>When you're done, <code>x</code> will attempt to recover the machine and continue, <code>zr</code> will reboot, and <code>zh</code> will halt.</p>
+<h2>From the FSP</h2>
+<p>Sometimes, not even <code>xmon</code> will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)</p>
+<p>This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is <a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2">documented</a> in IBM Power Systems user manuals.</p>
+<p>How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a <a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c">Memory Dump Source Table</a> which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:</p>
+<div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
+<span class="p">[</span><span class="mi">2690090666</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31000000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">2690093767</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31100000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">2750378890</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">11199672771</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x1fff772780</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x200000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">11215193760</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">28031311971</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">28411709421</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x1fff830000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
+<span class="p">[</span><span class="mi">28417251110</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
+</pre></div>
+
+
+<p>In the above log, we see four entries: the skiboot/OPAL log, the <a href="https://github.com/open-power/hostboot">hostboot</a> runtime log, the petitboot Linux kernel log (which doesn't make it into the final dump) and the real Linux kernel log. skiboot obviously adds the OPAL and hostboot logs to the MDST early in boot, but it also exposes the <a href="https://github.com/open-power/skiboot/blob/master/doc/opal-api/opal-register-dump-region-101.txt"><code>OPAL_REGISTER_DUMP_REGION</code></a> call which can be used by the operating system to register additional regions. Linux uses this to <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal.c#L608">register the kernel log buffer</a>. If you're a kernel developer, you could potentially use the OPAL call to register your own interesting bits of memory.</p>
+<p>So, the MDST is all set up, we go about doing our business, and suddenly we checkstop. The FSP does its sysdump magic and a few minutes later it reboots the system. What now?</p>
+<ul>
+<li>
+<p>After we come back up, the FSP notifies OPAL that a new dump is available. Linux exposes the dump to userspace under <code>/sys/firmware/opal/dump/</code>.</p>
+</li>
+<li>
+<p><a href="https://sourceforge.net/projects/linux-diag/files/ppc64-diag/">ppc64-diag</a> is a suite of utilities that assist in manipulating FSP dumps, including the <code>opal_errd</code> daemon. <code>opal_errd</code> monitors new dumps and saves them in <code>/var/log/dump/</code> for later analysis.</p>
+</li>
+<li>
+<p><code>opal-dump-parse</code> (also in the <code>ppc64-diag</code> suite) can be used to extract the sections we care about from the dump:</p>
+<div class="highlight"><pre><span></span>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+|---------------------------------------------------------|
+|ID              SECTION                              SIZE|
+|---------------------------------------------------------|
+|1              Opal-log                           1048576|
+|2              HostBoot-Runtime-log               1048576|
+|128            printk                             1048576|
+|---------------------------------------------------------|
+List completed
+root@p86:/var/log/dump# opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file Opal-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file HostBoot-Runtime-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file printk.842EA8A.00000001.20160322063051
+</pre></div>
+
+
+</li>
+</ul>
+<p>There's various other types of dumps and logs that I won't get into here. I'm probably obliged to say that if you're having problems out in the wild, you should probably contact your friendly local IBM Service Representative...</p>
+<h2>Acknowledgements</h2>
+<p>Thanks to <a href="https://flamingspork.com">Stewart Smith</a> for pointing me in the right direction regarding FSP sysdumps and related tools.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/03/22/the-elegance-of-the-plaintext-patch/">The Elegance of the Plaintext Patch</a>
       </h1>
     <p class="meta">
@@ -271,66 +366,6 @@ Gateway IP Address:
 <h4>What I've learned as the kernel docs maintainer</h4>
 <p>As an extra bonus: I mention <a href="https://www.youtube.com/watch?v=gsJXf6oSbAE">this talk</a>, just to say "why on earth have we still not fixed the Linux kernel <a href="https://www.kernel.org/doc/linux/README">README</a>"?!!?</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/">Learning From the Best</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-03-03T00:00:00+11:00" pubdate>Thu 03 March 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a>
-    </span>
-  </span>
-<time datetime="2016-03-03T00:00:00+11:00" pubdate>Thu 03 March 2016</time></div>
-
-  <div class="entry-content"><p>When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:</p>
-<div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
-<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
-<span class="cp">#include</span> <span class="cpf">&lt;curses.h&gt;</span><span class="cp"></span>
-
-<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-  <span class="n">printf</span><span class="p">(</span><span class="s">&quot;Hello, World! This Is cal&quot;</span><span class="p">);</span>
-
-<span class="kt">char</span> <span class="n">first_name</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;Callum&quot;</span><span class="p">;</span>
-  <span class="kt">char</span> <span class="n">last_name</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;Scarvell&quot;</span><span class="p">;</span>
-  <span class="kt">char</span> <span class="n">name</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
-
-  <span class="cm">/* testing code */</span>
-  <span class="k">if</span> <span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">first_name</span><span class="p">,</span> <span class="s">&quot;Callum&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
-  <span class="k">if</span> <span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">last_name</span><span class="p">,</span> <span class="s">&quot;Scarvell&quot;</span><span class="p">,</span><span class="mi">100</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
-
-  <span class="n">last_name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sc">&#39;S&#39;</span><span class="p">;</span>
-  <span class="n">sprintf</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s">&quot;%s %s&quot;</span><span class="p">,</span> <span class="n">first_name</span><span class="p">,</span> <span class="n">last_name</span><span class="p">);</span>
-  <span class="k">if</span> <span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s">&quot;Callum Scarvell&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-      <span class="n">printf</span><span class="p">(</span><span class="s">&quot;This is %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="n">name</span><span class="p">);</span>
-  <span class="p">}</span>
-<span class="cm">/*printf(&quot;actual string is -%s-\n&quot;,name);*/</span>
-  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-
-<span class="kt">void</span> <span class="nf">Name_Rec</span><span class="p">()</span>
-<span class="p">{</span>
- <span class="kt">int</span> <span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">k</span><span class="p">;</span>
- <span class="kt">char</span> <span class="n">a</span><span class="p">[</span><span class="mi">30</span><span class="p">],</span><span class="n">b</span><span class="p">[</span><span class="mi">30</span><span class="p">];</span>
-
- <span class="n">clrscr</span><span class="p">();</span>
- <span class="n">puts</span><span class="p">(</span><span class="s">&quot;Callum Scarvell : </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
- <span class="n">gets</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
-
- <span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">cal : </span><span class="se">\n\n</span><span class="s">%c&quot;</span><span class="p">,</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
- <span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">!=</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
-</pre></div>
-
-
-<p>The last two lines have been left out to make it a challenge to recreate. Feel free to test your own knowledge of C to finish the program! My ultimate goal for this program is to make it generate the text 'Hello World! This is Callum Scarvell's computer. Everybody else beware!'(which is easy) then import it into the Linux kernel to the profile login screen. Then I will have my own unique copy of the kernel. And I could call myself an LSD(Linux system developer). That's just a small pet project I have been working on in my time here. Another pet project of mine is my own very altered copy of the open source game NetHack. It's written in C as well and is very easy to tinker with. I have been able to do things like set my characters starting hit points to 40, give my character awesome starting gear and keep save files even after the death of a character. These are just a couple small projects that made learning C so much easier and a lot more fun. And the whole time I was learning C, Ruby, or Python I had some of the best system developers in the world showing me the ropes. This made things even easier, and much more comprehensive. So really its no surprise that in three short weeks I managed to learn almost four different languages and how to run a blog from the raw source code. The knowledge given to me by the OzLabs team is priceless and invaluable. I will forever remember all the new faces and what they taught me. And the <em>Linux Gods</em> will answer your prayers whether e-mail or in person because they walk among us! So if you ever get an opportunity to do work experience, internship or a graduate placement take the chance to do it because you will learn many things that are not taught in school.</p>
-<p>If you would like to reveiw the source code for the blog or my work in general you can find me at <a href="https://github.com/CallumScar">CallumScar.github.com</a> or find me on facebook, <a href="https://www.facebook.com/callum.scarvell/about">Callum Scarvell</a>. </p>
-<p>And a huge thankyou to the OzLabs team for taking me on for the three weeks and for teaching me so much! I am forever indebted to everyone here.   </p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index7.html">&larr; Older</a>
 
@@ -342,6 +377,9 @@ Gateway IP Address:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/09/23/stupid-solutions-to-stupid-problems-hardcoding-your-ssh-key-in-the-kernel/">Stupid Solutions to Stupid Problems: Hardcoding Your SSH Key in the Kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/">NCSI - Nice Network You've Got There</a>
       </li>
       <li class="post">
@@ -352,9 +390,6 @@ Gateway IP Address:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
       </li>
     </ul>
   </section>
@@ -375,7 +410,7 @@ Gateway IP Address:
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
