@@ -102,6 +102,218 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-03-24T10:08:00+11:00" pubdate>Fri 24 March 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-03-24T10:08:00+11:00" pubdate>Fri 24 March 2017</time></div>
+
+  <div class="entry-content"><p>We left <a href="/blog/2017/03/20/erasure-coding-for-programmers-part-1/">part 1</a> having explored GF(2^8) and RAID 6, and asking the question "what does all this have to do with Erasure Codes?"</p>
+<p>Basically, the thinking goes "RAID 6 is cool, but what if, instead of two parity disks, we had an arbitrary number of parity disks?"</p>
+<p>How would we do that? Well, let's introduce our new best friend: Coding Theory!</p>
+<p>Say we want to transmit some data across an error-prone medium. We don't know where the errors might occur, so we add some extra information to allow us to detect and possibly correct for errors. This is a code. Codes are a largish field of engineering, but rather than show off my knowledge about systematic linear block codes, let's press on.</p>
+<p>Today, our error-prone medium is an array of inexpensive disks. Now we make this really nice assumption about disks, namely that they are either perfectly reliable or completely missing. In other words, we consider that a disk will either be present or 'erased'. We come up with 'erasure codes' that are able to reconstruct data when it is known to be missing. (This is a slightly different problem to being able to verify and correct data that might or might not be subtly corrupted. Disks also have to deal with this problem, but it is <em>not</em> something erasure codes address!)</p>
+<p>The particular code we use is a Reed-Solomon code. The specific details are unimportant, but there's a really good graphical outline of the broad concepts in sections 1 and 3 of <a href="http://jerasure.org/jerasure-2.0/">the Jerasure paper/manual</a>. (Don't go on to section 4.)</p>
+<p>That should give you some background on how this works at a pretty basic mathematical level. Implementation is a matter of mapping that maths (matrix multiplication) onto hardware primitives, and making it go fast.</p>
+<h2>Scope</h2>
+<p>I'm deliberately <em>not</em> covering some pretty vast areas of what would be required to write your own erasure coding library from scratch. I'm not going to talk about how to compose the matricies, how to invert them, or anything like that. I'm not sure how that would be a helpful exercise - ISA-L and jerasure already exist and do that for you.</p>
+<p>What I want to cover is an efficient implementation of the some algorithms, once you have the matricies nailed down.</p>
+<p>I'm also going to assume your library already provides a generic multiplication function in GF(2^8). That's required to construct the matrices, so it's a pretty safe assumption.</p>
+<h2>The beginnings of an API</h2>
+<p>Let's make this a bit more concrete.</p>
+<p>This will be heavily based on the <a href="https://01.org/intel%C2%AE-storage-acceleration-library-open-source-version/documentation/isa-l-open-source-api">ISA-L API</a> but you probably want to plug into ISA-L anyway, so that shouldn't be a problem.</p>
+<p>What I want to do is build up from very basic algorithmic components into something useful.</p>
+<p>The first thing we want to do is to be able to is Galois Field multiplication of an entire region of bytes by an arbitrary constant.</p>
+<p>We basically want <code>gf_vect_mul(size_t len, &lt;something representing the constant&gt;, unsigned char * src, unsigned char * dest)</code></p>
+<h3>Simple and slow approach</h3>
+<p>The simplest way is to do something like this:</p>
+<div class="highlight"><pre><span></span>void gf_vect_mul_simple(size_t len, unsigned char c, unsigned char * src, unsigned char * dest) {
+
+    size_t i;
+    for (i=0; i&lt;len; i++) {
+        dest[i] = gf_mul(c, src[i]);
+    }
+}
+</pre></div>
+
+
+<p>That does multiplication element by element using the library's supplied <code>gf_mul</code> function, which - as the name suggests - does GF(2^8) multiplication of a scalar by a scalar.</p>
+<p>This works. The problem is that it is very, painfully, slow - in the order of a few hundred megabytes per second.</p>
+<h3>Going faster</h3>
+<p>How can we make this faster?</p>
+<p>There are a few things we can try: if you want to explore a whole range of different ways to do this, check out the <a href="http://jerasure.org/gf-complete-1.02/">gf-complete</a> project. I'm going to assume we want to skip right to the end and know what is the fastest we've found.</p>
+<p>Cast your mind back to the <a href="https://www.kernel.org/pub/linux/kernel/people/hpa/raid6.pdf">RAID 6 paper</a> (PDF). I talked about in <a href="/blog/2017/03/20/erasure-coding-for-programmers-part-1/">part 1</a>. That had a way of doing an efficient multiplication in GF(2^8) using vector instructions.</p>
+<p>To refresh your memory, we split the multiplication into two parts - low bits and high bits, looked them up separately in a lookup table, and joined them with XOR. We then discovered that on modern Power chips, we could do that in one instruction with <code>vpermxor</code>.</p>
+<p>So, a very simple way to do this would be:</p>
+<ul>
+<li>generate the table for <code>a</code></li>
+<li>for each 16-byte chunk of our input:<ul>
+<li>load the input</li>
+<li>do the <code>vpermxor</code> with the table</li>
+<li>save it out</li>
+</ul>
+</li>
+</ul>
+<p>Generating the tables is reasonably straight-forward, in theory. Recall that the tables are <code>a</code> * {{00},{01},...,{0f}} and <code>a</code> * {{00},{10},..,{f0}} - a couple of loops in C will generate them without difficulty. ISA-L has a function to do this, as does gf-complete in split-table mode, so I won't repeat them here.</p>
+<p>So, let's recast our function to take the tables as an input rather than the constant <code>a</code>. Assume we're provided the two tables concatenated into one 32-byte chunk. That would give us:</p>
+<div class="highlight"><pre><span></span>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest)
+</pre></div>
+
+
+<p>Here's how you would do it in C:</p>
+<div class="highlight"><pre><span></span>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest) {
+        vector unsigned char tbl1, tbl2, in, out;
+        size_t i;
+
+        /* Assume table, src, dest are aligned and len is a multiple of 16 */
+
+        tbl1 = vec_ld(16, table);
+        tbl2 = vec_ld(0, table);
+        for (i=0; i&lt;len; i+=16) {
+            in = vec_ld(i, (unsigned char *)src);
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in)
+            vec_st(out, i, (unsigned char *)dest);
+        }
+}
+</pre></div>
+
+
+<p>There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.</p>
+<p>We can go a bit faster by doing larger chunks at a time:</p>
+<div class="highlight"><pre><span></span>    for (i=0; i&lt;vlen; i+=64) {
+            in1 = vec_ld(i, (unsigned char *)src);
+            in2 = vec_ld(i+16, (unsigned char *)src);
+            in3 = vec_ld(i+32, (unsigned char *)src);
+            in4 = vec_ld(i+48, (unsigned char *)src);
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out1) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in1));
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out2) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in2));
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out3) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in3));
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out4) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in4));
+            vec_st(out1, i, (unsigned char *)dest);
+            vec_st(out2, i+16, (unsigned char *)dest);
+            vec_st(out3, i+32, (unsigned char *)dest);
+            vec_st(out4, i+48, (unsigned char *)dest);
+    }
+</pre></div>
+
+
+<p>This goes at about 23.5 GB/s.</p>
+<p>We can go one step further and do the core loop in assembler - that means we control the instruction layout and so on. I tried this: it turns out that for the basic vector multiply loop, if we turn off ASLR and pin to a particular CPU, we can see a improvement of a few percent (and a decrease in variability) over C code.</p>
+<h2>Building from vector multiplication</h2>
+<p>Once you're comfortable with the core vector multiplication, you can start to build more interesting routines.</p>
+<p>A particularly useful one on Power turned out to be the multiply and add routine: like gf_vect_mul, except that rather than overwriting the output, it loads the output and xors the product in. This is a simple extension of the gf_vect_mul function so is left as an exercise to the reader.</p>
+<p>The next step would be to start building erasure coding proper. Recall that to get an element of our output, we take a dot product: we take the corresponding input element of each disk, multiply it with the corresponding GF(2^8) coding matrix element and sum all those products. So all we need now is a dot product algorithm.</p>
+<p>One approach is the conventional dot product:</p>
+<ul>
+<li>for each element<ul>
+<li>zero accumulator</li>
+<li>for each source<ul>
+<li>load <code>input[source][element]</code></li>
+<li>do GF(2^8) multiplication</li>
+<li>xor into accumulator</li>
+</ul>
+</li>
+<li>save accumulator to <code>output[element]</code></li>
+</ul>
+</li>
+</ul>
+<p>The other approach is multiply and add:</p>
+<ul>
+<li>for each source<ul>
+<li>for each element<ul>
+<li>load <code>input[source][element]</code></li>
+<li>do GF(2^8) multiplication</li>
+<li>load <code>output[element]</code></li>
+<li>xor in product</li>
+<li>save <code>output[element]</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>The dot product approach has the advantage of fewer writes. The multiply and add approach has the advantage of better cache/prefetch performance. The approach you ultimately go with will probably depend on the characteristics of your machine and the length of data you are dealing with.</p>
+<p>For what it's worth, ISA-L ships with only the first approach in x86 assembler, and Jerasure leans heavily towards the second approach.</p>
+<p>Once you have a vector dot product sorted, you can build a full erasure coding setup: build your tables with your library, then do a dot product to generate each of your outputs!</p>
+<p>In ISA-L, this is implemented something like this:</p>
+<div class="highlight"><pre><span></span><span class="cm">/*</span>
+<span class="cm"> * ec_encode_data_simple(length of each data input, number of inputs,</span>
+<span class="cm"> *                       number of outputs, pre-generated GF(2^8) tables,</span>
+<span class="cm"> *                       input data pointers, output code pointers)</span>
+<span class="cm"> */</span><span class="w"></span>
+void<span class="w"> </span>ec_encode_data_simple<span class="o">(</span>int<span class="w"> </span>len<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>k<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>rows<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">*</span>g_tbls<span class="o">,</span><span class="w"></span>
+<span class="w">                           </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>data<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>coding<span class="o">)</span><span class="w"></span>
+<span class="err">{</span><span class="w"></span>
+<span class="w">        </span><span class="kr">while</span><span class="w"> </span><span class="o">(</span>rows<span class="o">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
+<span class="w">                </span>gf_vect_dot_prod<span class="o">(</span>len<span class="o">,</span><span class="w"> </span>k<span class="o">,</span><span class="w"> </span>g_tbls<span class="o">,</span><span class="w"> </span>data<span class="o">,</span><span class="w"> </span><span class="o">*</span>coding<span class="o">)</span><span class="err">;</span><span class="w"></span>
+<span class="w">                </span>g_tbls<span class="w"> </span><span class="o">+=</span><span class="w"> </span>k<span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">32</span><span class="err">;</span><span class="w"></span>
+<span class="w">                </span>coding<span class="o">++</span><span class="err">;</span><span class="w"></span>
+<span class="w">                </span>rows<span class="o">--</span><span class="err">;</span><span class="w"></span>
+<span class="w">        </span><span class="err">}</span><span class="w"></span>
+<span class="err">}</span><span class="w"></span>
+</pre></div>
+
+
+<h2>Going faster still</h2>
+<p>Eagle eyed readers will notice that however we generate an output, we have to read all the input elements. This means that if we're doing a code with 10 data disks and 4 coding disks, we have to read each of the 10 inputs 4 times.</p>
+<p>We could do better if we could calculate multiple outputs for each pass through the inputs. This is a little fiddly to implement, but does lead to a speed improvement.</p>
+<p>ISA-L is an excellent example here. Intel goes up to 6 outputs at once: the number of outputs you can do is only limited by how many vector registers you have to put the various operands and results in.</p>
+<h2>Tips and tricks</h2>
+<ul>
+<li>
+<p>Benchmarking is tricky. I do the following on a bare-metal, idle machine, with ASLR off and pinned to an arbitrary hardware thread. (Code is for the <a href="https://fishshell.com/">fish shell</a>)</p>
+<div class="highlight"><pre><span></span>for x in (seq 1 50)
+    setarch ppc64le -R taskset -c 24 erasure_code/gf_vect_mul_perf
+end | awk &#39;/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}&#39;
+</pre></div>
+
+
+</li>
+<li>
+<p>Debugging is tricky; the more you can do in C and the less you do in assembly, the easier your life will be.</p>
+</li>
+<li>
+<p>Vector code is notoriously alignment-sensitive - if you can't figure out why something is wrong, check alignment. (Pro-tip: ISA-L does <em>not</em> guarantee the alignment of the <code>gftbls</code> parameter, and many of the tests supply an unaligned table from the stack. For testing <code>__attribute__((aligned(16)))</code> is your friend!)</p>
+</li>
+<li>
+<p>Related: GCC is moving towards assignment over vector intrinsics, at least on Power:</p>
+<div class="highlight"><pre><span></span>vector unsigned char a;
+unsigned char * data;
+// good, also handles word-aligned data with VSX
+a = *(vector unsigned char *)data;
+// bad, requires special handling of non-16-byte aligned data
+a = vec_ld(0, (unsigned char *) data);
+</pre></div>
+
+
+</li>
+</ul>
+<h2>Conclusion</h2>
+<p>Hopefully by this point you're equipped to figure out how your erasure coding library of choice works, and write your own optimised implementation (or maintain an implementation written by someone else).</p>
+<p>I've referred to a number of resources throughout this series:</p>
+<ul>
+<li>ISA-L <a href="https://github.com/01org/isa-l">code</a>, <a href="">API description</a></li>
+<li>Jerasure <a href="http://jerasure.org/">code</a>, <a href="http://jerasure.org/jerasure-2.0/">docs</a></li>
+<li>gf-complete <a href="http://jerasure.org/">code</a>, <a href="http://jerasure.org/gf-complete-1.02/">docs</a> </li>
+<li><a href="https://www.kernel.org/pub/linux/kernel/people/hpa/raid6.pdf">The mathematics of RAID-6</a> (PDF), H. Peter Anvin</li>
+</ul>
+<p>If you want to go deeper, I also read the following and found them quite helpful in understanding Galois Fields and Reed-Solomon coding:</p>
+<ul>
+<li><a href="https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19900019023.pdf">Tutorial on Reed-Solomon Error Correction Coding</a> (PDF), William A. Geisel, NASA</li>
+<li><a href="https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19900019023.pdf">Reed-Solomon error correction</a> (PDF), BBC R&amp;D White Paper WHP 031, C. K. P. Clarke.</li>
+</ul>
+<p>For a more rigorous mathematical approach to rings and fields, a university mathematics course may be of interest. For more on coding theory, a university course in electronics engineering may be helpful.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
       </h1>
     <p class="meta">
@@ -813,111 +1025,6 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 </li>
 </ul></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/">Extracting Early Boot Messages in QEMU</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-01-30T16:47:00+11:00" pubdate>Mon 30 January 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a>
-    </span>
-  </span>
-<time datetime="2017-01-30T16:47:00+11:00" pubdate>Mon 30 January 2017</time></div>
-
-  <div class="entry-content"><p>Be me, you're a kernel hacker, you make some changes to your kernel, you boot
-test it in QEMU, and it fails to boot. Even worse is the fact that it just hangs
-without any failure message, no stack trace, no nothing. "Now what?" you think
-to yourself.</p>
-<p>You probably do the first thing you learnt in debugging101 and add abundant
-print statements all over the place to try and make some sense of what's
-happening and where it is that you're actually crashing. So you do this, you
-recompile your kernel, boot it in QEMU and lo and behold, nothing... What
-happened? You added all these shiny new print statements, where did the output
-go? The kernel still failed to boot (obviously), but where you were hoping to
-get some clue to go on you were again left with an empty screen. "Maybe I
-didn't print early enough" or "maybe I got the code paths wrong" you think,
-"maybe I just need more prints" even. So lets delve a bit deeper, why didn't
-you see those prints, where did they go, and how can you get at them?</p>
-<h1>__log_buf</h1>
-<p>So what happens when you call printk()? Well what normally happens is,
-depending on the log level you set, the output is sent to the console or logged
-so you can see it in dmesg. But what happens if we haven't registered a console
-yet? Well then we can't print the message can we, so its logged in a buffer,
-kernel log buffer to be exact helpfully named __log_buf.</p>
-<h1>Console Registration</h1>
-<p>So how come I eventually see print statements on my screen? Well at some point
-during the boot process a console is registered with the printk system, and any
-buffered output can now be displayed. On ppc it happens that this occurs in
-register_early_udbg_console() called in setup_arch() from start_kernel(),
-which is the generic kernel entry point. From this point forward when you print
-something it will be displayed on the console, but what if you crash before
-this? What are you supposed to do then?</p>
-<h1>Extracting Early Boot Messages in QEMU</h1>
-<p>And now the moment you've all been waiting for, how do I extract those early
-boot messages in QEMU if my kernel crashes before the console is registered?
-Well it's quite simple really, QEMU is nice enough to allow us to dump guest
-memory, and we know the log buffer is in there some where, so we just need to
-dump the correct part of memory which corresponds to the log buffer.</p>
-<h4>Locating __log_buf</h4>
-<p>Before we can dump the log buffer we need to know where it is. Luckily for us
-this is fairly simple, we just need to dump all the kernel symbols and look for
-the right one.</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">nm</span> <span class="n">vmlinux</span> <span class="o">&gt;</span> <span class="n">tmp</span><span class="p">;</span> <span class="n">grep</span> <span class="n">__log_buf</span> <span class="n">tmp</span><span class="p">;</span>
-<span class="n">c000000000f5e3dc</span> <span class="n">b</span> <span class="n">__log_buf</span>
-</pre></div>
-
-
-<p>We use the nm tool to list all the kernel symbols and output this into some
-temporary file, we can then grep this for the log buffer (which we know to be
-named __log_buf), and presto we are told that it's at kernel address 0xf5e3dc.</p>
-<h4>Dumping Guest Memory</h4>
-<p>It's then simply a case of dumping guest memory from the QEMU console. So first
-we press ^a+c to get us to the QEMU console, then we can use the aptly named
-dump-guest-memory.</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">help</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span>
-<span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">z</span><span class="o">|-</span><span class="n">l</span><span class="o">|-</span><span class="n">s</span><span class="p">]</span> <span class="n">filename</span> <span class="p">[</span><span class="n">begin</span> <span class="n">length</span><span class="p">]</span> <span class="o">--</span> <span class="n">dump</span> <span class="n">guest</span> <span class="n">memory</span> <span class="n">into</span> <span class="n">file</span> <span class="err">&#39;</span><span class="n">filename</span><span class="err">&#39;</span><span class="p">.</span>
-            <span class="o">-</span><span class="nl">p</span><span class="p">:</span> <span class="k">do</span> <span class="n">paging</span> <span class="n">to</span> <span class="n">get</span> <span class="n">guest</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">memory</span> <span class="n">mapping</span><span class="p">.</span>
-            <span class="o">-</span><span class="nl">d</span><span class="p">:</span> <span class="k">return</span> <span class="n">immediately</span> <span class="p">(</span><span class="k">do</span> <span class="n">not</span> <span class="n">wait</span> <span class="k">for</span> <span class="n">completion</span><span class="p">).</span>
-            <span class="o">-</span><span class="nl">z</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">zlib</span> <span class="n">compression</span><span class="p">.</span>
-            <span class="o">-</span><span class="nl">l</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">lzo</span> <span class="n">compression</span><span class="p">.</span>
-            <span class="o">-</span><span class="nl">s</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">snappy</span> <span class="n">compression</span><span class="p">.</span>
-            <span class="nl">begin</span><span class="p">:</span> <span class="n">the</span> <span class="n">starting</span> <span class="n">physical</span> <span class="n">address</span><span class="p">.</span>
-            <span class="nl">length</span><span class="p">:</span> <span class="n">the</span> <span class="n">memory</span> <span class="n">size</span><span class="p">,</span> <span class="n">in</span> <span class="n">bytes</span><span class="p">.</span>
-</pre></div>
-
-
-<p>We just give it a filename for where we want our output to go, we know the
-starting address, we just don't know the length. We could choose some arbitrary
-length, but inspection of the kernel code shows us that:</p>
-<div class="highlight"><pre><span></span><span class="cp">#define __LOG_BUF_LEN (1 &lt;&lt; CONFIG_LOG_BUF_SHIFT)</span>
-<span class="k">static</span> <span class="kt">char</span> <span class="n">__log_buf</span><span class="p">[</span><span class="n">__LOG_BUF_LEN</span><span class="p">]</span> <span class="n">__aligned</span><span class="p">(</span><span class="n">LOG_ALIGN</span><span class="p">);</span>
-</pre></div>
-
-
-<p>Looking at the pseries_defconfig file shows us that the LOG_BUF_SHIFT is set to
-18, and thus we know that the buffer is 2^18 bytes or 256kb. So now we run:</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="n">tmp</span> <span class="mh">0xf5e3dc</span> <span class="mi">262144</span>
-</pre></div>
-
-
-<p>And we now get our log buffer in the file tmp. This can simply be viewed with:</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">hexdump</span> <span class="o">-</span><span class="n">C</span> <span class="n">tmp</span>
-</pre></div>
-
-
-<p>This gives a readable, if poorly formatted output. I'm sure you can find
-something better but I'll leave that as an exercise for the reader.</p>
-<h1>Conclusion</h1>
-<p>So if like me your kernel hangs somewhere early in the boot process and you're
-left without your console output you are now fully equipped to extract the log
-buffer in QEMU and hopefully therein lies the answer to why you failed to boot.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -929,6 +1036,9 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.<
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/">NCSI - Nice Network You've Got There</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/">memcmp() for POWER8 - part II</a>
       </li>
       <li class="post">
@@ -939,9 +1049,6 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.<
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
       </li>
     </ul>
   </section>
@@ -962,7 +1069,7 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.<
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>

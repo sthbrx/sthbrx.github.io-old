@@ -1,5 +1,159 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2017-09-01T12:00:00+10:00</updated><entry><title>memcmp() for POWER8 - part II</title><link href="https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/" rel="alternate"></link><published>2017-09-01T12:00:00+10:00</published><updated>2017-09-01T12:00:00+10:00</updated><author><name>Cyril Bur</name></author><id>tag:sthbrx.github.io,2017-09-01:/blog/2017/09/01/memcmp-for-power8-part-ii/</id><summary type="html">&lt;p&gt;This entry is a followup to part I which you should absolutely read
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2017-09-22T10:08:00+10:00</updated><entry><title>NCSI - Nice Network You've Got There</title><link href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/" rel="alternate"></link><published>2017-09-22T10:08:00+10:00</published><updated>2017-09-22T10:08:00+10:00</updated><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2017-09-22:/blog/2017/09/22/ncsi-nice-network-youve-got-there/</id><summary type="html">&lt;p&gt;A neat piece of kernel code dropped into my lap recently, and as a way of
+processing having to inject an entire network stack into by brain in
+less-than-ideal time I thought we'd have a look at it here: NCSI!&lt;/p&gt;
+&lt;h2&gt;NCSI - Not the TV Show&lt;/h2&gt;
+&lt;p&gt;NCSI stands for Network Controller Sideband Interface, and put most simply it
+is a way for a management controller (eg. a BMC like those found on our OpenPOWER
+machines) to share a single physical network interface with a host machine.
+Instead of two distinct network interfaces you plug in a single cable and both
+the host and the BMC have network connectivity.&lt;/p&gt;
+&lt;p&gt;NCSI-capable network controllers achieve this by filtering network traffic as
+it arrives and determining if it is host- or BMC-bound. To know how to do this
+the BMC needs to tell the network controller what to look out for, and from a
+Linux driver perspective this the focus of the NCSI protocol.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="NCSI Overview" src="/images/sammj/ncsi_overview.png"&gt;&lt;/p&gt;
+&lt;h2&gt;Hi My Name Is 70:e2:84:14:24:a1&lt;/h2&gt;
+&lt;p&gt;The major components of what NCSI helps facilitate are:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Network Controllers, known as 'Packages' in this context. There may be multiple
+  separate packages which contain one or more Channels.&lt;/li&gt;
+&lt;li&gt;Channels, most easily thought of as the individual physical network interfaces.
+  If a package is the network card, channels are the individual network jacks. (Somewhere a pedant's head is spinning in circles).&lt;/li&gt;
+&lt;li&gt;Management Controllers, or our BMC, with their own network interfaces. Hypothetically there can be multiple
+  management controllers in a single NCSI system, but I've not come across such
+  a setup yet.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;NCSI is the medium and protocol via which these components communicate.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="NCSI Packages" src="/images/sammj/ncsi_packages.png"&gt;&lt;/p&gt;
+&lt;p&gt;The interface between Management Controller and one or more
+Packages carries both general network traffic to/from the Management
+Controller as well as NCSI traffic between the Management Controller
+and the Packages &amp;amp; Channels. Management traffic is differentiated from
+regular traffic via the inclusion of a special NCSI tag inserted
+in the Ethernet frame header.
+These management commands are used to discover and configure the state of the
+NCSI packages and channels.&lt;/p&gt;
+&lt;p&gt;If a BMC's network interface is configured to use NCSI, as soon as the interface
+is brought up NCSI gets to work finding and configuring a usable channel.
+The NCSI driver at first glance is an intimidating combination of state machines
+and packet handlers, but with enough coffee it can be represented like this:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="NCSI State Diagram" src="/images/sammj/ncsi_states.png"&gt;&lt;/p&gt;
+&lt;p&gt;Without getting into the nitty gritty details the overall process for configuring
+a channel enough to get packets flowing is fairly straightforward:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Find available packages.&lt;/li&gt;
+&lt;li&gt;Find each package's available channels.&lt;/li&gt;
+&lt;li&gt;(At least in the Linux driver) select a channel with link.&lt;/li&gt;
+&lt;li&gt;Put this channel into the Initial Config State.
+The Initial Config State is where all the useful configuration occurs. Here we
+find out what the selected channel is capable of and its current configuration,
+and set it up to recognise the traffic we're interested in. The first and most
+basic way of doing this is configuring the channel to filter traffic based on
+our MAC address.&lt;/li&gt;
+&lt;li&gt;Enable the channel and let the packets flow.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;At this point NCSI takes a back seat to normal network traffic, transmitting
+a "Get Link Status" packet at regular intervals to monitor the channel.&lt;/p&gt;
+&lt;h2&gt;AEN Packets&lt;/h2&gt;
+&lt;p&gt;Changes can occur from the package side too; the NCSI package communicates these
+back to the BMC with Asynchronous Event Notification (AEN) packets. As the name
+suggests these can occur at any time and the driver needs to catch and handle these.
+There are different types but they essentially boil down to changes in link state,
+telling the BMC the channel needs to be reconfigured, or to select a different
+channel.
+These are only transmitted once and no effort is made to recover lost AEN packets -
+another good reason for the NCSI driver to periodically monitor the channel.&lt;/p&gt;
+&lt;h2&gt;Filtering&lt;/h2&gt;
+&lt;p&gt;Each channel can be configured to filter traffic based on MAC address,
+broadcast traffic, multicast traffic, and VLAN tagging. Associated with each of
+these filters is a &lt;em&gt;filter table&lt;/em&gt; which can hold a finite number of entries.
+In the case of the VLAN filter each channel could match against 15 different
+VLAN IDs for example, but in practice the physical device will likely
+support less. Indeed the popular BCM5718 controller supports only two!&lt;/p&gt;
+&lt;p&gt;This is where I dived into NCSI. The driver had a lot of the pieces for
+configuring VLAN filters but none of it was actually hooked up in the configure
+state, and didn't have a way of actually knowing which VLAN IDs were meant to be
+configured on the interface. The bulk of that work appears in &lt;a href="https://github.com/torvalds/linux/commit/21acf63013ed3d6fce3176cc34b74064052a31b4#diff-f391518f4e552724349be3589e00dfa7"&gt;this commit&lt;/a&gt; where we take advantage of some useful network stack callbacks to get the VLAN configuration and set them during the configuration state. Getting &lt;em&gt;to&lt;/em&gt; the configuration state at some arbitrary time and then managing to assign multiple IDs was the trickiest bit, and is something I'll be looking at simplifying in the future.&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;NCSI! A neat way to give physically separate users access to a single network controller, and if it works right you won't notice it at all. I'll surely be spending more time here (fleshing out the driver's features, better error handling, and making the state machine a touch more readable to start, and I haven't even &lt;em&gt;mentioned&lt;/em&gt; HWA), so watch this space!&lt;/p&gt;</summary><content type="html">&lt;p&gt;A neat piece of kernel code dropped into my lap recently, and as a way of
+processing having to inject an entire network stack into by brain in
+less-than-ideal time I thought we'd have a look at it here: NCSI!&lt;/p&gt;
+&lt;h2&gt;NCSI - Not the TV Show&lt;/h2&gt;
+&lt;p&gt;NCSI stands for Network Controller Sideband Interface, and put most simply it
+is a way for a management controller (eg. a BMC like those found on our OpenPOWER
+machines) to share a single physical network interface with a host machine.
+Instead of two distinct network interfaces you plug in a single cable and both
+the host and the BMC have network connectivity.&lt;/p&gt;
+&lt;p&gt;NCSI-capable network controllers achieve this by filtering network traffic as
+it arrives and determining if it is host- or BMC-bound. To know how to do this
+the BMC needs to tell the network controller what to look out for, and from a
+Linux driver perspective this the focus of the NCSI protocol.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="NCSI Overview" src="/images/sammj/ncsi_overview.png"&gt;&lt;/p&gt;
+&lt;h2&gt;Hi My Name Is 70:e2:84:14:24:a1&lt;/h2&gt;
+&lt;p&gt;The major components of what NCSI helps facilitate are:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Network Controllers, known as 'Packages' in this context. There may be multiple
+  separate packages which contain one or more Channels.&lt;/li&gt;
+&lt;li&gt;Channels, most easily thought of as the individual physical network interfaces.
+  If a package is the network card, channels are the individual network jacks. (Somewhere a pedant's head is spinning in circles).&lt;/li&gt;
+&lt;li&gt;Management Controllers, or our BMC, with their own network interfaces. Hypothetically there can be multiple
+  management controllers in a single NCSI system, but I've not come across such
+  a setup yet.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;NCSI is the medium and protocol via which these components communicate.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="NCSI Packages" src="/images/sammj/ncsi_packages.png"&gt;&lt;/p&gt;
+&lt;p&gt;The interface between Management Controller and one or more
+Packages carries both general network traffic to/from the Management
+Controller as well as NCSI traffic between the Management Controller
+and the Packages &amp;amp; Channels. Management traffic is differentiated from
+regular traffic via the inclusion of a special NCSI tag inserted
+in the Ethernet frame header.
+These management commands are used to discover and configure the state of the
+NCSI packages and channels.&lt;/p&gt;
+&lt;p&gt;If a BMC's network interface is configured to use NCSI, as soon as the interface
+is brought up NCSI gets to work finding and configuring a usable channel.
+The NCSI driver at first glance is an intimidating combination of state machines
+and packet handlers, but with enough coffee it can be represented like this:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="NCSI State Diagram" src="/images/sammj/ncsi_states.png"&gt;&lt;/p&gt;
+&lt;p&gt;Without getting into the nitty gritty details the overall process for configuring
+a channel enough to get packets flowing is fairly straightforward:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Find available packages.&lt;/li&gt;
+&lt;li&gt;Find each package's available channels.&lt;/li&gt;
+&lt;li&gt;(At least in the Linux driver) select a channel with link.&lt;/li&gt;
+&lt;li&gt;Put this channel into the Initial Config State.
+The Initial Config State is where all the useful configuration occurs. Here we
+find out what the selected channel is capable of and its current configuration,
+and set it up to recognise the traffic we're interested in. The first and most
+basic way of doing this is configuring the channel to filter traffic based on
+our MAC address.&lt;/li&gt;
+&lt;li&gt;Enable the channel and let the packets flow.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;At this point NCSI takes a back seat to normal network traffic, transmitting
+a "Get Link Status" packet at regular intervals to monitor the channel.&lt;/p&gt;
+&lt;h2&gt;AEN Packets&lt;/h2&gt;
+&lt;p&gt;Changes can occur from the package side too; the NCSI package communicates these
+back to the BMC with Asynchronous Event Notification (AEN) packets. As the name
+suggests these can occur at any time and the driver needs to catch and handle these.
+There are different types but they essentially boil down to changes in link state,
+telling the BMC the channel needs to be reconfigured, or to select a different
+channel.
+These are only transmitted once and no effort is made to recover lost AEN packets -
+another good reason for the NCSI driver to periodically monitor the channel.&lt;/p&gt;
+&lt;h2&gt;Filtering&lt;/h2&gt;
+&lt;p&gt;Each channel can be configured to filter traffic based on MAC address,
+broadcast traffic, multicast traffic, and VLAN tagging. Associated with each of
+these filters is a &lt;em&gt;filter table&lt;/em&gt; which can hold a finite number of entries.
+In the case of the VLAN filter each channel could match against 15 different
+VLAN IDs for example, but in practice the physical device will likely
+support less. Indeed the popular BCM5718 controller supports only two!&lt;/p&gt;
+&lt;p&gt;This is where I dived into NCSI. The driver had a lot of the pieces for
+configuring VLAN filters but none of it was actually hooked up in the configure
+state, and didn't have a way of actually knowing which VLAN IDs were meant to be
+configured on the interface. The bulk of that work appears in &lt;a href="https://github.com/torvalds/linux/commit/21acf63013ed3d6fce3176cc34b74064052a31b4#diff-f391518f4e552724349be3589e00dfa7"&gt;this commit&lt;/a&gt; where we take advantage of some useful network stack callbacks to get the VLAN configuration and set them during the configuration state. Getting &lt;em&gt;to&lt;/em&gt; the configuration state at some arbitrary time and then managing to assign multiple IDs was the trickiest bit, and is something I'll be looking at simplifying in the future.&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;NCSI! A neat way to give physically separate users access to a single network controller, and if it works right you won't notice it at all. I'll surely be spending more time here (fleshing out the driver's features, better error handling, and making the state machine a touch more readable to start, and I haven't even &lt;em&gt;mentioned&lt;/em&gt; HWA), so watch this space!&lt;/p&gt;</content><category term="linux"></category><category term="kernel"></category><category term="goodposts"></category><category term="realcontent"></category><category term="network"></category><category term="sparseposting"></category><category term="openpower"></category><category term="openbmc"></category></entry><entry><title>memcmp() for POWER8 - part II</title><link href="https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/" rel="alternate"></link><published>2017-09-01T12:00:00+10:00</published><updated>2017-09-01T12:00:00+10:00</updated><author><name>Cyril Bur</name></author><id>tag:sthbrx.github.io,2017-09-01:/blog/2017/09/01/memcmp-for-power8-part-ii/</id><summary type="html">&lt;p&gt;This entry is a followup to part I which you should absolutely read
 &lt;a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/"&gt;here&lt;/a&gt; before continuing
 on.&lt;/p&gt;
 &lt;h2&gt;Where we left off&lt;/h2&gt;

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>NCSI - Nice Network You've Got There &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">NCSI - Nice Network You've Got There</h1>
+    <p class="meta">
+<time datetime="2017-09-22T10:08:00+10:00" pubdate>Fri 22 September 2017</time>    </p>
+</header>
+
+  <div class="entry-content"><p>A neat piece of kernel code dropped into my lap recently, and as a way of
+processing having to inject an entire network stack into by brain in
+less-than-ideal time I thought we'd have a look at it here: NCSI!</p>
+<h2>NCSI - Not the TV Show</h2>
+<p>NCSI stands for Network Controller Sideband Interface, and put most simply it
+is a way for a management controller (eg. a BMC like those found on our OpenPOWER
+machines) to share a single physical network interface with a host machine.
+Instead of two distinct network interfaces you plug in a single cable and both
+the host and the BMC have network connectivity.</p>
+<p>NCSI-capable network controllers achieve this by filtering network traffic as
+it arrives and determining if it is host- or BMC-bound. To know how to do this
+the BMC needs to tell the network controller what to look out for, and from a
+Linux driver perspective this the focus of the NCSI protocol.</p>
+<p><img alt="NCSI Overview" src="/images/sammj/ncsi_overview.png"></p>
+<h2>Hi My Name Is 70:e2:84:14:24:a1</h2>
+<p>The major components of what NCSI helps facilitate are:</p>
+<ul>
+<li>Network Controllers, known as 'Packages' in this context. There may be multiple
+  separate packages which contain one or more Channels.</li>
+<li>Channels, most easily thought of as the individual physical network interfaces.
+  If a package is the network card, channels are the individual network jacks. (Somewhere a pedant's head is spinning in circles).</li>
+<li>Management Controllers, or our BMC, with their own network interfaces. Hypothetically there can be multiple
+  management controllers in a single NCSI system, but I've not come across such
+  a setup yet.</li>
+</ul>
+<p>NCSI is the medium and protocol via which these components communicate.</p>
+<p><img alt="NCSI Packages" src="/images/sammj/ncsi_packages.png"></p>
+<p>The interface between Management Controller and one or more
+Packages carries both general network traffic to/from the Management
+Controller as well as NCSI traffic between the Management Controller
+and the Packages &amp; Channels. Management traffic is differentiated from
+regular traffic via the inclusion of a special NCSI tag inserted
+in the Ethernet frame header.
+These management commands are used to discover and configure the state of the
+NCSI packages and channels.</p>
+<p>If a BMC's network interface is configured to use NCSI, as soon as the interface
+is brought up NCSI gets to work finding and configuring a usable channel.
+The NCSI driver at first glance is an intimidating combination of state machines
+and packet handlers, but with enough coffee it can be represented like this:</p>
+<p><img alt="NCSI State Diagram" src="/images/sammj/ncsi_states.png"></p>
+<p>Without getting into the nitty gritty details the overall process for configuring
+a channel enough to get packets flowing is fairly straightforward:</p>
+<ul>
+<li>Find available packages.</li>
+<li>Find each package's available channels.</li>
+<li>(At least in the Linux driver) select a channel with link.</li>
+<li>Put this channel into the Initial Config State.
+The Initial Config State is where all the useful configuration occurs. Here we
+find out what the selected channel is capable of and its current configuration,
+and set it up to recognise the traffic we're interested in. The first and most
+basic way of doing this is configuring the channel to filter traffic based on
+our MAC address.</li>
+<li>Enable the channel and let the packets flow.</li>
+</ul>
+<p>At this point NCSI takes a back seat to normal network traffic, transmitting
+a "Get Link Status" packet at regular intervals to monitor the channel.</p>
+<h2>AEN Packets</h2>
+<p>Changes can occur from the package side too; the NCSI package communicates these
+back to the BMC with Asynchronous Event Notification (AEN) packets. As the name
+suggests these can occur at any time and the driver needs to catch and handle these.
+There are different types but they essentially boil down to changes in link state,
+telling the BMC the channel needs to be reconfigured, or to select a different
+channel.
+These are only transmitted once and no effort is made to recover lost AEN packets -
+another good reason for the NCSI driver to periodically monitor the channel.</p>
+<h2>Filtering</h2>
+<p>Each channel can be configured to filter traffic based on MAC address,
+broadcast traffic, multicast traffic, and VLAN tagging. Associated with each of
+these filters is a <em>filter table</em> which can hold a finite number of entries.
+In the case of the VLAN filter each channel could match against 15 different
+VLAN IDs for example, but in practice the physical device will likely
+support less. Indeed the popular BCM5718 controller supports only two!</p>
+<p>This is where I dived into NCSI. The driver had a lot of the pieces for
+configuring VLAN filters but none of it was actually hooked up in the configure
+state, and didn't have a way of actually knowing which VLAN IDs were meant to be
+configured on the interface. The bulk of that work appears in <a href="https://github.com/torvalds/linux/commit/21acf63013ed3d6fce3176cc34b74064052a31b4#diff-f391518f4e552724349be3589e00dfa7">this commit</a> where we take advantage of some useful network stack callbacks to get the VLAN configuration and set them during the configuration state. Getting <em>to</em> the configuration state at some arbitrary time and then managing to assign multiple IDs was the trickiest bit, and is something I'll be looking at simplifying in the future.</p>
+<hr>
+<p>NCSI! A neat way to give physically separate users access to a single network controller, and if it works right you won't notice it at all. I'll surely be spending more time here (fleshing out the driver's features, better error handling, and making the state machine a touch more readable to start, and I haven't even <em>mentioned</em> HWA), so watch this space!</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2017-09-22T10:08:00+10:00" pubdate>Fri 22 September 2017</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a class="category" href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a class="category" href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a class="category" href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a class="category" href="https://sthbrx.github.io/tag/network.html">network</a>,    <a class="category" href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a class="category" href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a class="category" href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/">NCSI - Nice Network You've Got There</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/09/01/memcmp-for-power8-part-ii/">memcmp() for POWER8 - part II</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/">memcmp() for POWER8</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2017  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2017/09/22/ncsi-nice-network-youve-got-there/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/';
+    var disqus_title = 'NCSI - Nice Network You\'ve Got There';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
