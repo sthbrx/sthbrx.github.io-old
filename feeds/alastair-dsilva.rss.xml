@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Alastair D'Silva</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Alastair D'Silva</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/alastair-dsilva.rss.xml" rel="self"></atom:link><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
 &lt;p&gt;To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
 space to compile the software, as well as 3 sparse 1TB disks to create the
 object store.&lt;/p&gt;
@@ -133,4 +133,4 @@ upon which which this is based:
 &lt;li&gt;&lt;a href="http://docs.ceph.com/docs/master/install/clone-source/"&gt;http://docs.ceph.com/docs/master/install/clone-source/&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="http://docs.ceph.com/docs/master/install/build-ceph/"&gt;http://docs.ceph.com/docs/master/install/build-ceph/&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html"&gt;http://palmerville.github.io/2016/04/30/single-node-ceph-install.html&lt;/a&gt;&lt;/li&gt;
-&lt;/ol&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Alastair D'Silva</dc:creator><pubDate>Wed, 29 Mar 2017 00:00:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-03-29:/blog/2017/03/29/evaluating-cephfs-on-power/</guid><category>ceph</category><category>raid</category><category>storage</category></item></channel></rss>
+&lt;/ol&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Alastair D'Silva</dc:creator><pubDate>Wed, 29 Mar 2017 00:00:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-03-29:/blog/2017/03/29/evaluating-cephfs-on-power//</guid><category>ceph</category><category>raid</category><category>storage</category></item></channel></rss>

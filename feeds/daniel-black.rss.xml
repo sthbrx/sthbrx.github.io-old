@@ -1,5 +1,375 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Daniel Black</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 01 Feb 2017 08:32:00 +1100</lastBuildDate><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Daniel Black</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><atom:link href="https://sthbrx.github.io/feeds/daniel-black.rss.xml" rel="self"></atom:link><lastBuildDate>Wed, 15 Aug 2018 14:22:00 +1000</lastBuildDate><item><title>Improving performance of Phoronix benchmarks on POWER9</title><link>https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/</link><description>&lt;p&gt;Recently Phoronix ran a range of
+&lt;a href="https://www.phoronix.com/scan.php?page=article&amp;amp;item=power9-talos-2&amp;amp;num=1"&gt;benchmarks&lt;/a&gt;
+comparing the performance of our POWER9 processor against the Intel Xeon and AMD
+EPYC processors. &lt;/p&gt;
+&lt;p&gt;We did well in the Stockfish, LLVM Compilation, Zstd compression, and the
+Tinymembench benchmarks. A few of my colleagues did a bit of investigating into
+some the benchmarks where we didn't perform quite so well.&lt;/p&gt;
+&lt;h3&gt;LBM / Parboil&lt;/h3&gt;
+&lt;p&gt;The &lt;a href="http://impact.crhc.illinois.edu/parboil/parboil.aspx"&gt;Parboil benchmarks&lt;/a&gt; are a
+collection of programs from various scientific and commercial fields that are
+useful for examining the performance and development of different architectures
+and tools.  In this round of benchmarks Phoronix used the lbm
+&lt;a href="https://www.spec.org/cpu2006/Docs/470.lbm.html"&gt;benchmark&lt;/a&gt;: a fluid dynamics
+simulation using the Lattice-Boltzmann Method.&lt;/p&gt;
+&lt;p&gt;lbm is an iterative algorithm - the problem is broken down into discrete
+time steps, and at each time step a bunch of calculations are done to
+simulate the change in the system. Each time step relies on the results
+of the previous one.&lt;/p&gt;
+&lt;p&gt;The benchmark uses OpenMP to parallelise the workload, spreading the
+calculations done in each time step across many CPUs. The number of
+calculations scales with the resolution of the simulation.&lt;/p&gt;
+&lt;p&gt;Unfortunately, the resolution (and therefore the work done in each time
+step) is too small for modern CPUs with large numbers of SMT (simultaneous multi-threading) threads. OpenMP 
+doesn't have enough work to parallelise and the system stays relatively idle. This
+means the benchmark scales relatively poorly, and is definitely
+not making use of the large POWER9 system&lt;/p&gt;
+&lt;p&gt;Also this benchmark is compiled without any optimisation. Recompiling with -O3 improves the
+   results 3.2x on POWER9.&lt;/p&gt;
+&lt;h3&gt;x264 Video Encoding&lt;/h3&gt;
+&lt;p&gt;x264 is a library that encodes videos into the H.264/MPEG-4 format. x264 encoding
+requires a lot of integer kernels doing operations on image elements. The math
+and vectorisation optimisations are quite complex, so Nick only had a quick look at
+the basics. The systems and environments (e.g. gcc version 8.1 for Skylake, 8.0
+for POWER9) are not completely apples to apples so for now patterns are more
+important than the absolute results. Interestingly the output video files between
+architectures are not the same, particularly with different asm routines and 
+compiler options used, which makes it difficult to verify the correctness of any changes.&lt;/p&gt;
+&lt;p&gt;All tests were run single threaded to avoid any SMT effects.&lt;/p&gt;
+&lt;p&gt;With the default upstream build of x264, Skylake is significantly faster than POWER9 on this benchmark
+(Skylake: 9.20 fps, POWER9: 3.39 fps). POWER9 contains some vectorised routines, so an
+initial suspicion is that Skylake's larger vector size may be responsible for its higher throughput.&lt;/p&gt;
+&lt;p&gt;Let's test our vector size suspicion by restricting
+Skylake to SSE4.2 code (with 128 bit vectors, the same width as POWER9). This hardly
+slows down the x86 CPU at all (Skylake: 8.37 fps, POWER9: 3.39 fps), which indicates it's
+not taking much advantage of the larger vectors.&lt;/p&gt;
+&lt;p&gt;So the next guess would be that x86 just has more and better optimized versions of costly
+functions (in the version of x264 that Phoronix used there are only six powerpc specific
+files compared with 21 x86 specific files). Without the time or expertise to dig into the
+complex task of writing vector code, we'll see if the compiler can help, and turn
+on autovectorisation (x264 compiles with -fno-tree-vectorize by default, which disables 
+auto vectorization). Looking at a perf profile of the benchmark we can see
+that one costly function, quant_4x4x4, is not autovectorised. With a small change to the
+code, gcc does vectorise it, giving a slight speedup with the output file checksum unchanged
+(Skylake: 9.20 fps, POWER9: 3.83 fps).&lt;/p&gt;
+&lt;p&gt;We got a small improvement with the compiler, but it looks like we may have gains left on the
+table with our vector code. If you're interested in looking into this, we do have some
+&lt;a href="https://www.bountysource.com/teams/ibm/bounties"&gt;active bounties&lt;/a&gt; for x264 (lu-zero/x264).&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Test&lt;/th&gt;
+&lt;th&gt;Skylake&lt;/th&gt;
+&lt;th&gt;POWER9&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Original - AVX256&lt;/td&gt;
+&lt;td&gt;9.20 fps&lt;/td&gt;
+&lt;td&gt;3.39 fps&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Original - SSE4.2&lt;/td&gt;
+&lt;td&gt;8.37 fps&lt;/td&gt;
+&lt;td&gt;3.39 fps&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Autovectorisation enabled, quant_4x4x4 vectorised&lt;/td&gt;
+&lt;td&gt;9.20 fps&lt;/td&gt;
+&lt;td&gt;3.83 fps&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Nick also investigated running this benchmark with SMT enabled and across multiple cores, and it looks like the code is
+not scalable enough to feed 176 threads on a 44 core system. Disabling SMT in parallel runs
+actually helped, but there was still idle time. That may be another thing to look at,
+although it may not be such a problem for smaller systems.&lt;/p&gt;
+&lt;h3&gt;Primesieve&lt;/h3&gt;
+&lt;p&gt;&lt;a href="https://primesieve.org/"&gt;Primesieve&lt;/a&gt; is a program and C/C++
+library that generates all the prime numbers below a given number. It uses an
+optimised &lt;a href="https://upload.wikimedia.org/wikipedia/commons/b/b9/Sieve_of_Eratosthenes_animation.gif"&gt;Sieve of Eratosthenes&lt;/a&gt;
+implementation.&lt;/p&gt;
+&lt;p&gt;The algorithm uses the L1 cache size as the sieve size for the core loop.  This
+is an issue when we are running in SMT mode (aka more than one thread per core)
+as all threads on a core share the same L1 cache and so will constantly be 
+invalidating each others cache-lines. As you can see
+in the table below, running the benchmark in single threaded mode is 30% faster
+than in SMT4 mode!&lt;/p&gt;
+&lt;p&gt;This means in SMT-4 mode the workload is about 4x too large for the L1 cache.  A
+better sieve size to use would be the L1 cache size / number of
+threads per core. Anton posted a &lt;a href="https://github.com/kimwalisch/primesieve/pull/54"&gt;pull request&lt;/a&gt; 
+to update the sieve size.&lt;/p&gt;
+&lt;p&gt;It is interesting that the best overall performance on POWER9 is with the patch applied and in
+SMT2 mode:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;SMT level&lt;/th&gt;
+&lt;th&gt;baseline&lt;/th&gt;
+&lt;th&gt;patched&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;14.728s&lt;/td&gt;
+&lt;td&gt;14.899s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;td&gt;15.362s&lt;/td&gt;
+&lt;td&gt;14.040s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;4&lt;/td&gt;
+&lt;td&gt;19.489s&lt;/td&gt;
+&lt;td&gt;17.458s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;LAME&lt;/h3&gt;
+&lt;p&gt;Despite its name, a recursive acronym for "LAME Ain't an MP3 Encoder",
+&lt;a href="http://lame.sourceforge.net/"&gt;LAME&lt;/a&gt; is indeed an MP3 encoder.&lt;/p&gt;
+&lt;p&gt;Due to configure options &lt;a href="https://sourceforge.net/p/lame/mailman/message/36371506/"&gt;not being parsed correctly&lt;/a&gt; this
+benchmark is built without any optimisation regardless of architecture. We see a
+massive speedup by turning optimisations on, and a further 6-8% speedup by
+enabling
+&lt;a href="https://sourceforge.net/p/lame/mailman/message/36372005/"&gt;USE_FAST_LOG&lt;/a&gt; (which
+is already enabled for Intel).&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;LAME&lt;/th&gt;
+&lt;th&gt;Duration&lt;/th&gt;
+&lt;th&gt;Speedup&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Default&lt;/td&gt;
+&lt;td&gt;82.1s&lt;/td&gt;
+&lt;td&gt;n/a&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;With optimisation flags&lt;/td&gt;
+&lt;td&gt;16.3s&lt;/td&gt;
+&lt;td&gt;5.0x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;With optimisation flags and USE_FAST_LOG set&lt;/td&gt;
+&lt;td&gt;15.6s&lt;/td&gt;
+&lt;td&gt;5.3x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;For more detail see Joel's
+&lt;a href="https://shenki.github.io/LameMP3-on-Power9/"&gt;writeup&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;FLAC&lt;/h3&gt;
+&lt;p&gt;&lt;a href="https://xiph.org/flac/"&gt;FLAC&lt;/a&gt; is an alternative encoding format to
+MP3. But unlike MP3 encoding it is lossless!  The benchmark here was encoding
+audio files into the FLAC format. &lt;/p&gt;
+&lt;p&gt;The key part of this workload is missing
+vector support for POWER8 and POWER9. Anton and Amitay submitted this
+&lt;a href="http://lists.xiph.org/pipermail/flac-dev/2018-July/006351.html"&gt;patch series&lt;/a&gt; that
+adds in POWER specific vector instructions. It also fixes the configuration options
+to correctly detect the POWER8 and POWER9 platforms. With this patch series we get see about a 3x
+improvement in this benchmark.&lt;/p&gt;
+&lt;h3&gt;OpenSSL&lt;/h3&gt;
+&lt;p&gt;&lt;a href="https://www.openssl.org/"&gt;OpenSSL&lt;/a&gt; is among other things a cryptographic library. The Phoronix benchmark
+measures the number of RSA 4096 signs per second:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ openssl speed -multi &lt;span class="k"&gt;$(&lt;/span&gt;nproc&lt;span class="k"&gt;)&lt;/span&gt; rsa4096
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
+Mainline OpenSSL has some powerpc multiplication and squaring assembly code which seems
+to be responsible for most of this speedup.&lt;/p&gt;
+&lt;p&gt;To see this for yourself, add these four powerpc specific commits on top of OpenSSL-1.1.0f:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://github.com/openssl/openssl/commit/b17ff188b17499e83ca3b9df0be47a2f513ac3c5"&gt;perlasm/ppc-xlate.pl: recognize .type directive&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/openssl/openssl/commit/0310becc82d240288a4ab5c6656c10c18cab4454"&gt;bn/asm/ppc-mont.pl: prepare for extension&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/openssl/openssl/commit/68f6d2a02c8cc30c5c737fc948b7cf023a234b47"&gt;bn/asm/ppc-mont.pl: add optimized multiplication and squaring subroutines&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/openssl/openssl/commit/80d27cdb84985c697f8fabb7649abf1f54714d13"&gt;ppccap.c: engage new multipplication and squaring subroutines&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;The following results were from a dual 16-core POWER9:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Version of OpenSSL&lt;/th&gt;
+&lt;th&gt;Signs/s&lt;/th&gt;
+&lt;th&gt;Speedup&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;1.1.0f&lt;/td&gt;
+&lt;td&gt;1921&lt;/td&gt;
+&lt;td&gt;n/a&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;1.1.0f with 4 patches&lt;/td&gt;
+&lt;td&gt;3353&lt;/td&gt;
+&lt;td&gt;1.74x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;1.1.1-pre1&lt;/td&gt;
+&lt;td&gt;3383&lt;/td&gt;
+&lt;td&gt;1.76x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;SciKit-Learn&lt;/h3&gt;
+&lt;p&gt;&lt;a href="http://scikit-learn.org/"&gt;SciKit-Learn&lt;/a&gt; is a bunch of python tools for data mining and
+analysis (aka machine learning).&lt;/p&gt;
+&lt;p&gt;Joel noticed that the benchmark spent 92% of the time in libblas. Libblas is a
+very basic BLAS (basic linear algebra subprograms) library that python-numpy
+uses to do vector and matrix operations.  The default libblas on Ubuntu is only
+compiled with -O2. Compiling with -Ofast and using alternative BLAS's that have
+powerpc optimisations (such as libatlas or libopenblas) we see big improvements
+in this benchmark:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;BLAS used&lt;/th&gt;
+&lt;th&gt;Duration&lt;/th&gt;
+&lt;th&gt;Speedup&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;libblas -O2&lt;/td&gt;
+&lt;td&gt;64.2s&lt;/td&gt;
+&lt;td&gt;n/a&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;libblas -Ofast&lt;/td&gt;
+&lt;td&gt;36.1s&lt;/td&gt;
+&lt;td&gt;1.8x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;libatlas&lt;/td&gt;
+&lt;td&gt;8.3s&lt;/td&gt;
+&lt;td&gt;7.7x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;libopenblas&lt;/td&gt;
+&lt;td&gt;4.2s&lt;/td&gt;
+&lt;td&gt;15.3x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;You can read more details about this
+&lt;a href="https://shenki.github.io/Scikit-Learn-on-Power9/"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;Blender&lt;/h3&gt;
+&lt;p&gt;&lt;a href="https://www.blender.org/"&gt;Blender&lt;/a&gt; is a 3D graphics suite that supports image rendering,
+animation, simulation and game creation. On the surface it appears that Blender
+2.79b (the distro package version that Phoronix used by system/blender-1.0.2)
+failed to use more than 15 threads, even when "-t 128" was added to the Blender
+command line.&lt;/p&gt;
+&lt;p&gt;It turns out that even though this benchmark was supposed to be run on CPUs only
+(you can choose to render on CPUs or GPUs), the GPU file was always being used.
+The GPU file is configured with a very large tile size (256x256) -
+which is &lt;a href="https://docs.blender.org/manual/en/dev/render/cycles/settings/scene/render/performance.html#tiles"&gt;fine for
+GPUs&lt;/a&gt;
+but not great for CPUs. The image size (1280x720) to tile size ratio limits the
+number of jobs created and therefore the number threads used.&lt;/p&gt;
+&lt;p&gt;To obtain a realistic CPU measurement with more that 15 threads you can force
+the use of the CPU file by overwriting the GPU file with the CPU one:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ cp
+~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
+~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;As you can see in the image below, now all of the cores are being utilised!
+&lt;img alt="Blender with CPU Blend file" src="/images/phoronix/blender-88threads.png" title="Blender with CPU Blend file"&gt;&lt;/p&gt;
+&lt;p&gt;Fortunately this has already been fixed in 
+&lt;a href="https://openbenchmarking.org/test/pts/blender"&gt;pts/blender-1.1.1&lt;/a&gt;.
+Thanks to the &lt;a href="https://github.com/phoronix-test-suite/test-profiles/issues/24"&gt;report&lt;/a&gt; by Daniel it
+has also been fixed in &lt;a href="http://openbenchmarking.org/test/system/blender-1.1.0"&gt;system/blender-1.1.0&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Pinning the pts/bender-1.0.2, Pabellon Barcelona, CPU-Only test to a single
+22-core POWER9 chip (&lt;code&gt;sudo ppc64_cpu --cores-on=22&lt;/code&gt;) and two POWER9 chips
+(&lt;code&gt;sudo ppc64_cpu --cores-on=44&lt;/code&gt;) show a huge speedup:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Benchmark&lt;/th&gt;
+&lt;th&gt;Duration (deviation over 3 runs)&lt;/th&gt;
+&lt;th&gt;Speedup&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Baseline (GPU blend file)&lt;/td&gt;
+&lt;td&gt;1509.97s (0.30%)&lt;/td&gt;
+&lt;td&gt;n/a&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Single 22-core POWER9 chip (CPU blend file)&lt;/td&gt;
+&lt;td&gt;458.64s (0.19%)&lt;/td&gt;
+&lt;td&gt;3.29x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Two 22-core POWER9 chips (CPU blend file)&lt;/td&gt;
+&lt;td&gt;241.33s (0.25%)&lt;/td&gt;
+&lt;td&gt;6.25x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;tl;dr&lt;/h3&gt;
+&lt;p&gt;Some of the benchmarks where we don't perform as well as Intel are where the
+benchmark has inline assembly for x86 but uses generic C compiler generated
+assembly for POWER9. We could probably benefit with some more powerpc optimsed functions.&lt;/p&gt;
+&lt;p&gt;We also found a couple of things that should result in better performance for all three architectures,
+not just POWER.&lt;/p&gt;
+&lt;p&gt;A summary of the performance improvements we found:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Benchmark&lt;/th&gt;
+&lt;th&gt;Approximate Improvement&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Parboil&lt;/td&gt;
+&lt;td&gt;3x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;x264&lt;/td&gt;
+&lt;td&gt;1.1x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Primesieve&lt;/td&gt;
+&lt;td&gt;1.1x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;LAME&lt;/td&gt;
+&lt;td&gt;5x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;FLAC&lt;/td&gt;
+&lt;td&gt;3x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;OpenSSL&lt;/td&gt;
+&lt;td&gt;2x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SciKit-Learn&lt;/td&gt;
+&lt;td&gt;7-15x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Blender&lt;/td&gt;
+&lt;td&gt;3x&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;There is obviously room for more improvements, especially with the Primesieve and x264 benchmarks,
+but it would be interesting to see a re-run of the Phoronix benchmarks with these changes. &lt;/p&gt;
+&lt;p&gt;Thanks to Anton, Daniel, Joel and Nick for the analysis of the above benchmarks.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Rashmica Gupta</dc:creator><pubDate>Wed, 15 Aug 2018 14:22:00 +1000</pubDate><guid>tag:sthbrx.github.io,2018-08-15:/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9//</guid><category>performance</category><category>phoronix</category><category>benchmarks</category></item><item><title>NAMD on NVLink</title><link>https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/</link><description>&lt;p&gt;NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.&lt;/p&gt;
 &lt;p&gt;Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.&lt;/p&gt;
 &lt;h2&gt;Prerequisites&lt;/h2&gt;
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
@@ -75,7 +445,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;/pre&gt;&lt;/div&gt;
 
 
-&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-02-01:/blog/2017/02/01/namd-on-nvlink/</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid>tag:sthbrx.github.io,2017-02-01:/blog/2017/02/01/namd-on-nvlink//</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
 &lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky), but also work for RHEL 7 - just swap CentOS for RHEL.&lt;/p&gt;
 &lt;h3&gt;Prerequisites&lt;/h3&gt;
 &lt;p&gt;Before you power on the system, ensure that you have the following items:&lt;/p&gt;
@@ -209,4 +579,4 @@ For more information, see the following resources:&lt;/p&gt;
 &lt;li&gt;&lt;a href="https://www.ibm.com/developerworks/community/groups/service/html/communityview?communityUuid=fe313521-2e95-46f2-817d-44a4f27eba32"&gt;The Linux on Power Community&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://developer.ibm.com/linuxonpower/category/announcements/"&gt;The Linux on Power Developer Center&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://twitter.com/ibmpowerlinux"&gt;Follow us @ibmpowerlinux&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Black</dc:creator><pubDate>Mon, 30 Jan 2017 08:54:33 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-01-30:/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</guid><category>S822LC for hpc</category><category>hpc</category><category>centos</category><category>centos7</category><category>p8</category><category>bmc</category><category>RHEL</category></item></channel></rss>
+&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Black</dc:creator><pubDate>Mon, 30 Jan 2017 08:54:33 +1100</pubDate><guid>tag:sthbrx.github.io,2017-01-30:/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device//</guid><category>S822LC for hpc</category><category>hpc</category><category>centos</category><category>centos7</category><category>p8</category><category>bmc</category><category>RHEL</category></item></channel></rss>

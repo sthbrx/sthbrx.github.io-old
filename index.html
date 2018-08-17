@@ -87,6 +87,9 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
       </li>
       <li >
+        <a href="https://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
       </li>
       <li >
@@ -99,6 +102,395 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/">Improving performance of Phoronix benchmarks on POWER9</a>
+      </h1>
+    <p class="meta">
+<time datetime="2018-08-15T14:22:00+10:00" pubdate>Wed 15 August 2018</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+        <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
+    </span>
+  </span>
+<time datetime="2018-08-15T14:22:00+10:00" pubdate>Wed 15 August 2018</time></div>
+
+  <div class="entry-content"><p>Recently Phoronix ran a range of
+<a href="https://www.phoronix.com/scan.php?page=article&amp;item=power9-talos-2&amp;num=1">benchmarks</a>
+comparing the performance of our POWER9 processor against the Intel Xeon and AMD
+EPYC processors. </p>
+<p>We did well in the Stockfish, LLVM Compilation, Zstd compression, and the
+Tinymembench benchmarks. A few of my colleagues did a bit of investigating into
+some the benchmarks where we didn't perform quite so well.</p>
+<h3>LBM / Parboil</h3>
+<p>The <a href="http://impact.crhc.illinois.edu/parboil/parboil.aspx">Parboil benchmarks</a> are a
+collection of programs from various scientific and commercial fields that are
+useful for examining the performance and development of different architectures
+and tools.  In this round of benchmarks Phoronix used the lbm
+<a href="https://www.spec.org/cpu2006/Docs/470.lbm.html">benchmark</a>: a fluid dynamics
+simulation using the Lattice-Boltzmann Method.</p>
+<p>lbm is an iterative algorithm - the problem is broken down into discrete
+time steps, and at each time step a bunch of calculations are done to
+simulate the change in the system. Each time step relies on the results
+of the previous one.</p>
+<p>The benchmark uses OpenMP to parallelise the workload, spreading the
+calculations done in each time step across many CPUs. The number of
+calculations scales with the resolution of the simulation.</p>
+<p>Unfortunately, the resolution (and therefore the work done in each time
+step) is too small for modern CPUs with large numbers of SMT (simultaneous multi-threading) threads. OpenMP 
+doesn't have enough work to parallelise and the system stays relatively idle. This
+means the benchmark scales relatively poorly, and is definitely
+not making use of the large POWER9 system</p>
+<p>Also this benchmark is compiled without any optimisation. Recompiling with -O3 improves the
+   results 3.2x on POWER9.</p>
+<h3>x264 Video Encoding</h3>
+<p>x264 is a library that encodes videos into the H.264/MPEG-4 format. x264 encoding
+requires a lot of integer kernels doing operations on image elements. The math
+and vectorisation optimisations are quite complex, so Nick only had a quick look at
+the basics. The systems and environments (e.g. gcc version 8.1 for Skylake, 8.0
+for POWER9) are not completely apples to apples so for now patterns are more
+important than the absolute results. Interestingly the output video files between
+architectures are not the same, particularly with different asm routines and 
+compiler options used, which makes it difficult to verify the correctness of any changes.</p>
+<p>All tests were run single threaded to avoid any SMT effects.</p>
+<p>With the default upstream build of x264, Skylake is significantly faster than POWER9 on this benchmark
+(Skylake: 9.20 fps, POWER9: 3.39 fps). POWER9 contains some vectorised routines, so an
+initial suspicion is that Skylake's larger vector size may be responsible for its higher throughput.</p>
+<p>Let's test our vector size suspicion by restricting
+Skylake to SSE4.2 code (with 128 bit vectors, the same width as POWER9). This hardly
+slows down the x86 CPU at all (Skylake: 8.37 fps, POWER9: 3.39 fps), which indicates it's
+not taking much advantage of the larger vectors.</p>
+<p>So the next guess would be that x86 just has more and better optimized versions of costly
+functions (in the version of x264 that Phoronix used there are only six powerpc specific
+files compared with 21 x86 specific files). Without the time or expertise to dig into the
+complex task of writing vector code, we'll see if the compiler can help, and turn
+on autovectorisation (x264 compiles with -fno-tree-vectorize by default, which disables 
+auto vectorization). Looking at a perf profile of the benchmark we can see
+that one costly function, quant_4x4x4, is not autovectorised. With a small change to the
+code, gcc does vectorise it, giving a slight speedup with the output file checksum unchanged
+(Skylake: 9.20 fps, POWER9: 3.83 fps).</p>
+<p>We got a small improvement with the compiler, but it looks like we may have gains left on the
+table with our vector code. If you're interested in looking into this, we do have some
+<a href="https://www.bountysource.com/teams/ibm/bounties">active bounties</a> for x264 (lu-zero/x264).</p>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Skylake</th>
+<th>POWER9</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Original - AVX256</td>
+<td>9.20 fps</td>
+<td>3.39 fps</td>
+</tr>
+<tr>
+<td>Original - SSE4.2</td>
+<td>8.37 fps</td>
+<td>3.39 fps</td>
+</tr>
+<tr>
+<td>Autovectorisation enabled, quant_4x4x4 vectorised</td>
+<td>9.20 fps</td>
+<td>3.83 fps</td>
+</tr>
+</tbody>
+</table>
+<p>Nick also investigated running this benchmark with SMT enabled and across multiple cores, and it looks like the code is
+not scalable enough to feed 176 threads on a 44 core system. Disabling SMT in parallel runs
+actually helped, but there was still idle time. That may be another thing to look at,
+although it may not be such a problem for smaller systems.</p>
+<h3>Primesieve</h3>
+<p><a href="https://primesieve.org/">Primesieve</a> is a program and C/C++
+library that generates all the prime numbers below a given number. It uses an
+optimised <a href="https://upload.wikimedia.org/wikipedia/commons/b/b9/Sieve_of_Eratosthenes_animation.gif">Sieve of Eratosthenes</a>
+implementation.</p>
+<p>The algorithm uses the L1 cache size as the sieve size for the core loop.  This
+is an issue when we are running in SMT mode (aka more than one thread per core)
+as all threads on a core share the same L1 cache and so will constantly be 
+invalidating each others cache-lines. As you can see
+in the table below, running the benchmark in single threaded mode is 30% faster
+than in SMT4 mode!</p>
+<p>This means in SMT-4 mode the workload is about 4x too large for the L1 cache.  A
+better sieve size to use would be the L1 cache size / number of
+threads per core. Anton posted a <a href="https://github.com/kimwalisch/primesieve/pull/54">pull request</a> 
+to update the sieve size.</p>
+<p>It is interesting that the best overall performance on POWER9 is with the patch applied and in
+SMT2 mode:</p>
+<table>
+<thead>
+<tr>
+<th>SMT level</th>
+<th>baseline</th>
+<th>patched</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>14.728s</td>
+<td>14.899s</td>
+</tr>
+<tr>
+<td>2</td>
+<td>15.362s</td>
+<td>14.040s</td>
+</tr>
+<tr>
+<td>4</td>
+<td>19.489s</td>
+<td>17.458s</td>
+</tr>
+</tbody>
+</table>
+<h3>LAME</h3>
+<p>Despite its name, a recursive acronym for "LAME Ain't an MP3 Encoder",
+<a href="http://lame.sourceforge.net/">LAME</a> is indeed an MP3 encoder.</p>
+<p>Due to configure options <a href="https://sourceforge.net/p/lame/mailman/message/36371506/">not being parsed correctly</a> this
+benchmark is built without any optimisation regardless of architecture. We see a
+massive speedup by turning optimisations on, and a further 6-8% speedup by
+enabling
+<a href="https://sourceforge.net/p/lame/mailman/message/36372005/">USE_FAST_LOG</a> (which
+is already enabled for Intel).</p>
+<table>
+<thead>
+<tr>
+<th>LAME</th>
+<th>Duration</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Default</td>
+<td>82.1s</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>With optimisation flags</td>
+<td>16.3s</td>
+<td>5.0x</td>
+</tr>
+<tr>
+<td>With optimisation flags and USE_FAST_LOG set</td>
+<td>15.6s</td>
+<td>5.3x</td>
+</tr>
+</tbody>
+</table>
+<p>For more detail see Joel's
+<a href="https://shenki.github.io/LameMP3-on-Power9/">writeup</a>.</p>
+<h3>FLAC</h3>
+<p><a href="https://xiph.org/flac/">FLAC</a> is an alternative encoding format to
+MP3. But unlike MP3 encoding it is lossless!  The benchmark here was encoding
+audio files into the FLAC format. </p>
+<p>The key part of this workload is missing
+vector support for POWER8 and POWER9. Anton and Amitay submitted this
+<a href="http://lists.xiph.org/pipermail/flac-dev/2018-July/006351.html">patch series</a> that
+adds in POWER specific vector instructions. It also fixes the configuration options
+to correctly detect the POWER8 and POWER9 platforms. With this patch series we get see about a 3x
+improvement in this benchmark.</p>
+<h3>OpenSSL</h3>
+<p><a href="https://www.openssl.org/">OpenSSL</a> is among other things a cryptographic library. The Phoronix benchmark
+measures the number of RSA 4096 signs per second:</p>
+<div class="highlight"><pre><span></span>$ openssl speed -multi <span class="k">$(</span>nproc<span class="k">)</span> rsa4096
+</pre></div>
+
+
+<p>Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
+Mainline OpenSSL has some powerpc multiplication and squaring assembly code which seems
+to be responsible for most of this speedup.</p>
+<p>To see this for yourself, add these four powerpc specific commits on top of OpenSSL-1.1.0f:</p>
+<ol>
+<li><a href="https://github.com/openssl/openssl/commit/b17ff188b17499e83ca3b9df0be47a2f513ac3c5">perlasm/ppc-xlate.pl: recognize .type directive</a></li>
+<li><a href="https://github.com/openssl/openssl/commit/0310becc82d240288a4ab5c6656c10c18cab4454">bn/asm/ppc-mont.pl: prepare for extension</a></li>
+<li><a href="https://github.com/openssl/openssl/commit/68f6d2a02c8cc30c5c737fc948b7cf023a234b47">bn/asm/ppc-mont.pl: add optimized multiplication and squaring subroutines</a></li>
+<li><a href="https://github.com/openssl/openssl/commit/80d27cdb84985c697f8fabb7649abf1f54714d13">ppccap.c: engage new multipplication and squaring subroutines</a></li>
+</ol>
+<p>The following results were from a dual 16-core POWER9:</p>
+<table>
+<thead>
+<tr>
+<th>Version of OpenSSL</th>
+<th>Signs/s</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.1.0f</td>
+<td>1921</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>1.1.0f with 4 patches</td>
+<td>3353</td>
+<td>1.74x</td>
+</tr>
+<tr>
+<td>1.1.1-pre1</td>
+<td>3383</td>
+<td>1.76x</td>
+</tr>
+</tbody>
+</table>
+<h3>SciKit-Learn</h3>
+<p><a href="http://scikit-learn.org/">SciKit-Learn</a> is a bunch of python tools for data mining and
+analysis (aka machine learning).</p>
+<p>Joel noticed that the benchmark spent 92% of the time in libblas. Libblas is a
+very basic BLAS (basic linear algebra subprograms) library that python-numpy
+uses to do vector and matrix operations.  The default libblas on Ubuntu is only
+compiled with -O2. Compiling with -Ofast and using alternative BLAS's that have
+powerpc optimisations (such as libatlas or libopenblas) we see big improvements
+in this benchmark:</p>
+<table>
+<thead>
+<tr>
+<th>BLAS used</th>
+<th>Duration</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>libblas -O2</td>
+<td>64.2s</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>libblas -Ofast</td>
+<td>36.1s</td>
+<td>1.8x</td>
+</tr>
+<tr>
+<td>libatlas</td>
+<td>8.3s</td>
+<td>7.7x</td>
+</tr>
+<tr>
+<td>libopenblas</td>
+<td>4.2s</td>
+<td>15.3x</td>
+</tr>
+</tbody>
+</table>
+<p>You can read more details about this
+<a href="https://shenki.github.io/Scikit-Learn-on-Power9/">here</a>.</p>
+<h3>Blender</h3>
+<p><a href="https://www.blender.org/">Blender</a> is a 3D graphics suite that supports image rendering,
+animation, simulation and game creation. On the surface it appears that Blender
+2.79b (the distro package version that Phoronix used by system/blender-1.0.2)
+failed to use more than 15 threads, even when "-t 128" was added to the Blender
+command line.</p>
+<p>It turns out that even though this benchmark was supposed to be run on CPUs only
+(you can choose to render on CPUs or GPUs), the GPU file was always being used.
+The GPU file is configured with a very large tile size (256x256) -
+which is <a href="https://docs.blender.org/manual/en/dev/render/cycles/settings/scene/render/performance.html#tiles">fine for
+GPUs</a>
+but not great for CPUs. The image size (1280x720) to tile size ratio limits the
+number of jobs created and therefore the number threads used.</p>
+<p>To obtain a realistic CPU measurement with more that 15 threads you can force
+the use of the CPU file by overwriting the GPU file with the CPU one:</p>
+<div class="highlight"><pre><span></span>$ cp
+~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
+~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
+</pre></div>
+
+
+<p>As you can see in the image below, now all of the cores are being utilised!
+<img alt="Blender with CPU Blend file" src="/images/phoronix/blender-88threads.png" title="Blender with CPU Blend file"></p>
+<p>Fortunately this has already been fixed in 
+<a href="https://openbenchmarking.org/test/pts/blender">pts/blender-1.1.1</a>.
+Thanks to the <a href="https://github.com/phoronix-test-suite/test-profiles/issues/24">report</a> by Daniel it
+has also been fixed in <a href="http://openbenchmarking.org/test/system/blender-1.1.0">system/blender-1.1.0</a>.</p>
+<p>Pinning the pts/bender-1.0.2, Pabellon Barcelona, CPU-Only test to a single
+22-core POWER9 chip (<code>sudo ppc64_cpu --cores-on=22</code>) and two POWER9 chips
+(<code>sudo ppc64_cpu --cores-on=44</code>) show a huge speedup:</p>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Duration (deviation over 3 runs)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline (GPU blend file)</td>
+<td>1509.97s (0.30%)</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>Single 22-core POWER9 chip (CPU blend file)</td>
+<td>458.64s (0.19%)</td>
+<td>3.29x</td>
+</tr>
+<tr>
+<td>Two 22-core POWER9 chips (CPU blend file)</td>
+<td>241.33s (0.25%)</td>
+<td>6.25x</td>
+</tr>
+</tbody>
+</table>
+<h3>tl;dr</h3>
+<p>Some of the benchmarks where we don't perform as well as Intel are where the
+benchmark has inline assembly for x86 but uses generic C compiler generated
+assembly for POWER9. We could probably benefit with some more powerpc optimsed functions.</p>
+<p>We also found a couple of things that should result in better performance for all three architectures,
+not just POWER.</p>
+<p>A summary of the performance improvements we found:</p>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Approximate Improvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parboil</td>
+<td>3x</td>
+</tr>
+<tr>
+<td>x264</td>
+<td>1.1x</td>
+</tr>
+<tr>
+<td>Primesieve</td>
+<td>1.1x</td>
+</tr>
+<tr>
+<td>LAME</td>
+<td>5x</td>
+</tr>
+<tr>
+<td>FLAC</td>
+<td>3x</td>
+</tr>
+<tr>
+<td>OpenSSL</td>
+<td>2x</td>
+</tr>
+<tr>
+<td>SciKit-Learn</td>
+<td>7-15x</td>
+</tr>
+<tr>
+<td>Blender</td>
+<td>3x</td>
+</tr>
+</tbody>
+</table>
+<p>There is obviously room for more improvements, especially with the Primesieve and x264 benchmarks,
+but it would be interesting to see a re-run of the Phoronix benchmarks with these changes. </p>
+<p>Thanks to Anton, Daniel, Joel and Nick for the analysis of the above benchmarks.</p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -639,138 +1031,6 @@ amount of bytes.</p>
 first byte to differ should confirm these results, this would mean a
 more invasive patch to KSM.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-        <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time></div>
-
-  <div class="entry-content"><p>This post is a bit of a break from the standard IBM fare of this blog,
-as I now work for Canonical. But I have a soft spot for Power from my
-time at IBM - and Canonical officially supports 64-bit, little-endian
-Power - so when I get a spare moment I try to make sure that cool,
-officially-supported technologies work on Power <em>before</em> we end up
-with a customer emergency! So, without further ado, this is the story
-of XDP on Power.</p>
-<h2>XDP</h2>
-<p>eXpress Data Path (XDP) is a cool Linux technology to allow really
-fast processing of network packets.</p>
-<p>Normally in Linux, a packet is received by the network card, an SKB
-(<a href="http://vger.kernel.org/~davem/skb.html">socket buffer</a>) is
-allocated, and the packet is passed up through the networking stack.</p>
-<p>This introduces an inescapable latency penalty: we have to allocate
-some memory and copy stuff around. XDP allows some network cards and
-drivers to process packets early - even before the allocation of the
-SKB. This is much faster, and so has applications in DDOS mitigation
-and other high-speed networking use-cases. The IOVisor project has
-<a href="https://www.iovisor.org/technology/xdp">much more information</a> if you
-want to learn more.</p>
-<h2>eBPF</h2>
-<p>XDP processing is done by an eBPF program. eBPF - the extended
-Berkeley Packet Filter - is an in-kernel virtual machine with a
-limited set of instructions. The kernel can statically validate eBPF
-programs to ensure that they terminate and are memory safe. From this
-it follows that the programs cannot be Turing-complete: they do not
-have backward branches, so they cannot do fancy things like
-loops. Nonetheless, they're surprisingly powerful for packet
-processing and tracing. eBPF programs are translated into efficient
-machine code using in-kernel JIT compilers on many platforms, and
-interpreted on platforms that do not have a JIT. (Yes, there are
-multiple JIT implementations in the kernel. I find this a terrifying
-thought.)</p>
-<p>Rather than requiring people to write raw eBPF programs, you can write
-them in a somewhat-restricted subset of C, and use Clang's eBPF target
-to translate them. This is super handy, as it gives you access to the
-kernel headers - which define a number of useful data structures like
-headers for various network protocols.</p>
-<h2>Trying it</h2>
-<p>There are a few really interesting project that are already up and
-running that allow you to explore XDP without learning the innards of
-both eBPF and the kernel networking stack. I explored the samples in
-the <a href="https://github.com/iovisor/bcc">bcc compiler collection</a> and also
-the samples from the <a href="https://github.com/netoptimizer/prototype-kernel/">netoptimizer/prototype-kernel repository</a>.</p>
-<p>The easiest way to get started with these is with a virtual machine,
-as recent virtio network drivers support XDP. If you are using Ubuntu,
-you can use the <a href="https://help.ubuntu.com/lts/serverguide/cloud-images-and-uvtool.html">uvt-kvm
-tooling</a>
-to trivially set up a VM running Ubuntu Zesty on your local machine.</p>
-<p>Once your VM is installed, you need to shut it down and edit the virsh XML. </p>
-<p>You need 2 vCPUs (or more) and a virtio+vhost network card. You also
-need to edit the 'interface' section and add the following snippet
-(with thanks to the <a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html">xdp-newbies
-list</a>):</p>
-<div class="highlight"><pre><span></span><span class="nt">&lt;driver</span> <span class="na">name=</span><span class="s">&#39;vhost&#39;</span> <span class="na">queues=</span><span class="s">&#39;4&#39;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;host</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
-    <span class="nt">&lt;guest</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
-<span class="nt">&lt;/driver&gt;</span>
-</pre></div>
-
-
-<p>(If you have more than 2 vCPUs, set the queues parameter to 2x the
-number of vCPUs.)</p>
-<p>Then, install a modern clang (we've had issues with 3.8 - I recommend
-v4+), and the usual build tools.</p>
-<p>I recommend testing with the prototype-kernel tools - the DDOS
-prevention tool is a good demo. Then - on x86 - you just follow their
-instructions. I'm not going to repeat that here.</p>
-<h2>POWERful XDP</h2>
-<p>What happens when you try this on Power? Regular readers of my posts
-will know to expect some
-<a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">minor</a>
-<a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">hitches</a>.</p>
-<p>XDP does not disappoint.</p>
-<p>Firstly, the prototype-kernel repository <a href="https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/Makefile#L92">hard codes x86</a>
-as the architecture for kernel headers. You need to change it for
-powerpc.</p>
-<p>Then, once you get the stuff compiled, and try to run it on a
-current-at-time-of-writing Zesty kernel, you'll hit a massive debug
-splat ending in:</p>
-<div class="highlight"><pre><span></span>32: (61) r1 = *(u32 *)(r8 +12)
-misaligned packet access off 0+18+12 size 4
-load_bpf_file: Permission denied
-</pre></div>
-
-
-<p>It turns out this is because in Ubuntu's Zesty kernel,
-CONFIG_HAS_EFFICIENT_UNALIGNED_ACCESS is not set on ppc64el. Because
-of that, the eBPF verifier will check that all loads are aligned - and
-this load (part of checking some packet header) is not, and so the
-verifier rejects the program. Unaligned access is not enabled because
-the Zesty kernel is being compiled for CPU_POWER7 instead of
-CPU_POWER8, and we don't have efficient unaligned access on POWER7.</p>
-<p>As it turns out, IBM never released any officially supported Power7 LE
-systems - LE was only ever supported on Power8. So, I <a href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699627">filed a bug</a> and
-<a href="https://lists.ubuntu.com/archives/kernel-team/2017-June/085074.html">sent a patch</a>
-to build Zesty kernels for POWER8 instead, and that has been accepted
-and will be part of the next stable update due real soon now.</p>
-<p>Sure enough, if you install a kernel with that config change, you can
-verify the XDP program and load it into the kernel!</p>
-<p>If you have real powerpc hardware, that's enough to use XDP on Power!
-Thanks to <a href="http://michael.ellerman.id.au/">Michael Ellerman</a>,
-maintainer extraordinaire, for verifying this for me.</p>
-<p>If - like me - you don't have ready access to Power hardware, you're
-stuffed. You can't use qemu in TCG mode: to use XDP with a VM, you
-need multi-queue support, which only exists in the vhost driver, which
-is only available for KVM guests. Maybe IBM should release a developer
-workstation. (Hint, hint!)</p>
-<p>Overall, I was pleasantly surprised by how easy things were for people
-with real ppc hardware - it's encouraging to see something not require
-kernel changes!</p>
-<p>eBPF and XDP are definitely growing technologies - as <a href="https://twitter.com/brendangregg/status/866078955530444800">Brendan Gregg notes</a>,
-now is a good time to learn them! (And those on Power have no excuse
-either!)</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -780,6 +1040,9 @@ either!)</p></div>
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/">Improving performance of Phoronix benchmarks on POWER9</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/09/23/stupid-solutions-to-stupid-problems-hardcoding-your-ssh-key-in-the-kernel/">Stupid Solutions to Stupid Problems: Hardcoding Your SSH Key in the Kernel</a>
       </li>
@@ -792,9 +1055,6 @@ either!)</p></div>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/">memcmp() for POWER8</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
-      </li>
     </ul>
   </section>
   <section>
@@ -805,6 +1065,7 @@ either!)</p></div>
         <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
         <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
         <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
         <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
@@ -814,7 +1075,7 @@ either!)</p></div>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
 
     <section>
@@ -841,7 +1102,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2017  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2018  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
 </body>
