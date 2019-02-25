@@ -386,18 +386,18 @@ yum install cuda
 
 
 &lt;p&gt;Then, we set up a profile file to automatically load CUDA into our path:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &amp;gt;  /etc/profile.d/cuda_path.sh &lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;EOF&lt;/span&gt;
-&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="err"&gt;From&lt;/span&gt; &lt;span class="err"&gt;http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf&lt;/span&gt; &lt;span class="err"&gt;-&lt;/span&gt; &lt;span class="err"&gt;4.4.2.1&lt;/span&gt;
-&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/bin${PATH:+:${PATH}}&lt;/span&gt;
-&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;LD_LIBRARY_PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}&lt;/span&gt;
-&lt;span class="err"&gt;EOF&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &lt;span class="ni"&gt;&amp;amp;gt;&lt;/span&gt;  /etc/profile.d/cuda_path.sh &lt;span class="ni"&gt;&amp;amp;lt;&amp;amp;lt;&lt;/span&gt;EOF
+# From http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf - 4.4.2.1
+export PATH=/usr/local/cuda-8.0/bin&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;}
+export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;}
+EOF
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
 cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;amp;&amp;amp; ./bandwidthTest
+make &amp;amp;amp;&amp;amp;amp; ./bandwidthTest
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -425,7 +425,7 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 
 &lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
 &lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;amp;lt;hostname&amp;amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
 &lt;/pre&gt;&lt;/div&gt;
 
 
