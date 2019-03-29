@@ -78,9 +78,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
-        <a href="https://sthbrx.github.io/category/docker.html">Docker</a>
-      </li>
-      <li >
         <a href="https://sthbrx.github.io/category/education.html">Education</a>
       </li>
       <li >
@@ -294,7 +291,7 @@ upon which which this is based:
 <div class="highlight"><pre><span></span>void gf_vect_mul_simple(size_t len, unsigned char c, unsigned char * src, unsigned char * dest) {
 
     size_t i;
-    for (i=0; i&amp;lt;len; i++) {
+    for (i=0; i&lt;len; i++) {
         dest[i] = gf_mul(c, src[i]);
     }
 }
@@ -333,7 +330,7 @@ upon which which this is based:
 
         tbl1 = vec_ld(16, table);
         tbl2 = vec_ld(0, table);
-        for (i=0; i&amp;lt;len; i+=16) {
+        for (i=0; i&lt;len; i+=16) {
             in = vec_ld(i, (unsigned char *)src);
             __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in)
             vec_st(out, i, (unsigned char *)dest);
@@ -344,7 +341,7 @@ upon which which this is based:
 
 <p>There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.</p>
 <p>We can go a bit faster by doing larger chunks at a time:</p>
-<div class="highlight"><pre><span></span>    for (i=0; i&amp;lt;vlen; i+=64) {
+<div class="highlight"><pre><span></span>    for (i=0; i&lt;vlen; i+=64) {
             in1 = vec_ld(i, (unsigned char *)src);
             in2 = vec_ld(i+16, (unsigned char *)src);
             in3 = vec_ld(i+32, (unsigned char *)src);
@@ -582,10 +579,10 @@ a++;
 
 <p>Now, and this is <strong>important</strong>: each of the coefficients are elements of the integers modulo 2: x + x = 2x = 0 as 2 mod 2 = 0. There is no concept of 'carrying' in this addition.</p>
 <p>Let's try: what's 100 + 79 in GF(2^8)?</p>
-<div class="highlight"><pre><span></span>100 = 0b01100100 =&amp;gt; x^6 + x^5 +       x^2
- 79 = 0b01001111 =&amp;gt; x^6 +       x^3 + x^2 + x + 1
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 +       x^2
+ 79 = 0b01001111 =&gt; x^6 +       x^3 + x^2 + x + 1
 
-100 + 79         =&amp;gt;   0 + x^5 + x^3 +   0 + x + 1
+100 + 79         =&gt;   0 + x^5 + x^3 +   0 + x + 1
                  =    0b00101011 = 43
 </pre></div>
 
@@ -599,14 +596,14 @@ gf_add $A $B 8
 
 
 <p>This will give you A + B in GF(2^8).</p>
-<div class="highlight"><pre><span></span>&amp;gt; gf_add 100 79 8
+<div class="highlight"><pre><span></span>&gt; gf_add 100 79 8
 43
 </pre></div>
 
 
 <p>Excellent!</p>
 <p>So, hold on to your hats, as this is where things get really weird. In modular arithmetic example, we considered the elements of our ring to be numbers, and we performed our addition and multiplication modulo 256. In GF(2^8), we consider our elements as polynomials and we perform our addition and multiplication modulo a polynomial. There is one conventional polynomial used in applications:</p>
-<div class="highlight"><pre><span></span>0x11d =&amp;gt; 0b1 0001 1101 =&amp;gt; x^8 + x^4 + x^3 + x^2 + 1
+<div class="highlight"><pre><span></span>0x11d =&gt; 0b1 0001 1101 =&gt; x^8 + x^4 + x^3 + x^2 + 1
 </pre></div>
 
 
@@ -614,8 +611,8 @@ gf_add $A $B 8
 <p>So when we multiply two numbers, we multiply their polynomial representations. Then, to find out what that is modulo 0x11d, we do polynomial long division by 0x11d, and take the remainder.</p>
 <p>Some examples will help.</p>
 <p>Let's multiply 100 by 3.</p>
-<div class="highlight"><pre><span></span>100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
-  3 = 0b00000011 =&amp;gt; x + 1
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 + x^2
+  3 = 0b00000011 =&gt; x + 1
 
 (x^6 + x^5 + x^2)(x + 1) = x^7 + x^6 + x^3 + x^6 + x^5 + x^2
                          = x^7 + x^5 + x^3 + x^2
@@ -626,15 +623,15 @@ gf_add $A $B 8
 <p>The degree (the largest power of a term) is 7. 7 is less than the degree of 0x11d, which is 8, so we don't need to do anything: the remainder modulo 0x11d is simply x^7 + x^5 + x^3 + x^2.</p>
 <p>In binary form, that is 0b10101100 = 172, so 100 * 3 = 172 in GF(2^8).</p>
 <p>Fortunately <code>gf-complete-tools</code> also allows us to check multiplications:</p>
-<div class="highlight"><pre><span></span>&amp;gt; gf_mult 100 3 8
+<div class="highlight"><pre><span></span>&gt; gf_mult 100 3 8
 172
 </pre></div>
 
 
 <p>Excellent!</p>
 <p>Now let's see what happens if we multiply by a larger number. Let's multiply 100 by 5.</p>
-<div class="highlight"><pre><span></span>100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
-  5 = 0b00000101 =&amp;gt; x^2 + 1
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 + x^2
+  5 = 0b00000101 =&gt; x^2 + 1
 
 (x^6 + x^5 + x^2)(x^2 + 1) = x^8 + x^7 + x^4 + x^6 + x^5 + x^2
                            = x^8 + x^7 + x^6 + x^5 + x^4 + x^2
@@ -654,14 +651,14 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^8 + x^7 + x^6 + x^5 + x^4       + x^2
 <p>So we have that our original polynomial (x^8 + x^4 + x^3 + x^2 + 1) is congruent to (x^7 + x^6 + x^5 + x^3 + 1) modulo the polynomial 0x11d.
 Looking at the binary representation of that new polynomial, we have 0b11101001 = 233.</p>
 <p>Sure enough:</p>
-<div class="highlight"><pre><span></span>&amp;gt; gf_mult 100 5 8
+<div class="highlight"><pre><span></span>&gt; gf_mult 100 5 8
 233
 </pre></div>
 
 
 <p>Just to solidify the polynomial long division a bit, let's try a slightly larger example, 100 * 9:</p>
-<div class="highlight"><pre><span></span>100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
-  9 = 0b00001001 =&amp;gt; x^3 + 1
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 + x^2
+  9 = 0b00001001 =&gt; x^3 + 1
 
 (x^6 + x^5 + x^2)(x^3 + 1) = x^9 + x^8 + x^5 + x^6 + x^5 + x^2
                            = x^9 + x^8 + x^6 + x^2
@@ -692,7 +689,7 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
 
 
 <p>We now have a polynomial of degree less than 8 that is congruent to our original polynomial modulo 0x11d, and the binary form is 0x01100011 = 99.</p>
-<div class="highlight"><pre><span></span>&amp;gt; gf_mult 100 9 8
+<div class="highlight"><pre><span></span>&gt; gf_mult 100 9 8
 99
 </pre></div>
 
@@ -706,7 +703,7 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
 <p>Multiplication by {02} for a single byte can be implemeted using the C code:</p>
 </blockquote>
 <div class="highlight"><pre><span></span>uint8_t c, cc;
-cc = (c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0);
+cc = (c &lt;&lt; 1) ^ ((c &amp; 0x80) ? 0x1d : 0);
 </pre></div>
 
 
@@ -716,15 +713,15 @@ cc = (c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0);
 <p>If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.</p>
 <p>We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)</p>
 <p>So, back to the original statement:</p>
-<div class="highlight"><pre><span></span>(c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0)
+<div class="highlight"><pre><span></span>(c &lt;&lt; 1) ^ ((c &amp; 0x80) ? 0x1d : 0)
     |          |          |     |
-    &amp;gt; multiply by 2       |     |
+    &gt; multiply by 2       |     |
                |          |     |
-               &amp;gt; is the high bit set - will the product have an x^8 term?
+               &gt; is the high bit set - will the product have an x^8 term?
                           |     |
-                          &amp;gt; if so, reduce by the polynomial
+                          &gt; if so, reduce by the polynomial
                                 |
-                                &amp;gt; otherwise, leave alone
+                                &gt; otherwise, leave alone
 </pre></div>
 
 
@@ -902,9 +899,9 @@ vxor v1, v2, v1
 <h2>Setup quirks</h2>
 <p>We are told to edit <code>~/kernel/rpmbuild/SPEC/kernel.spec</code>. This doesn't exist because the directory is <code>SPECS</code> not <code>SPEC</code>: you need to edit <code>~/kernel/rpmbuild/SPECS/kernel.spec</code>.</p>
 <p>I also found there was an extra quote mark in the supplied patch script after <code>-lustre.patch</code>. I removed that and ran this instead:</p>
-<div class="highlight"><pre><span></span>for patch in $(<span class="ni">&amp;lt;</span>&quot;3.10-rhel7.series&quot;); do \
+<div class="highlight"><pre><span></span>for patch in $(<span class="err">&lt;</span>&quot;3.10-rhel7.series&quot;); do \
       patch_file=&quot;<span class="nv">$HOME</span>/lustre-release/lustre/kernel_patches/patches/<span class="cp">${</span><span class="n">patch</span><span class="cp">}</span>&quot; \
-      cat &quot;<span class="cp">${</span><span class="n">patch_file</span><span class="cp">}</span>&quot; <span class="ni">&amp;gt;&amp;gt;</span> <span class="nv">$HOME</span>/lustre-kernel-x86_64-lustre.patch \
+      cat &quot;<span class="cp">${</span><span class="n">patch_file</span><span class="cp">}</span>&quot; &gt;&gt; <span class="nv">$HOME</span>/lustre-kernel-x86_64-lustre.patch \
 done
 </pre></div>
 
@@ -926,7 +923,7 @@ error: Failed build dependencies:
 <p>I then tried to build and install the RPMs from <a href="https://git.hpdd.intel.com/?p=fs/lustre-release.git;a=summary"><code>lustre-release</code></a>. This repository provides the sources required to build the client and utility binaries.</p>
 <p><code>./configure</code> and <code>make</code> succeeded, but when I went to install the packages with <code>rpm</code>, I found I was missing some dependencies:</p>
 <div class="highlight"><pre><span></span><span class="n">error</span><span class="o">:</span> <span class="n">Failed</span> <span class="n">dependencies</span><span class="o">:</span>
-        <span class="n">ldiskfsprogs</span> <span class="o">&amp;</span><span class="n">gt</span><span class="o">;=</span> <span class="mf">1.42</span><span class="o">.</span><span class="mi">7</span><span class="o">.</span><span class="na">wc1</span> <span class="k">is</span> <span class="n">needed</span> <span class="n">by</span> <span class="n">kmod</span><span class="o">-</span><span class="n">lustre</span><span class="o">-</span><span class="n">osd</span><span class="o">-</span><span class="n">ldiskfs</span><span class="o">-</span><span class="mf">2.9</span><span class="o">.</span><span class="mi">52</span><span class="n">_60_g1d2fbad_dirty</span><span class="o">-</span><span class="mi">1</span><span class="o">.</span><span class="na">el7</span><span class="o">.</span><span class="na">centos</span><span class="o">.</span><span class="na">ppc64le</span>
+        <span class="n">ldiskfsprogs</span> <span class="o">&gt;=</span> <span class="mf">1.42</span><span class="o">.</span><span class="mi">7</span><span class="o">.</span><span class="na">wc1</span> <span class="k">is</span> <span class="n">needed</span> <span class="n">by</span> <span class="n">kmod</span><span class="o">-</span><span class="n">lustre</span><span class="o">-</span><span class="n">osd</span><span class="o">-</span><span class="n">ldiskfs</span><span class="o">-</span><span class="mf">2.9</span><span class="o">.</span><span class="mi">52</span><span class="n">_60_g1d2fbad_dirty</span><span class="o">-</span><span class="mi">1</span><span class="o">.</span><span class="na">el7</span><span class="o">.</span><span class="na">centos</span><span class="o">.</span><span class="na">ppc64le</span>
     <span class="n">sg3_utils</span> <span class="k">is</span> <span class="n">needed</span> <span class="n">by</span> <span class="n">lustre</span><span class="o">-</span><span class="n">iokit</span><span class="o">-</span><span class="mf">2.9</span><span class="o">.</span><span class="mi">52</span><span class="n">_60_g1d2fbad_dirty</span><span class="o">-</span><span class="mi">1</span><span class="o">.</span><span class="na">el7</span><span class="o">.</span><span class="na">centos</span><span class="o">.</span><span class="na">ppc64le</span>
         <span class="n">attr</span> <span class="k">is</span> <span class="n">needed</span> <span class="n">by</span> <span class="n">lustre</span><span class="o">-</span><span class="n">tests</span><span class="o">-</span><span class="mf">2.9</span><span class="o">.</span><span class="mi">52</span><span class="n">_60_g1d2fbad_dirty</span><span class="o">-</span><span class="mi">1</span><span class="o">.</span><span class="na">el7</span><span class="o">.</span><span class="na">centos</span><span class="o">.</span><span class="na">ppc64le</span>
         <span class="n">lsof</span> <span class="k">is</span> <span class="n">needed</span> <span class="n">by</span> <span class="n">lustre</span><span class="o">-</span><span class="n">tests</span><span class="o">-</span><span class="mf">2.9</span><span class="o">.</span><span class="mi">52</span><span class="n">_60_g1d2fbad_dirty</span><span class="o">-</span><span class="mi">1</span><span class="o">.</span><span class="na">el7</span><span class="o">.</span><span class="na">centos</span><span class="o">.</span><span class="na">ppc64le</span>
@@ -1060,18 +1057,18 @@ yum install cuda
 
 
 <p>Then, we set up a profile file to automatically load CUDA into our path:</p>
-<div class="highlight"><pre><span></span>cat <span class="ni">&amp;gt;</span>  /etc/profile.d/cuda_path.sh <span class="ni">&amp;lt;&amp;lt;</span>EOF
-# From http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf - 4.4.2.1
-export PATH=/usr/local/cuda-8.0/bin<span class="cp">${</span><span class="n">PATH</span><span class="p">:</span><span class="o">+</span><span class="p">:</span><span class="err">$</span><span class="p">{</span><span class="n">PATH</span><span class="cp">}</span>}
-export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64<span class="cp">${</span><span class="n">LD_LIBRARY_PATH</span><span class="p">:</span><span class="o">+</span><span class="p">:</span><span class="err">$</span><span class="p">{</span><span class="n">LD_LIBRARY_PATH</span><span class="cp">}</span>}
-EOF
+<div class="highlight"><pre><span></span>cat &gt;  /etc/profile.d/cuda_path.sh <span class="err">&lt;</span><span class="nt">&lt;EOF</span>
+<span class="err">#</span> <span class="err">From</span> <span class="err">http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf</span> <span class="err">-</span> <span class="err">4.4.2.1</span>
+<span class="err">export</span> <span class="na">PATH=</span><span class="s">/usr/local/cuda-8.0/bin${PATH:+:${PATH}}</span>
+<span class="err">export</span> <span class="na">LD_LIBRARY_PATH=</span><span class="s">/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}</span>
+<span class="err">EOF</span>
 </pre></div>
 
 
 <p>Now, open a new terminal session and check to see if it works:</p>
 <div class="highlight"><pre><span></span>cuda-install-samples-8.0.sh ~
 cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;amp;&amp;amp; ./bandwidthTest
+make &amp;&amp; ./bandwidthTest
 </pre></div>
 
 
@@ -1099,7 +1096,7 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 
 <p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
 <p>You should see messages about finding and using GPUs:</p>
-<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
+<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
 </pre></div>
 
 
@@ -1153,7 +1150,6 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
     <h1>Categories</h1>
     <ul id="recent_posts">
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
-        <li><a href="https://sthbrx.github.io/category/docker.html">Docker</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
         <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
@@ -1166,7 +1162,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>

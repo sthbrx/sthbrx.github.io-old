@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2019-02-25T16:47:00+11:00</updated><subtitle>A Power Technical Blog</subtitle><entry><title>What Do You Mean "No"?</title><link href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/" rel="alternate"></link><published>2019-02-25T16:47:00+11:00</published><updated>2019-02-25T16:47:00+11:00</updated><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2019-02-25:/blog/2019/02/25/what-do-you-mean-no/</id><summary type="html">&lt;p&gt;Quite often when building small Linux images having separate user accounts isn't always at the top of the list of things to include. Petitboot is no different; the most common operations like mounting disks, configuring interfaces, and calling &lt;code&gt;kexec&lt;/code&gt; all require root and Petitboot generally only exists long enough to boot into the next thing, so why not run it all as root?&lt;/p&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Store Half Byte-Reverse Indexed</title><link href="https://sthbrx.github.io/" rel="alternate"></link><link href="https://sthbrx.github.io/atom.xml" rel="self"></link><id>https://sthbrx.github.io/</id><updated>2019-02-25T16:47:00+11:00</updated><entry><title>What Do You Mean "No"?</title><link href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/" rel="alternate"></link><published>2019-02-25T16:47:00+11:00</published><updated>2019-02-25T16:47:00+11:00</updated><author><name>Samuel Mendoza-Jonas</name></author><id>tag:sthbrx.github.io,2019-02-25:/blog/2019/02/25/what-do-you-mean-no/</id><summary type="html">&lt;p&gt;Quite often when building small Linux images having separate user accounts isn't always at the top of the list of things to include. Petitboot is no different; the most common operations like mounting disks, configuring interfaces, and calling &lt;code&gt;kexec&lt;/code&gt; all require root and Petitboot generally only exists long enough to boot into the next thing, so why not run it all as root?&lt;/p&gt;
 &lt;p&gt;The picture is less clear when we start to think about what is possible to do in Petitboot by default. If someone comes across an open Petitboot console they're only a few keystrokes away from wiping disks, changing files, or even flashing firmware. Depending on how your system is used that may or may not be something you care about, but over time there have been a few requests to "add a password screen to Petitboot" to at least make it so that the system isn't open season for whoever sees it.&lt;/p&gt;
 &lt;h2&gt;Enter Password:&lt;/h2&gt;
 &lt;p&gt;The most direct way to avoid this would be to slap a password prompt onto Petitboot before any changes can be made. There are two immediate drawbacks to this:&lt;/p&gt;
@@ -1887,10 +1887,10 @@ to trivially set up a VM running Ubuntu Zesty on your local machine.&lt;/p&gt;
 need to edit the 'interface' section and add the following snippet
 (with thanks to the &lt;a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html"&gt;xdp-newbies
 list&lt;/a&gt;):&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;lt;driver name=&amp;#39;vhost&amp;#39; queues=&amp;#39;4&amp;#39;&amp;amp;gt;
-    &amp;amp;lt;host tso4=&amp;#39;off&amp;#39; tso6=&amp;#39;off&amp;#39; ecn=&amp;#39;off&amp;#39; ufo=&amp;#39;off&amp;#39;/&amp;amp;gt;
-    &amp;amp;lt;guest tso4=&amp;#39;off&amp;#39; tso6=&amp;#39;off&amp;#39; ecn=&amp;#39;off&amp;#39; ufo=&amp;#39;off&amp;#39;/&amp;amp;gt;
-&amp;amp;lt;/driver&amp;amp;gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;driver&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;vhost&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;queues=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;4&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;host&lt;/span&gt; &lt;span class="na"&gt;tso4=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;tso6=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ecn=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ufo=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;guest&lt;/span&gt; &lt;span class="na"&gt;tso4=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;tso6=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ecn=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ufo=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class="nt"&gt;&amp;lt;/driver&amp;gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -2000,10 +2000,10 @@ to trivially set up a VM running Ubuntu Zesty on your local machine.&lt;/p&gt;
 need to edit the 'interface' section and add the following snippet
 (with thanks to the &lt;a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html"&gt;xdp-newbies
 list&lt;/a&gt;):&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;lt;driver name=&amp;#39;vhost&amp;#39; queues=&amp;#39;4&amp;#39;&amp;amp;gt;
-    &amp;amp;lt;host tso4=&amp;#39;off&amp;#39; tso6=&amp;#39;off&amp;#39; ecn=&amp;#39;off&amp;#39; ufo=&amp;#39;off&amp;#39;/&amp;amp;gt;
-    &amp;amp;lt;guest tso4=&amp;#39;off&amp;#39; tso6=&amp;#39;off&amp;#39; ecn=&amp;#39;off&amp;#39; ufo=&amp;#39;off&amp;#39;/&amp;amp;gt;
-&amp;amp;lt;/driver&amp;amp;gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;driver&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;vhost&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;queues=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;4&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;host&lt;/span&gt; &lt;span class="na"&gt;tso4=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;tso6=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ecn=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ufo=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;guest&lt;/span&gt; &lt;span class="na"&gt;tso4=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;tso6=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ecn=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt; &lt;span class="na"&gt;ufo=&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;off&amp;#39;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class="nt"&gt;&amp;lt;/driver&amp;gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -2349,7 +2349,7 @@ upon which which this is based:
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;void gf_vect_mul_simple(size_t len, unsigned char c, unsigned char * src, unsigned char * dest) {
 
     size_t i;
-    for (i=0; i&amp;amp;lt;len; i++) {
+    for (i=0; i&amp;lt;len; i++) {
         dest[i] = gf_mul(c, src[i]);
     }
 }
@@ -2388,7 +2388,7 @@ upon which which this is based:
 
         tbl1 = vec_ld(16, table);
         tbl2 = vec_ld(0, table);
-        for (i=0; i&amp;amp;lt;len; i+=16) {
+        for (i=0; i&amp;lt;len; i+=16) {
             in = vec_ld(i, (unsigned char *)src);
             __asm__(&amp;quot;vpermxor %0, %1, %2, %3&amp;quot; : &amp;quot;=v&amp;quot;(out) : &amp;quot;v&amp;quot;(tbl1), &amp;quot;v&amp;quot;(tbl2), &amp;quot;v&amp;quot;(in)
             vec_st(out, i, (unsigned char *)dest);
@@ -2399,7 +2399,7 @@ upon which which this is based:
 
 &lt;p&gt;There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.&lt;/p&gt;
 &lt;p&gt;We can go a bit faster by doing larger chunks at a time:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    for (i=0; i&amp;amp;lt;vlen; i+=64) {
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    for (i=0; i&amp;lt;vlen; i+=64) {
             in1 = vec_ld(i, (unsigned char *)src);
             in2 = vec_ld(i+16, (unsigned char *)src);
             in3 = vec_ld(i+32, (unsigned char *)src);
@@ -2542,7 +2542,7 @@ a = vec_ld(0, (unsigned char *) data);
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;void gf_vect_mul_simple(size_t len, unsigned char c, unsigned char * src, unsigned char * dest) {
 
     size_t i;
-    for (i=0; i&amp;amp;lt;len; i++) {
+    for (i=0; i&amp;lt;len; i++) {
         dest[i] = gf_mul(c, src[i]);
     }
 }
@@ -2581,7 +2581,7 @@ a = vec_ld(0, (unsigned char *) data);
 
         tbl1 = vec_ld(16, table);
         tbl2 = vec_ld(0, table);
-        for (i=0; i&amp;amp;lt;len; i+=16) {
+        for (i=0; i&amp;lt;len; i+=16) {
             in = vec_ld(i, (unsigned char *)src);
             __asm__(&amp;quot;vpermxor %0, %1, %2, %3&amp;quot; : &amp;quot;=v&amp;quot;(out) : &amp;quot;v&amp;quot;(tbl1), &amp;quot;v&amp;quot;(tbl2), &amp;quot;v&amp;quot;(in)
             vec_st(out, i, (unsigned char *)dest);
@@ -2592,7 +2592,7 @@ a = vec_ld(0, (unsigned char *) data);
 
 &lt;p&gt;There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.&lt;/p&gt;
 &lt;p&gt;We can go a bit faster by doing larger chunks at a time:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    for (i=0; i&amp;amp;lt;vlen; i+=64) {
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;    for (i=0; i&amp;lt;vlen; i+=64) {
             in1 = vec_ld(i, (unsigned char *)src);
             in2 = vec_ld(i+16, (unsigned char *)src);
             in3 = vec_ld(i+32, (unsigned char *)src);
@@ -2811,10 +2811,10 @@ a++;
 
 &lt;p&gt;Now, and this is &lt;strong&gt;important&lt;/strong&gt;: each of the coefficients are elements of the integers modulo 2: x + x = 2x = 0 as 2 mod 2 = 0. There is no concept of 'carrying' in this addition.&lt;/p&gt;
 &lt;p&gt;Let's try: what's 100 + 79 in GF(2^8)?&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 +       x^2
- 79 = 0b01001111 =&amp;amp;gt; x^6 +       x^3 + x^2 + x + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 +       x^2
+ 79 = 0b01001111 =&amp;gt; x^6 +       x^3 + x^2 + x + 1
 
-100 + 79         =&amp;amp;gt;   0 + x^5 + x^3 +   0 + x + 1
+100 + 79         =&amp;gt;   0 + x^5 + x^3 +   0 + x + 1
                  =    0b00101011 = 43
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -2828,14 +2828,14 @@ gf_add $A $B 8
 
 
 &lt;p&gt;This will give you A + B in GF(2^8).&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_add 100 79 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_add 100 79 8
 43
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Excellent!&lt;/p&gt;
 &lt;p&gt;So, hold on to your hats, as this is where things get really weird. In modular arithmetic example, we considered the elements of our ring to be numbers, and we performed our addition and multiplication modulo 256. In GF(2^8), we consider our elements as polynomials and we perform our addition and multiplication modulo a polynomial. There is one conventional polynomial used in applications:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x11d =&amp;amp;gt; 0b1 0001 1101 =&amp;amp;gt; x^8 + x^4 + x^3 + x^2 + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x11d =&amp;gt; 0b1 0001 1101 =&amp;gt; x^8 + x^4 + x^3 + x^2 + 1
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -2843,8 +2843,8 @@ gf_add $A $B 8
 &lt;p&gt;So when we multiply two numbers, we multiply their polynomial representations. Then, to find out what that is modulo 0x11d, we do polynomial long division by 0x11d, and take the remainder.&lt;/p&gt;
 &lt;p&gt;Some examples will help.&lt;/p&gt;
 &lt;p&gt;Let's multiply 100 by 3.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 + x^2
-  3 = 0b00000011 =&amp;amp;gt; x + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  3 = 0b00000011 =&amp;gt; x + 1
 
 (x^6 + x^5 + x^2)(x + 1) = x^7 + x^6 + x^3 + x^6 + x^5 + x^2
                          = x^7 + x^5 + x^3 + x^2
@@ -2855,15 +2855,15 @@ gf_add $A $B 8
 &lt;p&gt;The degree (the largest power of a term) is 7. 7 is less than the degree of 0x11d, which is 8, so we don't need to do anything: the remainder modulo 0x11d is simply x^7 + x^5 + x^3 + x^2.&lt;/p&gt;
 &lt;p&gt;In binary form, that is 0b10101100 = 172, so 100 * 3 = 172 in GF(2^8).&lt;/p&gt;
 &lt;p&gt;Fortunately &lt;code&gt;gf-complete-tools&lt;/code&gt; also allows us to check multiplications:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_mult 100 3 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 3 8
 172
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Excellent!&lt;/p&gt;
 &lt;p&gt;Now let's see what happens if we multiply by a larger number. Let's multiply 100 by 5.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 + x^2
-  5 = 0b00000101 =&amp;amp;gt; x^2 + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  5 = 0b00000101 =&amp;gt; x^2 + 1
 
 (x^6 + x^5 + x^2)(x^2 + 1) = x^8 + x^7 + x^4 + x^6 + x^5 + x^2
                            = x^8 + x^7 + x^6 + x^5 + x^4 + x^2
@@ -2883,14 +2883,14 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^8 + x^7 + x^6 + x^5 + x^4       + x^2
 &lt;p&gt;So we have that our original polynomial (x^8 + x^4 + x^3 + x^2 + 1) is congruent to (x^7 + x^6 + x^5 + x^3 + 1) modulo the polynomial 0x11d.
 Looking at the binary representation of that new polynomial, we have 0b11101001 = 233.&lt;/p&gt;
 &lt;p&gt;Sure enough:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_mult 100 5 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 5 8
 233
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Just to solidify the polynomial long division a bit, let's try a slightly larger example, 100 * 9:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 + x^2
-  9 = 0b00001001 =&amp;amp;gt; x^3 + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  9 = 0b00001001 =&amp;gt; x^3 + 1
 
 (x^6 + x^5 + x^2)(x^3 + 1) = x^9 + x^8 + x^5 + x^6 + x^5 + x^2
                            = x^9 + x^8 + x^6 + x^2
@@ -2921,7 +2921,7 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
 
 
 &lt;p&gt;We now have a polynomial of degree less than 8 that is congruent to our original polynomial modulo 0x11d, and the binary form is 0x01100011 = 99.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_mult 100 9 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 9 8
 99
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -2935,7 +2935,7 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
 &lt;p&gt;Multiplication by {02} for a single byte can be implemeted using the C code:&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;uint8_t c, cc;
-cc = (c &amp;amp;lt;&amp;amp;lt; 1) ^ ((c &amp;amp;amp; 0x80) ? 0x1d : 0);
+cc = (c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0);
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -2945,15 +2945,15 @@ cc = (c &amp;amp;lt;&amp;amp;lt; 1) ^ ((c &amp;amp;amp; 0x80) ? 0x1d : 0);
 &lt;p&gt;If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.&lt;/p&gt;
 &lt;p&gt;We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)&lt;/p&gt;
 &lt;p&gt;So, back to the original statement:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(c &amp;amp;lt;&amp;amp;lt; 1) ^ ((c &amp;amp;amp; 0x80) ? 0x1d : 0)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0)
     |          |          |     |
-    &amp;amp;gt; multiply by 2       |     |
+    &amp;gt; multiply by 2       |     |
                |          |     |
-               &amp;amp;gt; is the high bit set - will the product have an x^8 term?
+               &amp;gt; is the high bit set - will the product have an x^8 term?
                           |     |
-                          &amp;amp;gt; if so, reduce by the polynomial
+                          &amp;gt; if so, reduce by the polynomial
                                 |
-                                &amp;amp;gt; otherwise, leave alone
+                                &amp;gt; otherwise, leave alone
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3202,10 +3202,10 @@ a++;
 
 &lt;p&gt;Now, and this is &lt;strong&gt;important&lt;/strong&gt;: each of the coefficients are elements of the integers modulo 2: x + x = 2x = 0 as 2 mod 2 = 0. There is no concept of 'carrying' in this addition.&lt;/p&gt;
 &lt;p&gt;Let's try: what's 100 + 79 in GF(2^8)?&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 +       x^2
- 79 = 0b01001111 =&amp;amp;gt; x^6 +       x^3 + x^2 + x + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 +       x^2
+ 79 = 0b01001111 =&amp;gt; x^6 +       x^3 + x^2 + x + 1
 
-100 + 79         =&amp;amp;gt;   0 + x^5 + x^3 +   0 + x + 1
+100 + 79         =&amp;gt;   0 + x^5 + x^3 +   0 + x + 1
                  =    0b00101011 = 43
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -3219,14 +3219,14 @@ gf_add $A $B 8
 
 
 &lt;p&gt;This will give you A + B in GF(2^8).&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_add 100 79 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_add 100 79 8
 43
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Excellent!&lt;/p&gt;
 &lt;p&gt;So, hold on to your hats, as this is where things get really weird. In modular arithmetic example, we considered the elements of our ring to be numbers, and we performed our addition and multiplication modulo 256. In GF(2^8), we consider our elements as polynomials and we perform our addition and multiplication modulo a polynomial. There is one conventional polynomial used in applications:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x11d =&amp;amp;gt; 0b1 0001 1101 =&amp;amp;gt; x^8 + x^4 + x^3 + x^2 + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x11d =&amp;gt; 0b1 0001 1101 =&amp;gt; x^8 + x^4 + x^3 + x^2 + 1
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3234,8 +3234,8 @@ gf_add $A $B 8
 &lt;p&gt;So when we multiply two numbers, we multiply their polynomial representations. Then, to find out what that is modulo 0x11d, we do polynomial long division by 0x11d, and take the remainder.&lt;/p&gt;
 &lt;p&gt;Some examples will help.&lt;/p&gt;
 &lt;p&gt;Let's multiply 100 by 3.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 + x^2
-  3 = 0b00000011 =&amp;amp;gt; x + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  3 = 0b00000011 =&amp;gt; x + 1
 
 (x^6 + x^5 + x^2)(x + 1) = x^7 + x^6 + x^3 + x^6 + x^5 + x^2
                          = x^7 + x^5 + x^3 + x^2
@@ -3246,15 +3246,15 @@ gf_add $A $B 8
 &lt;p&gt;The degree (the largest power of a term) is 7. 7 is less than the degree of 0x11d, which is 8, so we don't need to do anything: the remainder modulo 0x11d is simply x^7 + x^5 + x^3 + x^2.&lt;/p&gt;
 &lt;p&gt;In binary form, that is 0b10101100 = 172, so 100 * 3 = 172 in GF(2^8).&lt;/p&gt;
 &lt;p&gt;Fortunately &lt;code&gt;gf-complete-tools&lt;/code&gt; also allows us to check multiplications:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_mult 100 3 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 3 8
 172
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Excellent!&lt;/p&gt;
 &lt;p&gt;Now let's see what happens if we multiply by a larger number. Let's multiply 100 by 5.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 + x^2
-  5 = 0b00000101 =&amp;amp;gt; x^2 + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  5 = 0b00000101 =&amp;gt; x^2 + 1
 
 (x^6 + x^5 + x^2)(x^2 + 1) = x^8 + x^7 + x^4 + x^6 + x^5 + x^2
                            = x^8 + x^7 + x^6 + x^5 + x^4 + x^2
@@ -3274,14 +3274,14 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^8 + x^7 + x^6 + x^5 + x^4       + x^2
 &lt;p&gt;So we have that our original polynomial (x^8 + x^4 + x^3 + x^2 + 1) is congruent to (x^7 + x^6 + x^5 + x^3 + 1) modulo the polynomial 0x11d.
 Looking at the binary representation of that new polynomial, we have 0b11101001 = 233.&lt;/p&gt;
 &lt;p&gt;Sure enough:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_mult 100 5 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 5 8
 233
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Just to solidify the polynomial long division a bit, let's try a slightly larger example, 100 * 9:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;amp;gt; x^6 + x^5 + x^2
-  9 = 0b00001001 =&amp;amp;gt; x^3 + 1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;100 = 0b01100100 =&amp;gt; x^6 + x^5 + x^2
+  9 = 0b00001001 =&amp;gt; x^3 + 1
 
 (x^6 + x^5 + x^2)(x^3 + 1) = x^9 + x^8 + x^5 + x^6 + x^5 + x^2
                            = x^9 + x^8 + x^6 + x^2
@@ -3312,7 +3312,7 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
 
 
 &lt;p&gt;We now have a polynomial of degree less than 8 that is congruent to our original polynomial modulo 0x11d, and the binary form is 0x01100011 = 99.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;amp;gt; gf_mult 100 9 8
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&amp;gt; gf_mult 100 9 8
 99
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -3326,7 +3326,7 @@ x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
 &lt;p&gt;Multiplication by {02} for a single byte can be implemeted using the C code:&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;uint8_t c, cc;
-cc = (c &amp;amp;lt;&amp;amp;lt; 1) ^ ((c &amp;amp;amp; 0x80) ? 0x1d : 0);
+cc = (c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0);
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3336,15 +3336,15 @@ cc = (c &amp;amp;lt;&amp;amp;lt; 1) ^ ((c &amp;amp;amp; 0x80) ? 0x1d : 0);
 &lt;p&gt;If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.&lt;/p&gt;
 &lt;p&gt;We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)&lt;/p&gt;
 &lt;p&gt;So, back to the original statement:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(c &amp;amp;lt;&amp;amp;lt; 1) ^ ((c &amp;amp;amp; 0x80) ? 0x1d : 0)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(c &amp;lt;&amp;lt; 1) ^ ((c &amp;amp; 0x80) ? 0x1d : 0)
     |          |          |     |
-    &amp;amp;gt; multiply by 2       |     |
+    &amp;gt; multiply by 2       |     |
                |          |     |
-               &amp;amp;gt; is the high bit set - will the product have an x^8 term?
+               &amp;gt; is the high bit set - will the product have an x^8 term?
                           |     |
-                          &amp;amp;gt; if so, reduce by the polynomial
+                          &amp;gt; if so, reduce by the polynomial
                                 |
-                                &amp;amp;gt; otherwise, leave alone
+                                &amp;gt; otherwise, leave alone
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3502,9 +3502,9 @@ vxor v1, v2, v1
 &lt;h2&gt;Setup quirks&lt;/h2&gt;
 &lt;p&gt;We are told to edit &lt;code&gt;~/kernel/rpmbuild/SPEC/kernel.spec&lt;/code&gt;. This doesn't exist because the directory is &lt;code&gt;SPECS&lt;/code&gt; not &lt;code&gt;SPEC&lt;/code&gt;: you need to edit &lt;code&gt;~/kernel/rpmbuild/SPECS/kernel.spec&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;I also found there was an extra quote mark in the supplied patch script after &lt;code&gt;-lustre.patch&lt;/code&gt;. I removed that and ran this instead:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;for patch in $(&lt;span class="ni"&gt;&amp;amp;lt;&lt;/span&gt;&amp;quot;3.10-rhel7.series&amp;quot;); do \
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;for patch in $(&lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&amp;quot;3.10-rhel7.series&amp;quot;); do \
       patch_file=&amp;quot;&lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-release/lustre/kernel_patches/patches/&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; \
-      cat &amp;quot;&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch_file&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; &lt;span class="ni"&gt;&amp;amp;gt;&amp;amp;gt;&lt;/span&gt; &lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-kernel-x86_64-lustre.patch \
+      cat &amp;quot;&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch_file&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; &amp;gt;&amp;gt; &lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-kernel-x86_64-lustre.patch \
 done
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -3526,7 +3526,7 @@ error: Failed build dependencies:
 &lt;p&gt;I then tried to build and install the RPMs from &lt;a href="https://git.hpdd.intel.com/?p=fs/lustre-release.git;a=summary"&gt;&lt;code&gt;lustre-release&lt;/code&gt;&lt;/a&gt;. This repository provides the sources required to build the client and utility binaries.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;./configure&lt;/code&gt; and &lt;code&gt;make&lt;/code&gt; succeeded, but when I went to install the packages with &lt;code&gt;rpm&lt;/code&gt;, I found I was missing some dependencies:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;error&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Failed&lt;/span&gt; &lt;span class="n"&gt;dependencies&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
-        &lt;span class="n"&gt;ldiskfsprogs&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;gt&lt;/span&gt;&lt;span class="o"&gt;;=&lt;/span&gt; &lt;span class="mf"&gt;1.42&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;wc1&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;kmod&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;osd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ldiskfs&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
+        &lt;span class="n"&gt;ldiskfsprogs&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;=&lt;/span&gt; &lt;span class="mf"&gt;1.42&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;wc1&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;kmod&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;osd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ldiskfs&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
     &lt;span class="n"&gt;sg3_utils&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;iokit&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
         &lt;span class="n"&gt;attr&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
         &lt;span class="n"&gt;lsof&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
@@ -3629,9 +3629,9 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 &lt;h2&gt;Setup quirks&lt;/h2&gt;
 &lt;p&gt;We are told to edit &lt;code&gt;~/kernel/rpmbuild/SPEC/kernel.spec&lt;/code&gt;. This doesn't exist because the directory is &lt;code&gt;SPECS&lt;/code&gt; not &lt;code&gt;SPEC&lt;/code&gt;: you need to edit &lt;code&gt;~/kernel/rpmbuild/SPECS/kernel.spec&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;I also found there was an extra quote mark in the supplied patch script after &lt;code&gt;-lustre.patch&lt;/code&gt;. I removed that and ran this instead:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;for patch in $(&lt;span class="ni"&gt;&amp;amp;lt;&lt;/span&gt;&amp;quot;3.10-rhel7.series&amp;quot;); do \
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;for patch in $(&lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&amp;quot;3.10-rhel7.series&amp;quot;); do \
       patch_file=&amp;quot;&lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-release/lustre/kernel_patches/patches/&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; \
-      cat &amp;quot;&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch_file&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; &lt;span class="ni"&gt;&amp;amp;gt;&amp;amp;gt;&lt;/span&gt; &lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-kernel-x86_64-lustre.patch \
+      cat &amp;quot;&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch_file&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; &amp;gt;&amp;gt; &lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-kernel-x86_64-lustre.patch \
 done
 &lt;/pre&gt;&lt;/div&gt;
 
@@ -3653,7 +3653,7 @@ error: Failed build dependencies:
 &lt;p&gt;I then tried to build and install the RPMs from &lt;a href="https://git.hpdd.intel.com/?p=fs/lustre-release.git;a=summary"&gt;&lt;code&gt;lustre-release&lt;/code&gt;&lt;/a&gt;. This repository provides the sources required to build the client and utility binaries.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;./configure&lt;/code&gt; and &lt;code&gt;make&lt;/code&gt; succeeded, but when I went to install the packages with &lt;code&gt;rpm&lt;/code&gt;, I found I was missing some dependencies:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;error&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;Failed&lt;/span&gt; &lt;span class="n"&gt;dependencies&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
-        &lt;span class="n"&gt;ldiskfsprogs&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;gt&lt;/span&gt;&lt;span class="o"&gt;;=&lt;/span&gt; &lt;span class="mf"&gt;1.42&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;wc1&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;kmod&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;osd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ldiskfs&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
+        &lt;span class="n"&gt;ldiskfsprogs&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;=&lt;/span&gt; &lt;span class="mf"&gt;1.42&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;wc1&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;kmod&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;osd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ldiskfs&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
     &lt;span class="n"&gt;sg3_utils&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;iokit&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
         &lt;span class="n"&gt;attr&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
         &lt;span class="n"&gt;lsof&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;needed&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;2.9&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="n"&gt;_60_g1d2fbad_dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;el7&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;ppc64le&lt;/span&gt;
@@ -3766,18 +3766,18 @@ yum install cuda
 
 
 &lt;p&gt;Then, we set up a profile file to automatically load CUDA into our path:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &lt;span class="ni"&gt;&amp;amp;gt;&lt;/span&gt;  /etc/profile.d/cuda_path.sh &lt;span class="ni"&gt;&amp;amp;lt;&amp;amp;lt;&lt;/span&gt;EOF
-# From http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf - 4.4.2.1
-export PATH=/usr/local/cuda-8.0/bin&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;}
-export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;}
-EOF
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &amp;gt;  /etc/profile.d/cuda_path.sh &lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;EOF&lt;/span&gt;
+&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="err"&gt;From&lt;/span&gt; &lt;span class="err"&gt;http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf&lt;/span&gt; &lt;span class="err"&gt;-&lt;/span&gt; &lt;span class="err"&gt;4.4.2.1&lt;/span&gt;
+&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/bin${PATH:+:${PATH}}&lt;/span&gt;
+&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;LD_LIBRARY_PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}&lt;/span&gt;
+&lt;span class="err"&gt;EOF&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
 cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;amp;amp;&amp;amp;amp; ./bandwidthTest
+make &amp;amp;&amp;amp; ./bandwidthTest
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3805,7 +3805,7 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 
 &lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
 &lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;amp;lt;hostname&amp;amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3842,18 +3842,18 @@ yum install cuda
 
 
 &lt;p&gt;Then, we set up a profile file to automatically load CUDA into our path:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &lt;span class="ni"&gt;&amp;amp;gt;&lt;/span&gt;  /etc/profile.d/cuda_path.sh &lt;span class="ni"&gt;&amp;amp;lt;&amp;amp;lt;&lt;/span&gt;EOF
-# From http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf - 4.4.2.1
-export PATH=/usr/local/cuda-8.0/bin&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;}
-export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;}
-EOF
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &amp;gt;  /etc/profile.d/cuda_path.sh &lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;EOF&lt;/span&gt;
+&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="err"&gt;From&lt;/span&gt; &lt;span class="err"&gt;http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf&lt;/span&gt; &lt;span class="err"&gt;-&lt;/span&gt; &lt;span class="err"&gt;4.4.2.1&lt;/span&gt;
+&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/bin${PATH:+:${PATH}}&lt;/span&gt;
+&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;LD_LIBRARY_PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}&lt;/span&gt;
+&lt;span class="err"&gt;EOF&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
 cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;amp;amp;&amp;amp;amp; ./bandwidthTest
+make &amp;amp;&amp;amp; ./bandwidthTest
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -3881,7 +3881,7 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 
 &lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
 &lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;amp;lt;hostname&amp;amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -4499,7 +4499,7 @@ pb-event sync@sda2
 read-only and merge the current snapshot differences back to disk. You can also
 run &lt;code&gt;pb-event sync@all&lt;/code&gt; to sync all existing snapshots if desired.&lt;/p&gt;</content><category term="skiroot"></category><category term="petitboot"></category><category term="goodposts"></category><category term="realcontent"></category><category term="devmapper"></category><category term="lvm"></category><category term="debug"></category></entry><entry><title>Get off my lawn: separating Docker workloads using cgroups</title><link href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/" rel="alternate"></link><published>2016-07-27T13:30:00+10:00</published><updated>2016-07-27T13:30:00+10:00</updated><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2016-07-27:/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</id><summary type="html">&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
 &lt;p&gt;Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.&lt;/p&gt;
-&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;So, &lt;strong&gt;can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.&lt;/p&gt;
 &lt;p&gt;For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is &lt;a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf"&gt;the relevant RedBook (PDF)&lt;/a&gt;, chapter 2.&lt;/p&gt;
@@ -4513,7 +4513,7 @@ NUMA node17 CPU(s):    64-95
 
 
 &lt;p&gt;Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or &lt;code&gt;cgroups&lt;/code&gt; for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called &lt;code&gt;cpuset&lt;/code&gt;, which can control CPU affinity, and restrict memory allocation to a NUMA node.&lt;/p&gt;
-&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
+&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:docker
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;32&lt;/span&gt;-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
@@ -4552,19 +4552,19 @@ root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --nu
 &lt;div class="footnote"&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:3"&gt;
-&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</summary><content type="html">&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
 &lt;p&gt;Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.&lt;/p&gt;
-&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;So, &lt;strong&gt;can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.&lt;/p&gt;
 &lt;p&gt;For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is &lt;a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf"&gt;the relevant RedBook (PDF)&lt;/a&gt;, chapter 2.&lt;/p&gt;
@@ -4578,7 +4578,7 @@ NUMA node17 CPU(s):    64-95
 
 
 &lt;p&gt;Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or &lt;code&gt;cgroups&lt;/code&gt; for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called &lt;code&gt;cpuset&lt;/code&gt;, which can control CPU affinity, and restrict memory allocation to a NUMA node.&lt;/p&gt;
-&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
+&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:docker
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;32&lt;/span&gt;-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
@@ -4617,14 +4617,14 @@ root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --nu
 &lt;div class="footnote"&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:3"&gt;
-&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</content><category term="cgroups"></category><category term="numa"></category><category term="p8"></category></entry><entry><title>Where to Get a POWER8 Development VM</title><link href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/" rel="alternate"></link><published>2016-07-06T16:00:00+10:00</published><updated>2016-07-06T16:00:00+10:00</updated><author><name>Andrew Donnellan</name></author><id>tag:sthbrx.github.io,2016-07-06:/blog/2016/07/06/where-to-get-a-power8-development-vm/</id><summary type="html">&lt;p&gt;&lt;em&gt;POWER8 sounds great, but where the heck can I get a Power VM so I can test my code?&lt;/em&gt;&lt;/p&gt;
@@ -4777,12 +4777,12 @@ done some great work!&lt;/p&gt;
 simply calls into the kernel because the kernel is the definitive
 reference for every syscall. On PowerPC something like this happens
 (sorry, our &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; is 100% asm):
-&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="err"&gt;/*&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;Exact&lt;/span&gt; &lt;span class="no"&gt;prototype&lt;/span&gt; &lt;span class="no"&gt;of&lt;/span&gt; &lt;span class="no"&gt;clock_gettime&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;int&lt;/span&gt; &lt;span class="no"&gt;__kernel_clock_gettime&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="no"&gt;clockid_t&lt;/span&gt; &lt;span class="no"&gt;clock_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="no"&gt;struct&lt;/span&gt; &lt;span class="no"&gt;timespec&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="no"&gt;tp&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="c"&gt;;&lt;/span&gt;
- &lt;span class="err"&gt;*&lt;/span&gt;
+ &lt;span class="p"&gt;*&lt;/span&gt;
  &lt;span class="err"&gt;*/&lt;/span&gt;
 &lt;span class="nf"&gt;V_FUNCTION_BEGIN&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="no"&gt;__kernel_clock_gettime&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
   &lt;span class="na"&gt;.cfi_startproc&lt;/span&gt;
@@ -4813,7 +4813,7 @@ kernel and branch to link register aka 'return'.  In this case the
 &lt;p&gt;Wait, having the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; calling into the kernel call gets us the wrong
 result? Or course it should, vdsotest is assuming a C ABI with return
 values and errno but the kernel doesn't do that, the kernel ABI is
-different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kr"&gt;inline&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;record_syscall_result&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;syscall_result&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;res&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
                      &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -4860,11 +4860,11 @@ libc&lt;/li&gt;
 &lt;div class="footnote"&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</summary><content type="html">&lt;h3&gt;Getting Suckered&lt;/h3&gt;
@@ -4897,12 +4897,12 @@ done some great work!&lt;/p&gt;
 simply calls into the kernel because the kernel is the definitive
 reference for every syscall. On PowerPC something like this happens
 (sorry, our &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; is 100% asm):
-&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="err"&gt;/*&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;Exact&lt;/span&gt; &lt;span class="no"&gt;prototype&lt;/span&gt; &lt;span class="no"&gt;of&lt;/span&gt; &lt;span class="no"&gt;clock_gettime&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;int&lt;/span&gt; &lt;span class="no"&gt;__kernel_clock_gettime&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="no"&gt;clockid_t&lt;/span&gt; &lt;span class="no"&gt;clock_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="no"&gt;struct&lt;/span&gt; &lt;span class="no"&gt;timespec&lt;/span&gt; &lt;span class="p"&gt;*&lt;/span&gt;&lt;span class="no"&gt;tp&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="c"&gt;;&lt;/span&gt;
- &lt;span class="err"&gt;*&lt;/span&gt;
+ &lt;span class="p"&gt;*&lt;/span&gt;
  &lt;span class="err"&gt;*/&lt;/span&gt;
 &lt;span class="nf"&gt;V_FUNCTION_BEGIN&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="no"&gt;__kernel_clock_gettime&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
   &lt;span class="na"&gt;.cfi_startproc&lt;/span&gt;
@@ -4933,7 +4933,7 @@ kernel and branch to link register aka 'return'.  In this case the
 &lt;p&gt;Wait, having the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; calling into the kernel call gets us the wrong
 result? Or course it should, vdsotest is assuming a C ABI with return
 values and errno but the kernel doesn't do that, the kernel ABI is
-different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kr"&gt;inline&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;record_syscall_result&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;syscall_result&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;res&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
                      &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -4980,11 +4980,11 @@ libc&lt;/li&gt;
 &lt;div class="footnote"&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</content><category term="kernel"></category><category term="asm"></category><category term="vdso"></category></entry><entry><title>Introducing snowpatch: continuous integration for patches</title><link href="https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/" rel="alternate"></link><published>2016-06-15T15:33:00+10:00</published><updated>2016-06-15T15:33:00+10:00</updated><author><name>Russell Currey</name></author><id>tag:sthbrx.github.io,2016-06-15:/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/</id><summary type="html">&lt;p&gt;Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.&lt;/p&gt;
@@ -5537,19 +5537,19 @@ a double, 0xc00000001568fba0 =
 &lt;p&gt;Annoyingly, the &lt;code&gt;msglog&lt;/code&gt; file reports itself as size 0 (I'm not sure exactly why, but I &lt;em&gt;think&lt;/em&gt; it's due to limitations in sysfs), so if you try to copy the file with &lt;code&gt;cp&lt;/code&gt;, you end up with just a blank file. However, you can read it with &lt;code&gt;cat&lt;/code&gt; or &lt;code&gt;less&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;From &lt;code&gt;xmon&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;&lt;code&gt;xmon&lt;/code&gt; is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with &lt;code&gt;kgdb&lt;/code&gt;. On our development systems, we often configure &lt;code&gt;xmon&lt;/code&gt; to automatically begin debugging whenever we hit an oops or panic (using &lt;code&gt;xmon=on&lt;/code&gt; on the kernel command line, or the &lt;code&gt;XMON_DEFAULT&lt;/code&gt; Kconfig option). It can also be manually triggered:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nt"&gt;root&lt;/span&gt;&lt;span class="p"&gt;@&lt;/span&gt;&lt;span class="k"&gt;p86&lt;/span&gt;&lt;span class="o"&gt;:~&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="nt"&gt;echo&lt;/span&gt; &lt;span class="nt"&gt;x&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="nt"&gt;gt&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;proc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;sysrq-trigger&lt;/span&gt;
-&lt;span class="nt"&gt;sysrq&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;SysRq&lt;/span&gt; &lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;Entering&lt;/span&gt; &lt;span class="nt"&gt;xmon&lt;/span&gt;
-&lt;span class="nt"&gt;cpu&lt;/span&gt; &lt;span class="nt"&gt;0x7&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;Vector&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;0&lt;/span&gt;  &lt;span class="nt"&gt;at&lt;/span&gt; &lt;span class="cp"&gt;[&lt;/span&gt;&lt;span class="nx"&gt;c000000fcd717a80&lt;/span&gt;&lt;span class="cp"&gt;]&lt;/span&gt;
-&lt;span class="nt"&gt;pc&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;c000000000085ad8&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="nt"&gt;0x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;0x80&lt;/span&gt;
-&lt;span class="nt"&gt;lr&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;c000000000085ad8&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="nt"&gt;0x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;0x80&lt;/span&gt;
-&lt;span class="nt"&gt;sp&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;c000000fcd717be0&lt;/span&gt;
-&lt;span class="nt"&gt;msr&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;9000000000009033&lt;/span&gt;
-&lt;span class="nt"&gt;current&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;0xc000000fcd689200&lt;/span&gt;
-&lt;span class="nt"&gt;paca&lt;/span&gt;    &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;0xc00000000fe01c00&lt;/span&gt;   &lt;span class="nt"&gt;softe&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;0&lt;/span&gt;        &lt;span class="nt"&gt;irq_happened&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;0x01&lt;/span&gt;
-&lt;span class="nt"&gt;pid&lt;/span&gt;   &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;7127&lt;/span&gt;&lt;span class="o"&gt;,&lt;/span&gt; &lt;span class="nt"&gt;comm&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;bash&lt;/span&gt;
-&lt;span class="nt"&gt;Linux&lt;/span&gt; &lt;span class="nt"&gt;version&lt;/span&gt; &lt;span class="nt"&gt;4&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;5&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;0-ajd-11118-g968f3e3&lt;/span&gt; &lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="nt"&gt;ajd&lt;/span&gt;&lt;span class="p"&gt;@&lt;/span&gt;&lt;span class="k"&gt;ka1&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="nt"&gt;gcc&lt;/span&gt; &lt;span class="nt"&gt;version&lt;/span&gt; &lt;span class="nt"&gt;5&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;1&lt;/span&gt; &lt;span class="nt"&gt;20150930&lt;/span&gt; &lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="nt"&gt;GCC&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="p"&gt;#&lt;/span&gt;&lt;span class="nn"&gt;1&lt;/span&gt; &lt;span class="nt"&gt;SMP&lt;/span&gt; &lt;span class="nt"&gt;Tue&lt;/span&gt; &lt;span class="nt"&gt;Mar&lt;/span&gt; &lt;span class="nt"&gt;22&lt;/span&gt; &lt;span class="nt"&gt;17&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="nd"&gt;01&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="nd"&gt;58&lt;/span&gt; &lt;span class="nt"&gt;AEDT&lt;/span&gt; &lt;span class="nt"&gt;2016&lt;/span&gt;
-&lt;span class="nt"&gt;enter&lt;/span&gt; &lt;span class="o"&gt;?&lt;/span&gt; &lt;span class="nt"&gt;for&lt;/span&gt; &lt;span class="nt"&gt;help&lt;/span&gt;
-&lt;span class="nt"&gt;7&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="nd"&gt;mon&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="nt"&gt;gt&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
+sysrq: SysRq : Entering xmon
+cpu 0x7: Vector: 0  at [c000000fcd717a80]
+pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+sp: c000000fcd717be0
+msr: 9000000000009033
+current = 0xc000000fcd689200
+paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
+pid   = 7127, comm = bash
+Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
+enter ? for help
+7:mon&amp;gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -5613,19 +5613,19 @@ Captured log to file printk.842EA8A.00000001.20160322063051
 &lt;p&gt;Annoyingly, the &lt;code&gt;msglog&lt;/code&gt; file reports itself as size 0 (I'm not sure exactly why, but I &lt;em&gt;think&lt;/em&gt; it's due to limitations in sysfs), so if you try to copy the file with &lt;code&gt;cp&lt;/code&gt;, you end up with just a blank file. However, you can read it with &lt;code&gt;cat&lt;/code&gt; or &lt;code&gt;less&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;From &lt;code&gt;xmon&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;&lt;code&gt;xmon&lt;/code&gt; is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with &lt;code&gt;kgdb&lt;/code&gt;. On our development systems, we often configure &lt;code&gt;xmon&lt;/code&gt; to automatically begin debugging whenever we hit an oops or panic (using &lt;code&gt;xmon=on&lt;/code&gt; on the kernel command line, or the &lt;code&gt;XMON_DEFAULT&lt;/code&gt; Kconfig option). It can also be manually triggered:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nt"&gt;root&lt;/span&gt;&lt;span class="p"&gt;@&lt;/span&gt;&lt;span class="k"&gt;p86&lt;/span&gt;&lt;span class="o"&gt;:~&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="nt"&gt;echo&lt;/span&gt; &lt;span class="nt"&gt;x&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="nt"&gt;gt&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;proc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;sysrq-trigger&lt;/span&gt;
-&lt;span class="nt"&gt;sysrq&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;SysRq&lt;/span&gt; &lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;Entering&lt;/span&gt; &lt;span class="nt"&gt;xmon&lt;/span&gt;
-&lt;span class="nt"&gt;cpu&lt;/span&gt; &lt;span class="nt"&gt;0x7&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;Vector&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;0&lt;/span&gt;  &lt;span class="nt"&gt;at&lt;/span&gt; &lt;span class="cp"&gt;[&lt;/span&gt;&lt;span class="nx"&gt;c000000fcd717a80&lt;/span&gt;&lt;span class="cp"&gt;]&lt;/span&gt;
-&lt;span class="nt"&gt;pc&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;c000000000085ad8&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="nt"&gt;0x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;0x80&lt;/span&gt;
-&lt;span class="nt"&gt;lr&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;c000000000085ad8&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="nt"&gt;0x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nt"&gt;0x80&lt;/span&gt;
-&lt;span class="nt"&gt;sp&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;c000000fcd717be0&lt;/span&gt;
-&lt;span class="nt"&gt;msr&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;9000000000009033&lt;/span&gt;
-&lt;span class="nt"&gt;current&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;0xc000000fcd689200&lt;/span&gt;
-&lt;span class="nt"&gt;paca&lt;/span&gt;    &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;0xc00000000fe01c00&lt;/span&gt;   &lt;span class="nt"&gt;softe&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;0&lt;/span&gt;        &lt;span class="nt"&gt;irq_happened&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nt"&gt;0x01&lt;/span&gt;
-&lt;span class="nt"&gt;pid&lt;/span&gt;   &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;7127&lt;/span&gt;&lt;span class="o"&gt;,&lt;/span&gt; &lt;span class="nt"&gt;comm&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nt"&gt;bash&lt;/span&gt;
-&lt;span class="nt"&gt;Linux&lt;/span&gt; &lt;span class="nt"&gt;version&lt;/span&gt; &lt;span class="nt"&gt;4&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;5&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;0-ajd-11118-g968f3e3&lt;/span&gt; &lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="nt"&gt;ajd&lt;/span&gt;&lt;span class="p"&gt;@&lt;/span&gt;&lt;span class="k"&gt;ka1&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="nt"&gt;gcc&lt;/span&gt; &lt;span class="nt"&gt;version&lt;/span&gt; &lt;span class="nt"&gt;5&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nc"&gt;1&lt;/span&gt; &lt;span class="nt"&gt;20150930&lt;/span&gt; &lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="nt"&gt;GCC&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="p"&gt;#&lt;/span&gt;&lt;span class="nn"&gt;1&lt;/span&gt; &lt;span class="nt"&gt;SMP&lt;/span&gt; &lt;span class="nt"&gt;Tue&lt;/span&gt; &lt;span class="nt"&gt;Mar&lt;/span&gt; &lt;span class="nt"&gt;22&lt;/span&gt; &lt;span class="nt"&gt;17&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="nd"&gt;01&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="nd"&gt;58&lt;/span&gt; &lt;span class="nt"&gt;AEDT&lt;/span&gt; &lt;span class="nt"&gt;2016&lt;/span&gt;
-&lt;span class="nt"&gt;enter&lt;/span&gt; &lt;span class="o"&gt;?&lt;/span&gt; &lt;span class="nt"&gt;for&lt;/span&gt; &lt;span class="nt"&gt;help&lt;/span&gt;
-&lt;span class="nt"&gt;7&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="nd"&gt;mon&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="nt"&gt;gt&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
+sysrq: SysRq : Entering xmon
+cpu 0x7: Vector: 0  at [c000000fcd717a80]
+pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+sp: c000000fcd717be0
+msr: 9000000000009033
+current = 0xc000000fcd689200
+paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
+pid   = 7127, comm = bash
+Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
+enter ? for help
+7:mon&amp;gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -6489,13 +6489,13 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
 &lt;p&gt;Docker: what is it?&lt;/p&gt;
 &lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
-&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
-&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
 &lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
 &lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
-&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
 &lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
 &lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
@@ -6512,14 +6512,14 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
-&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4" rel="footnote"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref-4"&gt;&lt;a class="footnote-ref" href="#fn-4"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
 &lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
 &lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
 &lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
 &lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
 &lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
-&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5" rel="footnote"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref-5"&gt;&lt;a class="footnote-ref" href="#fn-5"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png"&gt;&lt;/p&gt;
 &lt;h2&gt;Docker pain points&lt;/h2&gt;
 &lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
@@ -6534,7 +6534,7 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6" rel="footnote"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref-6"&gt;&lt;a class="footnote-ref" href="#fn-6"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;h2&gt;Final words&lt;/h2&gt;
@@ -6542,36 +6542,36 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;div class="footnote"&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:3"&gt;
-&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:4"&gt;
-&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref-4" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:5"&gt;
-&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref-5" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:6"&gt;
-&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref-6" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</summary><content type="html">&lt;p&gt;(This was published in an internal technical journal last week, and is now being published here. If you already know what Docker is, feel free to skim the first half.)&lt;/p&gt;
 &lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
 &lt;p&gt;Docker: what is it?&lt;/p&gt;
 &lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
-&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
-&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref-1"&gt;&lt;a class="footnote-ref" href="#fn-1"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref-2"&gt;&lt;a class="footnote-ref" href="#fn-2"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
 &lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
 &lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
-&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref-3"&gt;&lt;a class="footnote-ref" href="#fn-3"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
 &lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
 &lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
@@ -6588,14 +6588,14 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
-&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4" rel="footnote"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref-4"&gt;&lt;a class="footnote-ref" href="#fn-4"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
 &lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
 &lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
 &lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
 &lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
 &lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
-&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5" rel="footnote"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref-5"&gt;&lt;a class="footnote-ref" href="#fn-5"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png"&gt;&lt;/p&gt;
 &lt;h2&gt;Docker pain points&lt;/h2&gt;
 &lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
@@ -6610,7 +6610,7 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6" rel="footnote"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref-6"&gt;&lt;a class="footnote-ref" href="#fn-6"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;h2&gt;Final words&lt;/h2&gt;
@@ -6618,23 +6618,23 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;div class="footnote"&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id="fn:1"&gt;
-&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-1"&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:2"&gt;
-&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-2"&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:3"&gt;
-&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-3"&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:4"&gt;
-&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-4"&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref-4" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:5"&gt;
-&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-5"&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref-5" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
-&lt;li id="fn:6"&gt;
-&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;li id="fn-6"&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref-6" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</content><category term="php"></category><category term="performance"></category></entry><entry><title>Running ppc64le_hello on real hardware</title><link href="https://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/" rel="alternate"></link><published>2015-06-03T12:16:00+10:00</published><updated>2015-06-03T12:16:00+10:00</updated><author><name>Daniel Axtens</name></author><id>tag:sthbrx.github.io,2015-06-03:/blog/2015/06/03/ppc64le-hello-on-real-hardware/</id><summary type="html">&lt;p&gt;So today I saw &lt;a href="https://github.com/andreiw/ppc64le_hello"&gt;Freestanding “Hello World” for OpenPower&lt;/a&gt; on &lt;a href="https://news.ycombinator.com/item?id=9649490"&gt;Hacker News&lt;/a&gt;. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.&lt;/p&gt;
