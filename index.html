@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
 However, for our current set of programs and use cases, this is probably not tractable in any meaningful way.</p>
 <h2>The rest of the paper</h2>
 <p>The rest of the paper is reasonably interesting. Their general theory is that you should build your parsers based on a formal definition of a language, and that the parser should convert the input data to a set of objects, and then your business logic should deal with those objects. This is the 'recognizer pattern', and is illustrated below:</p>
-<p><img alt="The recognizer pattern: separate code parses input according to a formal grammar, creating valid objects that are passed to the business logic" src="images/dja/recogniser.png"></p>
+<p><img alt="The recognizer pattern: separate code parses input according to a formal grammar, creating valid objects that are passed to the business logic" src="/images/dja/recogniser.png"></p>
 <p>In short, the article is full of great ideas if you happen to be parsing a simple language, or are designing not just a parser but a full language ecosystem. They do also provide a binary parser toolkit that might be helpful if you are parsing a binary format that can be expressed with a parser combinator.</p>
 <p>Overall, however, I think the burden of maintaining old systems is such that a security paradigm that relies on new code is pretty unlikely, and one that relies on new languages is fatally doomed from the outset. New systems should take up these ideas, yes. But I'd really like to see people grappling with how to deal with the complex and irregular languages that we're stuck with (HTML, PDF, etc) in secure ways.</p></div>
   		</article>
