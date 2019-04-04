@@ -102,6 +102,64 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2019/04/02/article-review-curing-the-vulnerable-parser/">Article Review: Curing the Vulnerable Parser</a>
+      </h1>
+    <p class="meta">
+<time datetime="2019-04-02T00:00:00+11:00" pubdate>Tue 02 April 2019</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2019-04-02T00:00:00+11:00" pubdate>Tue 02 April 2019</time></div>
+
+  <div class="entry-content"><p>Every once in a while I read papers or articles. Previously, I've just read them myself, but I was wondering if there were more useful things I could do beyond that. So I've written up a summary and my thoughts on an article I read - let me know if it's useful!</p>
+<p>I recently read <a href="https://www.usenix.org/publications/login/spring2017/bratus">Curing the Vulnerable Parser: Design Patterns for Secure Input Handling</a> (Bratus, et al; USENIX ;login: Spring 2017). It's not a formal academic paper but an article in the Usenix magazine, so it doesn't have a formal abstract I can quote, but in short it takes the long history of parser and parsing vulnerabilities and uses that as a springboard to talk about how you could design better ones. It introduces a toolkit based on that design for more safely parsing some binary formats.</p>
+<h2>Background</h2>
+<p>It's worth noting early on that this comes out of the <a href="http://langsec.org/">LangSec crowd</a>. They have a pretty strong underpinning philosophy:</p>
+<blockquote>
+<p>The Language-theoretic approach (LANGSEC) regards the Internet insecurity epidemic as a consequence of <em>ad hoc</em> programming of input handling at all layers of network stacks, and in other kinds of software stacks. LANGSEC posits that the only path to trustworthy software that takes untrusted inputs is treating all valid or expected inputs as a formal language, and the respective input-handling routines as a <em>recognizer</em> for that language. The recognition must be feasible, and the recognizer must match the language in required computation power.</p>
+</blockquote>
+<p>A big theme in this article is predictability:</p>
+<blockquote>
+<p>Trustworthy input is input with predictable effects. The goal of input-checking is being able to predict the input’s effects on the rest of your program.</p>
+</blockquote>
+<p>This seems sensible enough at first, but leads to some questionable assertions, such as:</p>
+<blockquote>
+<p>Safety is predictability. When it's impossible to predict what the effects of the input will be (however valid), there is no safety.</p>
+</blockquote>
+<p>They follow this with an example of Ethereum contracts stealing money from the DAO. The example is compelling enough, but again comes with a very strong assertion about the impossibility of securing a language virtual machine:</p>
+<blockquote>
+<p>From the viewpoint of language-theoretic security, a catastrophic exploit in Ethereum was only a matter of time: one can only find out what such programs do by running them. By then it is too late.</p>
+</blockquote>
+<p>I'm not sure that (a) I buy the assertions, or that (b) they provide a useful way to deal with the world as we find it.</p>
+<h3>Is this even correct?</h3>
+<p>You can tease out 2 contentions in the first part of the article:</p>
+<ul>
+<li>there should be a formal language that describes the data, and</li>
+<li>this language should be as simple as possible, ideally being regular and context-free.</li>
+</ul>
+<p>Neither of these are bad ideas - in fact they're both good ideas - but I don't know that I draw the same links between them and security.</p>
+<p>Consider PostScript as a possible counter-example. It's a Turing-complete language, so it absolutely cannot have predictable results. It has a well documented specification and executes in a restricted virtual machine. So let's say that it satisfies only the first plank of their argument.</p>
+<p>I'd say that PostScript has a good security record, despite being Turing complete. PostScript has been around since 1985 and apart from the recent bugs in GhostScript, it doesn't have a long history of bugs and exploits. Maybe this just because no-one has really looked, or maybe it is possible to have reasonably safe complex languages by restricting the execution environment, as PostScript consciously and deliberately does.</p>
+<p>Indeed, if you consider the recent spate <a href="https://bugs.chromium.org/p/project-zero/issues/detail?id=1675">of</a> <a href="https://bugs.chromium.org/p/project-zero/issues/detail?id=1691">GhostScript</a> <a href="https://bugs.chromium.org/p/project-zero/issues/detail?id=1682">bugs</a>, perhaps <a href="https://bugs.chromium.org/p/project-zero/issues/detail?id=1640">some</a> may be avoided by stricter compliance with a formal language specification. However, most seem to me to arise from the desirability of implementing some of the PostScript functionality in PostScript itself, and some of the GhostScript-specific, stupendously powerful operators exposed to the language to enable this. The bugs involve tricks to allow a user to get access to these operators. A non-Turing-complete language may be <em>sufficient</em> to prevent these attacks, but it is not <em>necessary</em>: just not doing this sort of meta-programming with such dangerous operators would also have worked. Storing the true values of the security state outside of a language-accessible object would also be good.</p>
+<h3>Is this a useful way to deal with the world as we find it?</h3>
+<p>My main problem with the general LangSec approach that this article takes is this: to get to their desired world, we need to rewrite a bunch of things with entirely different language foundations. The article talks about HTML and PDFs as examples of unsafe formats, but I cannot imagine the sudden wholesale replacement of either of these - although I would love to be proven wrong.</p>
+<p>Can we get even part of the way with existing standards? Kinda-sorta, but mostly no, and to the authors' credit, they are open about this. They argue that formal definition parsing the language should be the "most restrictive input definition" - they specifically require you to "give up attempting to accept arbitrarily complex data", and call for "subsetting of many protocols, formats, encodings and command languages, including eliminating unneeded variability and introducing determinism and static values".</p>
+<p>No doubt we would be in a better place if people took up these ideas for future programs.
+However, for our current set of programs and use cases, this is probably not tractable in any meaningful way.</p>
+<h2>The rest of the paper</h2>
+<p>The rest of the paper is reasonably interesting. Their general theory is that you should build your parsers based on a formal definition of a language, and that the parser should convert the input data to a set of objects, and then your business logic should deal with those objects. This is the 'recognizer pattern', and is illustrated below:</p>
+<p><img alt="The recognizer pattern: separate code parses input according to a formal grammar, creating valid objects that are passed to the business logic" src="images/dja/recogniser.png"></p>
+<p>In short, the article is full of great ideas if you happen to be parsing a simple language, or are designing not just a parser but a full language ecosystem. They do also provide a binary parser toolkit that might be helpful if you are parsing a binary format that can be expressed with a parser combinator.</p>
+<p>Overall, however, I think the burden of maintaining old systems is such that a security paradigm that relies on new code is pretty unlikely, and one that relies on new languages is fatally doomed from the outset. New systems should take up these ideas, yes. But I'd really like to see people grappling with how to deal with the complex and irregular languages that we're stuck with (HTML, PDF, etc) in secure ways.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">What Do You Mean "No"?</a>
       </h1>
     <p class="meta">
@@ -258,399 +316,6 @@ If you're after a few suggestions there was, in no particular order:</p>
 <p><a href="https://www.youtube.com/watch?v=eKVSBESoKUc">Facebook presenting their use of Linuxboot and "systemboot"</a></p>
 <p>And heaps more, check out the full playlist!</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/">Improving performance of Phoronix benchmarks on POWER9</a>
-      </h1>
-    <p class="meta">
-<time datetime="2018-08-15T14:22:00+10:00" pubdate>Wed 15 August 2018</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>,
-          <a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a>,
-          <a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a>,
-          <a href="https://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a>,
-          <a href="https://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a>
-    </span>
-  </span>
-<time datetime="2018-08-15T14:22:00+10:00" pubdate>Wed 15 August 2018</time></div>
-
-  <div class="entry-content"><p>Recently Phoronix ran a range of
-<a href="https://www.phoronix.com/scan.php?page=article&amp;item=power9-talos-2&amp;num=1">benchmarks</a>
-comparing the performance of our POWER9 processor against the Intel Xeon and AMD
-EPYC processors. </p>
-<p>We did well in the Stockfish, LLVM Compilation, Zstd compression, and the
-Tinymembench benchmarks. A few of my colleagues did a bit of investigating into
-some the benchmarks where we didn't perform quite so well.</p>
-<h3>LBM / Parboil</h3>
-<p>The <a href="http://impact.crhc.illinois.edu/parboil/parboil.aspx">Parboil benchmarks</a> are a
-collection of programs from various scientific and commercial fields that are
-useful for examining the performance and development of different architectures
-and tools.  In this round of benchmarks Phoronix used the lbm
-<a href="https://www.spec.org/cpu2006/Docs/470.lbm.html">benchmark</a>: a fluid dynamics
-simulation using the Lattice-Boltzmann Method.</p>
-<p>lbm is an iterative algorithm - the problem is broken down into discrete
-time steps, and at each time step a bunch of calculations are done to
-simulate the change in the system. Each time step relies on the results
-of the previous one.</p>
-<p>The benchmark uses OpenMP to parallelise the workload, spreading the
-calculations done in each time step across many CPUs. The number of
-calculations scales with the resolution of the simulation.</p>
-<p>Unfortunately, the resolution (and therefore the work done in each time
-step) is too small for modern CPUs with large numbers of SMT (simultaneous multi-threading) threads. OpenMP 
-doesn't have enough work to parallelise and the system stays relatively idle. This
-means the benchmark scales relatively poorly, and is definitely
-not making use of the large POWER9 system</p>
-<p>Also this benchmark is compiled without any optimisation. Recompiling with -O3 improves the
-   results 3.2x on POWER9.</p>
-<h3>x264 Video Encoding</h3>
-<p>x264 is a library that encodes videos into the H.264/MPEG-4 format. x264 encoding
-requires a lot of integer kernels doing operations on image elements. The math
-and vectorisation optimisations are quite complex, so Nick only had a quick look at
-the basics. The systems and environments (e.g. gcc version 8.1 for Skylake, 8.0
-for POWER9) are not completely apples to apples so for now patterns are more
-important than the absolute results. Interestingly the output video files between
-architectures are not the same, particularly with different asm routines and 
-compiler options used, which makes it difficult to verify the correctness of any changes.</p>
-<p>All tests were run single threaded to avoid any SMT effects.</p>
-<p>With the default upstream build of x264, Skylake is significantly faster than POWER9 on this benchmark
-(Skylake: 9.20 fps, POWER9: 3.39 fps). POWER9 contains some vectorised routines, so an
-initial suspicion is that Skylake's larger vector size may be responsible for its higher throughput.</p>
-<p>Let's test our vector size suspicion by restricting
-Skylake to SSE4.2 code (with 128 bit vectors, the same width as POWER9). This hardly
-slows down the x86 CPU at all (Skylake: 8.37 fps, POWER9: 3.39 fps), which indicates it's
-not taking much advantage of the larger vectors.</p>
-<p>So the next guess would be that x86 just has more and better optimized versions of costly
-functions (in the version of x264 that Phoronix used there are only six powerpc specific
-files compared with 21 x86 specific files). Without the time or expertise to dig into the
-complex task of writing vector code, we'll see if the compiler can help, and turn
-on autovectorisation (x264 compiles with -fno-tree-vectorize by default, which disables 
-auto vectorization). Looking at a perf profile of the benchmark we can see
-that one costly function, quant_4x4x4, is not autovectorised. With a small change to the
-code, gcc does vectorise it, giving a slight speedup with the output file checksum unchanged
-(Skylake: 9.20 fps, POWER9: 3.83 fps).</p>
-<p>We got a small improvement with the compiler, but it looks like we may have gains left on the
-table with our vector code. If you're interested in looking into this, we do have some
-<a href="https://www.bountysource.com/teams/ibm/bounties">active bounties</a> for x264 (lu-zero/x264).</p>
-<table>
-<thead>
-<tr>
-<th>Test</th>
-<th>Skylake</th>
-<th>POWER9</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Original - AVX256</td>
-<td>9.20 fps</td>
-<td>3.39 fps</td>
-</tr>
-<tr>
-<td>Original - SSE4.2</td>
-<td>8.37 fps</td>
-<td>3.39 fps</td>
-</tr>
-<tr>
-<td>Autovectorisation enabled, quant_4x4x4 vectorised</td>
-<td>9.20 fps</td>
-<td>3.83 fps</td>
-</tr>
-</tbody>
-</table>
-<p>Nick also investigated running this benchmark with SMT enabled and across multiple cores, and it looks like the code is
-not scalable enough to feed 176 threads on a 44 core system. Disabling SMT in parallel runs
-actually helped, but there was still idle time. That may be another thing to look at,
-although it may not be such a problem for smaller systems.</p>
-<h3>Primesieve</h3>
-<p><a href="https://primesieve.org/">Primesieve</a> is a program and C/C++
-library that generates all the prime numbers below a given number. It uses an
-optimised <a href="https://upload.wikimedia.org/wikipedia/commons/b/b9/Sieve_of_Eratosthenes_animation.gif">Sieve of Eratosthenes</a>
-implementation.</p>
-<p>The algorithm uses the L1 cache size as the sieve size for the core loop.  This
-is an issue when we are running in SMT mode (aka more than one thread per core)
-as all threads on a core share the same L1 cache and so will constantly be 
-invalidating each others cache-lines. As you can see
-in the table below, running the benchmark in single threaded mode is 30% faster
-than in SMT4 mode!</p>
-<p>This means in SMT-4 mode the workload is about 4x too large for the L1 cache.  A
-better sieve size to use would be the L1 cache size / number of
-threads per core. Anton posted a <a href="https://github.com/kimwalisch/primesieve/pull/54">pull request</a> 
-to update the sieve size.</p>
-<p>It is interesting that the best overall performance on POWER9 is with the patch applied and in
-SMT2 mode:</p>
-<table>
-<thead>
-<tr>
-<th>SMT level</th>
-<th>baseline</th>
-<th>patched</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>14.728s</td>
-<td>14.899s</td>
-</tr>
-<tr>
-<td>2</td>
-<td>15.362s</td>
-<td>14.040s</td>
-</tr>
-<tr>
-<td>4</td>
-<td>19.489s</td>
-<td>17.458s</td>
-</tr>
-</tbody>
-</table>
-<h3>LAME</h3>
-<p>Despite its name, a recursive acronym for "LAME Ain't an MP3 Encoder",
-<a href="http://lame.sourceforge.net/">LAME</a> is indeed an MP3 encoder.</p>
-<p>Due to configure options <a href="https://sourceforge.net/p/lame/mailman/message/36371506/">not being parsed correctly</a> this
-benchmark is built without any optimisation regardless of architecture. We see a
-massive speedup by turning optimisations on, and a further 6-8% speedup by
-enabling
-<a href="https://sourceforge.net/p/lame/mailman/message/36372005/">USE_FAST_LOG</a> (which
-is already enabled for Intel).</p>
-<table>
-<thead>
-<tr>
-<th>LAME</th>
-<th>Duration</th>
-<th>Speedup</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Default</td>
-<td>82.1s</td>
-<td>n/a</td>
-</tr>
-<tr>
-<td>With optimisation flags</td>
-<td>16.3s</td>
-<td>5.0x</td>
-</tr>
-<tr>
-<td>With optimisation flags and USE_FAST_LOG set</td>
-<td>15.6s</td>
-<td>5.3x</td>
-</tr>
-</tbody>
-</table>
-<p>For more detail see Joel's
-<a href="https://shenki.github.io/LameMP3-on-Power9/">writeup</a>.</p>
-<h3>FLAC</h3>
-<p><a href="https://xiph.org/flac/">FLAC</a> is an alternative encoding format to
-MP3. But unlike MP3 encoding it is lossless!  The benchmark here was encoding
-audio files into the FLAC format. </p>
-<p>The key part of this workload is missing
-vector support for POWER8 and POWER9. Anton and Amitay submitted this
-<a href="http://lists.xiph.org/pipermail/flac-dev/2018-July/006351.html">patch series</a> that
-adds in POWER specific vector instructions. It also fixes the configuration options
-to correctly detect the POWER8 and POWER9 platforms. With this patch series we get see about a 3x
-improvement in this benchmark.</p>
-<h3>OpenSSL</h3>
-<p><a href="https://www.openssl.org/">OpenSSL</a> is among other things a cryptographic library. The Phoronix benchmark
-measures the number of RSA 4096 signs per second:</p>
-<div class="highlight"><pre><span></span>$ openssl speed -multi <span class="k">$(</span>nproc<span class="k">)</span> rsa4096
-</pre></div>
-
-
-<p>Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
-Mainline OpenSSL has some powerpc multiplication and squaring assembly code which seems
-to be responsible for most of this speedup.</p>
-<p>To see this for yourself, add these four powerpc specific commits on top of OpenSSL-1.1.0f:</p>
-<ol>
-<li><a href="https://github.com/openssl/openssl/commit/b17ff188b17499e83ca3b9df0be47a2f513ac3c5">perlasm/ppc-xlate.pl: recognize .type directive</a></li>
-<li><a href="https://github.com/openssl/openssl/commit/0310becc82d240288a4ab5c6656c10c18cab4454">bn/asm/ppc-mont.pl: prepare for extension</a></li>
-<li><a href="https://github.com/openssl/openssl/commit/68f6d2a02c8cc30c5c737fc948b7cf023a234b47">bn/asm/ppc-mont.pl: add optimized multiplication and squaring subroutines</a></li>
-<li><a href="https://github.com/openssl/openssl/commit/80d27cdb84985c697f8fabb7649abf1f54714d13">ppccap.c: engage new multipplication and squaring subroutines</a></li>
-</ol>
-<p>The following results were from a dual 16-core POWER9:</p>
-<table>
-<thead>
-<tr>
-<th>Version of OpenSSL</th>
-<th>Signs/s</th>
-<th>Speedup</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1.1.0f</td>
-<td>1921</td>
-<td>n/a</td>
-</tr>
-<tr>
-<td>1.1.0f with 4 patches</td>
-<td>3353</td>
-<td>1.74x</td>
-</tr>
-<tr>
-<td>1.1.1-pre1</td>
-<td>3383</td>
-<td>1.76x</td>
-</tr>
-</tbody>
-</table>
-<h3>SciKit-Learn</h3>
-<p><a href="http://scikit-learn.org/">SciKit-Learn</a> is a bunch of python tools for data mining and
-analysis (aka machine learning).</p>
-<p>Joel noticed that the benchmark spent 92% of the time in libblas. Libblas is a
-very basic BLAS (basic linear algebra subprograms) library that python-numpy
-uses to do vector and matrix operations.  The default libblas on Ubuntu is only
-compiled with -O2. Compiling with -Ofast and using alternative BLAS's that have
-powerpc optimisations (such as libatlas or libopenblas) we see big improvements
-in this benchmark:</p>
-<table>
-<thead>
-<tr>
-<th>BLAS used</th>
-<th>Duration</th>
-<th>Speedup</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>libblas -O2</td>
-<td>64.2s</td>
-<td>n/a</td>
-</tr>
-<tr>
-<td>libblas -Ofast</td>
-<td>36.1s</td>
-<td>1.8x</td>
-</tr>
-<tr>
-<td>libatlas</td>
-<td>8.3s</td>
-<td>7.7x</td>
-</tr>
-<tr>
-<td>libopenblas</td>
-<td>4.2s</td>
-<td>15.3x</td>
-</tr>
-</tbody>
-</table>
-<p>You can read more details about this
-<a href="https://shenki.github.io/Scikit-Learn-on-Power9/">here</a>.</p>
-<h3>Blender</h3>
-<p><a href="https://www.blender.org/">Blender</a> is a 3D graphics suite that supports image rendering,
-animation, simulation and game creation. On the surface it appears that Blender
-2.79b (the distro package version that Phoronix used by system/blender-1.0.2)
-failed to use more than 15 threads, even when "-t 128" was added to the Blender
-command line.</p>
-<p>It turns out that even though this benchmark was supposed to be run on CPUs only
-(you can choose to render on CPUs or GPUs), the GPU file was always being used.
-The GPU file is configured with a very large tile size (256x256) -
-which is <a href="https://docs.blender.org/manual/en/dev/render/cycles/settings/scene/render/performance.html#tiles">fine for
-GPUs</a>
-but not great for CPUs. The image size (1280x720) to tile size ratio limits the
-number of jobs created and therefore the number threads used.</p>
-<p>To obtain a realistic CPU measurement with more that 15 threads you can force
-the use of the CPU file by overwriting the GPU file with the CPU one:</p>
-<div class="highlight"><pre><span></span>$ cp
-~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
-~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
-</pre></div>
-
-
-<p>As you can see in the image below, now all of the cores are being utilised!
-<img alt="Blender with CPU Blend file" src="/images/phoronix/blender-88threads.png" title="Blender with CPU Blend file"></p>
-<p>Fortunately this has already been fixed in 
-<a href="https://openbenchmarking.org/test/pts/blender">pts/blender-1.1.1</a>.
-Thanks to the <a href="https://github.com/phoronix-test-suite/test-profiles/issues/24">report</a> by Daniel it
-has also been fixed in <a href="http://openbenchmarking.org/test/system/blender-1.1.0">system/blender-1.1.0</a>.</p>
-<p>Pinning the pts/bender-1.0.2, Pabellon Barcelona, CPU-Only test to a single
-22-core POWER9 chip (<code>sudo ppc64_cpu --cores-on=22</code>) and two POWER9 chips
-(<code>sudo ppc64_cpu --cores-on=44</code>) show a huge speedup:</p>
-<table>
-<thead>
-<tr>
-<th>Benchmark</th>
-<th>Duration (deviation over 3 runs)</th>
-<th>Speedup</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Baseline (GPU blend file)</td>
-<td>1509.97s (0.30%)</td>
-<td>n/a</td>
-</tr>
-<tr>
-<td>Single 22-core POWER9 chip (CPU blend file)</td>
-<td>458.64s (0.19%)</td>
-<td>3.29x</td>
-</tr>
-<tr>
-<td>Two 22-core POWER9 chips (CPU blend file)</td>
-<td>241.33s (0.25%)</td>
-<td>6.25x</td>
-</tr>
-</tbody>
-</table>
-<h3>tl;dr</h3>
-<p>Some of the benchmarks where we don't perform as well as Intel are where the
-benchmark has inline assembly for x86 but uses generic C compiler generated
-assembly for POWER9. We could probably benefit with some more powerpc optimsed functions.</p>
-<p>We also found a couple of things that should result in better performance for all three architectures,
-not just POWER.</p>
-<p>A summary of the performance improvements we found:</p>
-<table>
-<thead>
-<tr>
-<th>Benchmark</th>
-<th>Approximate Improvement</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Parboil</td>
-<td>3x</td>
-</tr>
-<tr>
-<td>x264</td>
-<td>1.1x</td>
-</tr>
-<tr>
-<td>Primesieve</td>
-<td>1.1x</td>
-</tr>
-<tr>
-<td>LAME</td>
-<td>5x</td>
-</tr>
-<tr>
-<td>FLAC</td>
-<td>3x</td>
-</tr>
-<tr>
-<td>OpenSSL</td>
-<td>2x</td>
-</tr>
-<tr>
-<td>SciKit-Learn</td>
-<td>7-15x</td>
-</tr>
-<tr>
-<td>Blender</td>
-<td>3x</td>
-</tr>
-</tbody>
-</table>
-<p>There is obviously room for more improvements, especially with the Primesieve and x264 benchmarks,
-but it would be interesting to see a re-run of the Phoronix benchmarks with these changes. </p>
-<p>Thanks to Anton, Daniel, Joel and Nick for the analysis of the above benchmarks.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -660,6 +325,9 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/04/02/article-review-curing-the-vulnerable-parser/">Article Review: Curing the Vulnerable Parser</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">What Do You Mean "No"?</a>
       </li>
@@ -671,9 +339,6 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2018/10/09/open-source-firmware-conference-2018/">Open Source Firmware Conference 2018</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/">Improving performance of Phoronix benchmarks on POWER9</a>
       </li>
     </ul>
   </section>

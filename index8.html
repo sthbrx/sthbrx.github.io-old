@@ -102,6 +102,40 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/">linux.conf.au 2016: A set of brief thoughts</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time></div>
+
+  <div class="entry-content"><p>Recently most of us attended LCA2016. This is one set of reflections on what we heard and what we've thought since. (Hopefully not the only set of reflections that will be posted on this blog either!)</p>
+<p>LCA was 2 days of miniconferences plus 3 days of talks. Here, I've picked some of the more interesting talks I attended, and I've written down some thoughts. If you find the thoughts interesting, you can click through and watch the whole talk video, because LCA is awesome like that.</p>
+<h4>Life is better with Rust's community automation</h4>
+<p><a href="https://www.youtube.com/watch?v=dIageYT0Vgg">This talk</a> is probably the one that's had the biggest impact on our team so far. We were really impressed by the community automation that Rust has: the way they can respond to pull requests from new community members in a way that lets them keep their code quality high and be nice to everyone at the same time.</p>
+<p>The system that they've developed is fascinating (and seems fantastic). However, their system uses pull requests, while we use mailing lists. Pull requests are easy, because github has good hook support, but how do we link mailing lists to an automatic test system?</p>
+<p>As it turns out, this is something we're working on: we already have <a href="http://patchwork.ozlabs.org/">Patchwork</a>, and <a href="https://openpower.xyz/">Jenkins</a>: how do we link them? We have something brewing, which we'll open source real soon now - stay tuned!</p>
+<h4>Usable formal methods - are we there yet?</h4>
+<p>I liked <a href="https://www.youtube.com/watch?v=RxHjhBVOCSU">this talk</a>, as I have a soft spot for formal methods (as I have a soft spot for maths). It covers applying a bunch of static analysis and some of the less intrusive formal methods (in particular <a href="http://www.cprover.org/cbmc/">cbmc</a>) to an operating system kernel. They were looking at eChronos rather than Linux, but it's still quite an interesting set of results.</p>
+<p>We've also tried to increase our use of static analysis, which has already found a <a href="http://patchwork.ozlabs.org/patch/580629/">real bug</a>. We're hoping to scale this up, especially the use of sparse and cppcheck, but we're a bit short on developer cycles for it at the moment.</p>
+<h4>Adventures in OpenPower Firmware</h4>
+<p>Stewart Smith - another OzLabber - gave <a href="https://www.youtube.com/watch?v=a4XGvssR-ag">this talk</a> about, well, OpenPOWER firmware. This is a large part of our lives in OzLabs, so it's a great way to get a picture of what we do each day. It's also a really good explanation of the open source stack we have: a POWER8 CPU runs open-source from the first cycle.</p>
+<h4>What Happens When 4096 Cores <code>All Do synchronize_rcu_expedited()</code>?</h4>
+<p>Paul McKenney is a parallel programming genius - he literally <a href="https://www.kernel.org/pub/linux/kernel/people/paulmck/perfbook/perfbook.html">'wrote the book'</a> (or at least, wrote <em>a</em> book!) on it. <a href="https://www.youtube.com/watch?v=1nfpjHTWaUc">His talk</a> is - as always - a brain-stretching look at parallel programming within the RCU subsystem of the Linux kernel. In particular, the tree structure for locking that he presents is really interesting and quite a clever way of scaling what at first seems to be a necessarily global lock.</p>
+<p>I'd also really recommed <a href="https://www.youtube.com/watch?v=tFmajPt0_hI">RCU Mutation Testing</a>, from the kernel miniconf, also by Paul.</p>
+<h4>What I've learned as the kernel docs maintainer</h4>
+<p>As an extra bonus: I mention <a href="https://www.youtube.com/watch?v=gsJXf6oSbAE">this talk</a>, just to say "why on earth have we still not fixed the Linux kernel <a href="https://www.kernel.org/doc/linux/README">README</a>"?!!?</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/03/03/learning-from-the-best/">Learning From the Best</a>
       </h1>
     <p class="meta">
@@ -353,83 +387,6 @@ Perhaps this is the path, at the very least you're asking questions and
 approaching people. I'm hope I did on the day, but once again, all the very
 best with your endeavours into the future</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-11-03T15:02:00+11:00" pubdate>Tue 03 November 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2015-11-03T15:02:00+11:00" pubdate>Tue 03 November 2015</time></div>
-
-  <div class="entry-content"><p>One of the cool features of POWER8 processors is the ability to run in either big- or little-endian mode. Several distros are already available in little-endian, but up until recently Petitboot has remained big-endian. While it has no effect on the OS, building Petitboot little-endian has its advantages, such as making support for vendor tools easier.
-So it should just be a matter of compiling Petitboot LE right? Well...</p>
-<h3>Switching Endianess</h3>
-<p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
-<p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
-<p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
-<div class="highlight"><pre><span></span><span class="cp">#define FIXUP_ENDIAN</span>
-    <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
-    <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa602487d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x1c004a39</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa600607d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x01006b69</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6035a7d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6037b7d</span><span class="p">;</span>
-    <span class="p">.</span><span class="kt">long</span> <span class="mh">0x2400004c</span>
-</pre></div>
-
-
-<p>By some amazing coincidence if you take the opcode for <code>tdi 0, 0, 0x48</code> and flip the order of the bytes it forms the opcode for <code>b . + 8</code>. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR<sub>LE</sub> being set to 1.</p>
-<p>When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...</p>
-<h3>Petitboot's Secret Sauce</h3>
-<p>The main feature of Petitboot is that it is a full (but small!) Linux kernel and userspace which scans all available devices and presents possible boot options. To boot an available operating system Petitboot needs to start executing the OS's kernel, which it accomplishes via <a href="https://en.wikipedia.org/wiki/Kexec">kexec</a>. Simply speaking kexec loads the target kernel into memory, shuts the current system down most of the way, and at the last moment sets the instruction pointer to the start of the target kernel. From there it's like booting any other kernel, including the FIXUP_ENDIAN section above.</p>
-<h3>We've Booted! Wait...</h3>
-<p>So our LE Petitboot kernel boots fine thanks to FIXUP_ENDIAN, we kexec into some other kernel.. and everything falls to pieces.<br>
-The problem is we've unwittingly changed one of the assumptions of booting a kernel; namely that MSR<sub>LE</sub> defaults to zero. When kexec-ing from an LE kernel we start executing the next kernel in LE mode. This itself is ok, the FIXUP_ENDIAN macro will handle the switch if needed. The problem is that the FIXUP_ENDIAN macro is relatively recent, first entering the kernel in early 2014. So if we're booting, say, an old Fedora 19 install with a v3.9 kernel - things go very bad, very quickly.</p>
-<h3>Fix #1</h3>
-<p>The solution seems pretty straightforward: find where we jump into the next kernel, and just before that make sure we reset the LE bit in the MSR. That's exactly what <a href="https://github.com/antonblanchard/kexec-lite/commit/150b14e76a4b51f865b929ad9a9bf4133e2d3af7">this patch</a> to kexec-lite does.<br>
-That worked up until I tested on a machine with more than one CPU. Remembering that the MSR is processor-specific, we also have to <a href="https://github.com/torvalds/linux/commit/ffebf5f391dfa9da3e086abad3eef7d3e5300249">reset the endianess of each secondary CPU</a><br>
-Now things are looking good! All the CPUs are reset to big-endian, the target kernel boots fine, and then... 'recursive interrupts?!'</p>
-<h3>HILE</h3>
-<p>Skipping the debugging process that led to this (hint: <a href="https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/">mambo</a> is actually a pretty cool tool), these were the sequence of steps leading up to the problem:</p>
-<ul>
-<li>Little-endian Petitboot kexecs into a big-endian kernel</li>
-<li>All CPUs are reset to big-endian</li>
-<li>The big-endian kernel begins to boot successfully</li>
-<li>Somewhere in the device-tree parsing code we take an exception</li>
-<li>Execution jumps to the exception handler at <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/kernel/exceptions-64s.S#L199">0x300</a></li>
-<li>I notice that MSR<sub>LE</sub> is set to 1</li>
-<li>WHAT WHY IS THE LE BIT IN THE MSR SET TO 1</li>
-<li>We fail to read the first instruction at 0x300 because it's written in big-endian, so we jump to the exception handler at 0x300... oh no.</li>
-</ul>
-<p>And then we very busily execute nothing until the machine is killed. I spend some time staring incredulously at my screen, then appeal to a <a href="https://github.com/torvalds/linux/blob/master/MAINTAINERS">higher authority</a> who replies with "What is the HILE set to?"  </p>
-<p>..the WHAT?<br>
-Cracking open the <a href="https://www.power.org/documentation/power-isa-v-2-07b/">PowerISA</a> reveals this tidbit:</p>
-<blockquote>
-<p>The Hypervisor Interrupt Little-Endian (HILE) bit is a bit
-in an implementation-dependent register or similar
-mechanism. The contents of the HILE bit are copied
-into MSR<sub>LE</sub> by interrupts that set MSR<sub>HV</sub> to 1 (see Section
-6.5), to establish the Endian mode for the interrupt
-handler. The HILE bit is set, by an implementation-dependent
-method, during system initialization,
-and cannot be modified after system initialization.</p>
-</blockquote>
-<p>To be fair, there are use cases for taking exceptions in a different endianess. The problem is that while HILE gets switched on when setting MSR<sub>LE</sub> to 1, it <em>doesn't</em> get turned off when MSR<sub>LE</sub> is set to zero. In particular the line "...cannot be modified after system initialization." led to a fair amount of hand wringing from myself and whoever would listen; if we can't reset the HILE bit, we simply can't use little-endian kernels for Petitboot.  </p>
-<p>Luckily while on some other systems the machinations of the firmware might be a complete black box, Petitboot runs on OPAL systems - which means the firmware source is <a href="https://github.com/open-power/skiboot">right here</a>. In particular we can see here the OPAL call to <a href="https://github.com/open-power/skiboot/blob/master/core/cpu.c#L702">opal_reinit_cpus</a> which among other things resets the HILE bit.<br>
-This is actually what turns on the HILE bit in the first place, and is meant to be called early on in boot since it also clobbers a large amount of state. Luckily for us we don't need to hold onto any state since we're about to jump into a new kernel. We just need to choose an appropriate place where we can be sure we won't take an exception before we get into the next kernel: thus the <a href="https://github.com/torvalds/linux/commit/e72bb8a5a884d022231149d407653923a1d79e53">final patch to support PowerNV machines.</a></p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index9.html">&larr; Older</a>
 
@@ -441,6 +398,9 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/04/02/article-review-curing-the-vulnerable-parser/">Article Review: Curing the Vulnerable Parser</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">What Do You Mean "No"?</a>
       </li>
       <li class="post">
@@ -451,9 +411,6 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2018/10/09/open-source-firmware-conference-2018/">Open Source Firmware Conference 2018</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/">Improving performance of Phoronix benchmarks on POWER9</a>
       </li>
     </ul>
   </section>
