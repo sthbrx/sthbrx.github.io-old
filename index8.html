@@ -102,6 +102,33 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2016-03-15T11:30:00+11:00" pubdate>Tue 15 March 2016</time></div>
+
+  <div class="entry-content"><p>In early February I had the opportunity to go the the NICTA Systems Summer School, where Cyril and I were invited to represent IBM. There were a number of excellent talks across a huge range of systems related subjects, but the one that has stuck with me the most was a talk given by <a href="http://homes.cs.washington.edu/~luisceze/">Luis Ceze</a>  on a topic called approximate computing. So here, in hopes that you too find it interesting, is a brief run-down on what I learned.</p>
+<p>Approximate computing is fundamentally about trading off accuracy for something else - often speed or power consumption. Initially this sounded like a very weird proposition: computers do things like 'running your operating system' and 'reading from and writing to disks': things you need to always be absolutely correct if you want anything vaguely resembling reliability. It turns out that this is actually not as big a roadblock as I had assumed - you can work around it fairly easily.</p>
+<p>The model proposed for approximate computing is as follows. You divide your computation up into two classes: 'precise', and 'approximate'. You use 'precise' computations when you need to get exact answers: so for example if you are constructing a JPEG file, you want the JPEG header to be exact. Then you have approximate computations: so for example the contents of your image can be approximate.</p>
+<p>For correctness, you have to establish some boundaries: you say that precise data can be used in approximate calculations, but that approximate data isn't allowed to cross back over and pollute precise calculations. This, while intuitively correct, poses some problems in practise: when you want to write out your approximate JPEG data, you need an operation that allows you to 'bless' (or in their terms 'endorse') some approximate data so it can be used in the precise file system operations.</p>
+<p>In the talk we were shown an implementation of this model in Java, called <a href="http://sampa.cs.washington.edu/research/approximation/enerj.html">EnerJ</a>. EnerJ allows you to label variables with either <code>@Precise</code> if you're dealing with precise data, or <code>@Approx</code> if you're dealing with approximate data. The compiler was modified so that it would do all sorts of weird things when it knew it was dealing with approximate data: for example, drop loop iterations entirely, do things in entirely non-determistic ways - all sorts of fun stuff. It turns out this works surprisingly well.</p>
+<p>However, the approximate computing really shines when you can bring it all the way down to the hardware level. The first thing they tried was a CPU with both 'approximate' and precise execution engines, but this turned out not to have the power savings hoped for. What seemed to work really well was a model where some approximate calculations could be identified ahead of time, and then replaced with neural networks in hardware. These neural networks approximated the calculations, but did so at significantly lower power levels. This sounded like a really promising concept, and it will be interesting to see if this goes anywhere over the next few years.</p>
+<p>There's a lot of work evaluating the quality of the approximate result, for cases where the set of inputs is known, and when the inputs is not known. This is largely beyond my understanding, so I'll simply refer you to some of the papers <a href="http://sampa.cs.washington.edu/research/approximation/enerj.html">listed on the website</a>.</p>
+<p>The final thing covered in the talk was bringing approximate computing into current paradigms by just being willing to accept higher user-visible error rates. For example, they hacked up a network stack to accept packets with invalid checksums. This has had mixed results so far. A question I had (but didn't get around to asking!) would be whether the mathematical properties of checksums (i.e. that they can correct a certain number of bit errors) could be used to correct some of the errors, rather than just accepting/rejecting them blindly. Perhaps by first attempting to correct errors using the checksums, we will be able to fix the simpler errors, reducing the error rate visible to the user.</p>
+<p>Overall, I found the NICTA Systems Summer School to be a really interesting experience (and I hope to blog more about it soon). If you're a university student in Australia, or an academic, see if you can make it in 2017!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/03/15/linuxconfau-2016-a-set-of-brief-thoughts/">linux.conf.au 2016: A set of brief thoughts</a>
       </h1>
     <p class="meta">
@@ -313,80 +340,6 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>You can find the full code in-tree <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c">here</a>.</p>
 <p>And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/">Evolving into a systems programmer</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-11-06T11:13:00+11:00" pubdate>Fri 06 November 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
-    </span>
-  </span>
-<time datetime="2015-11-06T11:13:00+11:00" pubdate>Fri 06 November 2015</time></div>
-
-  <div class="entry-content"><p>In a previous life I tutored first year computing. The university I
-attended had a policy of using C to introduce first years to programming.
-One of the most rewarding aspects of teaching is opening doors of
-possibility to people by sharing my knowledge.</p>
-<p>Over the years I had a mixture of computer science or computer engineering
-students as well as other disciplines of engineering who were required to
-learn the basics (notably electrical and mechanical). Each class was
-different and the initial knowledge always varied greatly. The beauty of
-teaching C meant that there was never someone who truly knew it all, heck,
-I didn't and still don't. The other advantage of teaching C is that I could
-very quickly spot the hackers, the shy person at the back of the room who's
-eyes light up when you know you've correctly explained pointers (to them
-anyway) or when asked "What happens if you use a negative index into an
-array" and the smile they would make upon hearing "What do you think happens".</p>
-<p>Right there I would see the makings of a hacker, and this post is dedicated
-to you or to anyone who wants to be a hacker. I've been asked "What did you
-do to get where you are?", "How do I get into Linux?" (vague much) at
-careers fairs. I never quite know what to say, here goes a braindump.</p>
-<p>Start with the basics, one of the easiest way we tested the first years was
-to tell them they can't use parts of libc. That was a great exam, taking
-aside those who didn't read the question and used <code>strlen()</code> when they were
-explicitly told they couldn't <code>#include &lt;string.h&gt;</code> a true hacker doesn't
-need libc, understand it won't always be there. I thought of this example
-because only two weeks ago I was writing code in an environment where I
-didn't have libc. Ok sure, if you've got it, use it, just don't crumble
-when you don't. Oh how I wish I could have told those students who argued
-that it was a pointless question that they were objectively wrong.</p>
-<p>Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
-a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
-it's intense but perhaps understand the beauty of GCC, know what it's doing
-for you. There is a variety of little 8 bit processors you can play with
-these days.</p>
-<p>At all levels of my teaching I saw almost everyone get something which
-'worked', and that's fine, it probably does but I'm here to tell you that
-it doesn't work until you know why it works. I'm all for the 'try it and
-see' approach but once you've tried it you have to explain why the
-behaviour changed otherwise you didn't fix it. As an extension to that,
-know how your tools work, I don't think anyone would expect you to be able
-to write tools to the level of complexity of GCC or GDB or Valgrind but
-have a rough idea as to how they achieve their goals.</p>
-<p>A hacker is paranoid, yes, <code>malloc()</code> fails. Linux might just decide now
-isn't a good time for you to <code>open()</code> and your <code>fopen()</code> calling function had
-better be cool with that. A hacker also doesn't rely on the kindness of the
-operating system theres an <code>munmap()</code> for a reason. Nor should you even
-completely trust it, what are you leaving around in memory?</p>
-<p>Above all do a it for the fun of it, so many of my students asked how I
-knew everything I knew (I was only a year ahead of them in my first year of
-teaching) and put simply, write code on a Saturday night.</p>
-<p>None of these things do or don't make you a hacker, being a hacker is a
-frame of mind and a way of thinking but all of the above helps.</p>
-<p>Unfortunately there isn't a single path, I might even say it is a path that
-chooses you. Odds are you're here because you approached me at some point
-and asked me one of those questions I never quite know how to answer.
-Perhaps this is the path, at the very least you're asking questions and
-approaching people. I'm hope I did on the day, but once again, all the very
-best with your endeavours into the future</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index9.html">&larr; Older</a>
 
@@ -398,6 +351,9 @@ best with your endeavours into the future</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/04/02/article-review-curing-the-vulnerable-parser/">Article Review: Curing the Vulnerable Parser</a>
       </li>
       <li class="post">
@@ -408,9 +364,6 @@ best with your endeavours into the future</p></div>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/">OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2018/10/09/open-source-firmware-conference-2018/">Open Source Firmware Conference 2018</a>
       </li>
     </ul>
   </section>
@@ -431,7 +384,7 @@ best with your endeavours into the future</p></div>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>  </section>
+    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>

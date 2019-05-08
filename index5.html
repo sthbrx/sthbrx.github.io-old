@@ -102,6 +102,59 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/08/17/getting-in-sync/">Getting In Sync</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-08-17T15:23:00+10:00" pubdate>Wed 17 August 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2016-08-17T15:23:00+10:00" pubdate>Wed 17 August 2016</time></div>
+
+  <div class="entry-content"><p>Since at least v1.0.0 Petitboot has used device-mapper snapshots to avoid
+mounting block devices directly. Primarily this is so Petitboot can mount disks
+and potentially perform filesystem recovery without worrying about messing it up
+and corrupting a host's boot partition - all changes happen to the snapshot in
+memory without affecting the actual device.</p>
+<p>This of course gets in the way if you actually <em>do</em> want to make changes to a
+block device. Petitboot will allow certain bootloader scripts to make changes
+to disks if configured (eg, grubenv updates), but if you manually make changes
+you would need to know the special sequence of <code>dmsetup</code> commands to merge the
+snapshots back to disk. This is particulary annoying if you're trying to copy
+logs to a USB device!</p>
+<p>Depending on how recent a version of Petitboot you're running, there are two
+ways of making sure your changes persist:</p>
+<h2>Before v1.2.2</h2>
+<p>If you really need to save changes from within Petitboot, the most
+straightforward way is to disable snapshots. Drop to the shell and enter</p>
+<div class="highlight"><pre><span></span>nvram --update-config petitboot,snapshots?=false
+reboot
+</pre></div>
+
+
+<p>Once you have rebooted you can remount the device as read-write and
+modify it as normal.</p>
+<h2>After v1.2.2</h2>
+<p>To make this easier while keeping the benefit of snapshots, v1.2.2 introduces
+a new user-event that will merge snapshots on demand. For example:</p>
+<div class="highlight"><pre><span></span>mount -o remount,rw /var/petitboot/mnt/dev/sda2
+cp /var/log/messages /var/petitboot/mnt/dev/sda2/
+pb-event sync@sda2
+</pre></div>
+
+
+<p>After calling <code>pb-event sync@yourdevice</code>, Petitboot will remount the device back to
+read-only and merge the current snapshot differences back to disk. You can also
+run <code>pb-event sync@all</code> to sync all existing snapshots if desired.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/">Get off my lawn: separating Docker workloads using cgroups</a>
       </h1>
     <p class="meta">
@@ -118,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <div class="entry-content"><p>On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.</p>
 <p>Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.</p>
-<p>This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.<sup id="fnref-1"><a class="footnote-ref" href="#fn-1">1</a></sup></p>
+<p>This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.<sup id="fnref:1"><a class="footnote-ref" href="#fn:1" rel="footnote">1</a></sup></p>
 <p>So, <strong>can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?</strong></p>
 <p>What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.</p>
 <p>For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is <a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf">the relevant RedBook (PDF)</a>, chapter 2.</p>
@@ -132,7 +185,7 @@ NUMA node17 CPU(s):    64-95
 
 
 <p>Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or <code>cgroups</code> for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called <code>cpuset</code>, which can control CPU affinity, and restrict memory allocation to a NUMA node.</p>
-<p>We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!<sup id="fnref-2"><a class="footnote-ref" href="#fn-2">2</a></sup> Docker containers are put in the <code>docker</code> cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.<sup id="fnref-3"><a class="footnote-ref" href="#fn-3">3</a></sup> So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:</p>
+<p>We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!<sup id="fnref:2"><a class="footnote-ref" href="#fn:2" rel="footnote">2</a></sup> Docker containers are put in the <code>docker</code> cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.<sup id="fnref:3"><a class="footnote-ref" href="#fn:3" rel="footnote">3</a></sup> So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:</p>
 <div class="highlight"><pre><span></span>cgcreate -g cpuset:docker
 <span class="nb">echo</span> <span class="m">32</span>-127 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
 <span class="nb">echo</span> <span class="m">1</span>,16-17 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
@@ -171,14 +224,14 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
 <div class="footnote">
 <hr>
 <ol>
-<li id="fn-1">
-<p>It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&#160;<a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+<li id="fn:1">
+<p>It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&#160;<a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text">&#8617;</a></p>
 </li>
-<li id="fn-2">
-<p>At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&#160;<a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+<li id="fn:2">
+<p>At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&#160;<a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text">&#8617;</a></p>
 </li>
-<li id="fn-3">
-<p>I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&#160;<a class="footnote-backref" href="#fnref-3" title="Jump back to footnote 3 in the text">&#8617;</a></p>
+<li id="fn:3">
+<p>I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&#160;<a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text">&#8617;</a></p>
 </li>
 </ol>
 </div></div>
@@ -300,145 +353,6 @@ option should appear - select it and away you go!</p></div>
 <p>Approaching the tail-end of Year Twelve, I was blessed with some really good feedback and recommendations regarding further study. If during the two weeks I had any query regarding anything ranging from work-life to programming expertise even to which code editor I should use (a source of much contention) the people in the office were very happy to help me. Several employees donated their time to teach me really very intensive and long lessons regarding the software development concepts, including (but not limited to!) a thorough and helpful lesson on Git that was just on my level of understanding.</p>
 <p>Working at IBM these past two weeks has not only bridged the gap between my hobby and my professional prospects, but more importantly established friendships with professionals in the field of Software Development. Without a doubt this really great experience of an environment that rewards my enthusiasm will fondly stay in my mind as I enter the next chapter of my life!</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/06/24/kernel-interfaces-and-vdso-test/">Kernel interfaces and vDSO test</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-06-24T16:30:00+10:00" pubdate>Fri 24 June 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
-    </span>
-  </span>
-<time datetime="2016-06-24T16:30:00+10:00" pubdate>Fri 24 June 2016</time></div>
-
-  <div class="entry-content"><h3>Getting Suckered</h3>
-<p>Last week a colleague of mine came up to me and showed me some of the
-<abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> on PowerPC and asked why on earth does it fail
-<a href="https://github.com/nlynch-mentor/vdsotest">vdsotest</a>. I should come
-clean at this point and admit that I knew very little about the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr>
-and hadn't heard of vdsotest. I had to admit to this colleague that I
-had no idea everything looked super sane.</p>
-<p>Unfortunately (for me) I got hooked, vdsotest was saying it was
-getting '22' instead of '-1' and it was the case where the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> would
-call into the kernel. It plagued me all night, 22 is so suspicious.
-Right before I got to work the next morning I had an epiphany, "I bet
-22 is EINVAL".</p>
-<h3>Virtual Dynamically linked Shared Objects</h3>
-<p>The <a href="https://en.wikipedia.org/wiki/VDSO"><abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr></a> is a mechanism to
-expose some kernel functionality into userspace to avoid the cost of a
-context switch into kernel mode. This is a great feat of engineering,
-avoiding the context switch can have a dramatic speedup for userspace
-code. Obviously not all kernel functionality can be placed into
-userspace and even for the functionality which can,
-there may be edge cases in which the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> needs to ask the kernel.</p>
-<p>Who tests the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr>? For the portion that lies exclusively in userspace it
-will escape all testing of the syscall interface which is really what
-kernel developers are so focused on not breaking. Enter Nathan Lynch
-with <a href="https://github.com/nlynch-mentor/vdsotest">vdsotest</a> who has
-done some great work!</p>
-<h3>The Kernel</h3>
-<p>When the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> can't get the correct value without the kernel, it
-simply calls into the kernel because the kernel is the definitive
-reference for every syscall. On PowerPC something like this happens
-(sorry, our <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> is 100% asm):
-<sup id="fnref-1"><a class="footnote-ref" href="#fn-1">1</a></sup></p>
-<div class="highlight"><pre><span></span><span class="err">/*</span>
- <span class="err">*</span> <span class="nf">Exact</span> <span class="no">prototype</span> <span class="no">of</span> <span class="no">clock_gettime</span><span class="p">()</span>
- <span class="err">*</span>
- <span class="err">*</span> <span class="nf">int</span> <span class="no">__kernel_clock_gettime</span><span class="p">(</span><span class="no">clockid_t</span> <span class="no">clock_id</span><span class="p">,</span> <span class="no">struct</span> <span class="no">timespec</span> <span class="p">*</span><span class="no">tp</span><span class="p">)</span><span class="c">;</span>
- <span class="p">*</span>
- <span class="err">*/</span>
-<span class="nf">V_FUNCTION_BEGIN</span><span class="p">(</span><span class="no">__kernel_clock_gettime</span><span class="p">)</span>
-  <span class="na">.cfi_startproc</span>
-    <span class="err">/*</span> <span class="nf">Check</span> <span class="no">for</span> <span class="no">supported</span> <span class="no">clock</span> <span class="no">IDs</span> <span class="p">*</span><span class="err">/</span>
-    <span class="nf">cmpwi</span>   <span class="no">cr0</span><span class="p">,</span><span class="no">r3</span><span class="p">,</span><span class="no">CLOCK_REALTIME</span>
-    <span class="nf">cmpwi</span>   <span class="no">cr1</span><span class="p">,</span><span class="no">r3</span><span class="p">,</span><span class="no">CLOCK_MONOTONIC</span>
-    <span class="nf">cror</span>    <span class="no">cr0</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="p">,</span><span class="no">cr0</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="p">,</span><span class="no">cr1</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span>
-    <span class="nf">bne</span> <span class="no">cr0</span><span class="p">,</span><span class="mi">99</span><span class="no">f</span>
-
-    <span class="err">/*</span> <span class="err">[</span><span class="nf">snip</span><span class="p">]</span> <span class="p">*</span><span class="err">/</span>
-
-    <span class="err">/*</span>
-     <span class="err">*</span> <span class="nf">syscall</span> <span class="no">fallback</span>
-     <span class="err">*/</span>
-<span class="err">99:</span>
-    <span class="nf">li</span>  <span class="no">r0</span><span class="p">,</span><span class="no">__NR_clock_gettime</span>
-    <span class="nf">sc</span>
-    <span class="nf">blr</span>
-</pre></div>
-
-
-<p>For those not familiar, this couldn't be more simple. The start checks
-to see if it is a clock id that the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> can handle and if not it jumps
-to the 99 label. From here simply load the syscall number, jump to the
-kernel and branch to link register aka 'return'.  In this case the
-'return' statement would return to the userspace code which called the
-<abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> function.</p>
-<p>Wait, having the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> calling into the kernel call gets us the wrong
-result? Or course it should, vdsotest is assuming a C ABI with return
-values and errno but the kernel doesn't do that, the kernel ABI is
-different. How does this even work on x86? Ohhhhh vdsotest does <sup id="fnref-2"><a class="footnote-ref" href="#fn-2">2</a></sup></p>
-<div class="highlight"><pre><span></span><span class="k">static</span> <span class="kr">inline</span> <span class="kt">void</span> <span class="nf">record_syscall_result</span><span class="p">(</span><span class="k">struct</span> <span class="n">syscall_result</span> <span class="o">*</span><span class="n">res</span><span class="p">,</span>
-                     <span class="kt">int</span> <span class="n">sr_ret</span><span class="p">,</span> <span class="kt">int</span> <span class="n">sr_errno</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="cm">/* Calling the vDSO directly instead of through libc can lead to:</span>
-<span class="cm">     * - The vDSO code punts to the kernel (e.g. unrecognized clock id).</span>
-<span class="cm">     * - The kernel returns an error (e.g. -22 (-EINVAL))</span>
-<span class="cm">     * So we need to recognize this situation and fix things up.</span>
-<span class="cm">     * Fortunately we&#39;re dealing only with syscalls that return -ve values</span>
-<span class="cm">     * on error.</span>
-<span class="cm">     */</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">sr_ret</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">sr_errno</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">sr_errno</span> <span class="o">=</span> <span class="o">-</span><span class="n">sr_ret</span><span class="p">;</span>
-        <span class="n">sr_ret</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
-    <span class="p">}</span>
-
-    <span class="o">*</span><span class="n">res</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">syscall_result</span><span class="p">)</span> <span class="p">{</span>
-        <span class="p">.</span><span class="n">sr_ret</span> <span class="o">=</span> <span class="n">sr_ret</span><span class="p">,</span>
-        <span class="p">.</span><span class="n">sr_errno</span> <span class="o">=</span> <span class="n">sr_errno</span><span class="p">,</span>
-    <span class="p">};</span>
-<span class="p">}</span>
-</pre></div>
-
-
-<p>That little hack isn't working on PowerPC and here's why:</p>
-<p>The kernel puts the return value in the ABI specified return register
-(r3) and uses a condition register bit (condition register field 0, SO
-bit), so unlike x86 on error the return value isn't negative. To make
-matters worse, the condition register is very difficult to access from
-C. Depending on your definition of 'access from C' you might consider
-it impossible, a fixup like that would be impossible.</p>
-<h3>Lessons learnt</h3>
-<ul>
-<li><abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> supplied functions aren't quite the same as their libc
-counterparts. Unless you have very good reason, and to be fair,
-vdsotest does have a very good reason, always access the <abbr title="Virtual Dynamically linked Shared Objects">vDSO</abbr> through
-libc</li>
-<li>Kernel interfaces aren't C interfaces, yep, they're close but they
-  aren't the same</li>
-<li>22 is in fact EINVAL</li>
-<li>Different architectures are... Different!</li>
-<li>Variety is the spice of life</li>
-</ul>
-<p>P.S I have a hacky patch waiting review</p>
-<div class="footnote">
-<hr>
-<ol>
-<li id="fn-1">
-<p>arch/powerpc/kernel/vdso64/gettimeofday.S&#160;<a class="footnote-backref" href="#fnref-1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-<li id="fn-2">
-<p>src/vdsotest.h&#160;<a class="footnote-backref" href="#fnref-2" title="Jump back to footnote 2 in the text">&#8617;</a></p>
-</li>
-</ol>
-</div></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index6.html">&larr; Older</a>
 
@@ -450,6 +364,9 @@ libc</li>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/04/02/article-review-curing-the-vulnerable-parser/">Article Review: Curing the Vulnerable Parser</a>
       </li>
       <li class="post">
@@ -460,9 +377,6 @@ libc</li>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/">OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2018/10/09/open-source-firmware-conference-2018/">Open Source Firmware Conference 2018</a>
       </li>
     </ul>
   </section>
@@ -483,7 +397,7 @@ libc</li>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>  </section>
+    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
