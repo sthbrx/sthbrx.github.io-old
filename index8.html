@@ -102,6 +102,89 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/03/21/no-network-for-you/">No Network For You</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-03-21T15:23:00+11:00" pubdate>Mon 21 March 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2016-03-21T15:23:00+11:00" pubdate>Mon 21 March 2016</time></div>
+
+  <div class="entry-content"><p>In POWER land <a href="https://en.wikipedia.org/wiki/Intelligent_Platform_Management_Interface">IPMI</a> is mostly known as the method to access the machine's console and start interacting with Petitboot. However it also has a plethora of other features, handily described in the 600ish page <a href="http://www.intel.com/content/www/us/en/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html">IPMI specification</a> (which you can go read yourself).</p>
+<p>One especially relevant feature to Petitboot however is the 'chassis bootdev' command, which you can use to tell Petitboot to ignore any existing boot order, and only consider boot options of the type you specify (eg. 'network', 'disk', or 'setup' to not boot at all). Support for this has been in Petitboot for a while and should work on just about any machine you can get your hands on.</p>
+<h2>Network Overrides</h2>
+<p>Over in OpenPOWER<sup>1</sup> land however, someone took this idea and pushed it further - why not allow the network configuration to be overwritten too? This isn't in the IPMI spec, but if you cast your gaze down to page 398 where the spec lays out the entire format of the IPMI request, there is a certain field named "OEM Parameters". This is an optional amount of space set aside for whatever you like, which in this case is going to be data describing an override of the network config.</p>
+<p>This allows a user to tell Petitboot over IPMI to either;</p>
+<ul>
+<li>Disable the network completely,</li>
+<li>Set a particular interface to use DHCP, or</li>
+<li>Set a particular interface to use a specific static configuration.</li>
+</ul>
+<p>Any of these options will cause any existing network configurations to be ignored.</p>
+<h2>Building the Request</h2>
+<p>Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:</p>
+<div class="highlight"><pre><span></span><span class="n">ipmitool</span> <span class="o">-</span><span class="n">I</span> <span class="n">lanplus</span> <span class="o">-</span><span class="n">H</span> <span class="err">$</span><span class="n">yourbmc</span> <span class="o">-</span><span class="n">U</span> <span class="err">$</span><span class="k">user</span> <span class="o">-</span><span class="n">P</span> <span class="err">$</span><span class="n">pass</span> <span class="n">raw</span> <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x08</span> <span class="mi">0</span><span class="n">x61</span> <span class="mi">0</span><span class="n">x80</span> <span class="mi">0</span><span class="n">x21</span> <span class="mi">0</span><span class="n">x70</span> <span class="mi">0</span><span class="n">x62</span> <span class="mi">0</span><span class="n">x21</span> <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x01</span> <span class="mi">0</span><span class="n">x06</span> <span class="mi">0</span><span class="n">x04</span> <span class="mi">0</span><span class="n">xf4</span> <span class="mi">0</span><span class="n">x52</span> <span class="mi">0</span><span class="n">x14</span> <span class="mi">0</span><span class="n">xf3</span> <span class="mi">0</span><span class="n">x01</span> <span class="mi">0</span><span class="n">xdf</span> <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x01</span> <span class="mi">0</span><span class="n">x0a</span> <span class="mi">0</span><span class="n">x3d</span> <span class="mi">0</span><span class="n">xa1</span> <span class="mi">0</span><span class="n">x42</span> <span class="mi">0</span><span class="n">x10</span> <span class="mi">0</span><span class="n">x0a</span> <span class="mi">0</span><span class="n">x3d</span> <span class="mi">0</span><span class="n">x2</span> <span class="mi">0</span><span class="n">x1</span>
+</pre></div>
+
+
+<p>Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:</p>
+<div class="highlight"><pre><span></span><span class="nv">Specify</span> <span class="nv">the</span> <span class="s2">&quot;</span><span class="s">chassis bootdev</span><span class="s2">&quot;</span> <span class="nv">command</span>, <span class="nv">field</span> <span class="mi">96</span>, <span class="nv">data</span> <span class="nv">field</span> <span class="mi">1</span>:
+    <span class="mi">0</span><span class="nv">x00</span> <span class="mi">0</span><span class="nv">x08</span> <span class="mi">0</span><span class="nv">x61</span> <span class="mi">0</span><span class="nv">x80</span>
+
+<span class="nv">Unique</span> <span class="nv">value</span> <span class="nv">that</span> <span class="nv">Petitboot</span> <span class="nv">recognises</span>:
+    <span class="mi">0</span><span class="nv">x21</span> <span class="mi">0</span><span class="nv">x70</span> <span class="mi">0</span><span class="nv">x62</span> <span class="mi">0</span><span class="nv">x21</span>
+
+<span class="nv">Version</span> <span class="nv">field</span> <span class="ss">(</span><span class="mi">1</span><span class="ss">)</span>
+    <span class="mi">0</span><span class="nv">x00</span> <span class="mi">0</span><span class="nv">x01</span> ..   ..
+
+<span class="nv">Size</span> <span class="nv">of</span> <span class="nv">the</span> <span class="nv">hardware</span> <span class="nv">address</span> <span class="ss">(</span><span class="mi">6</span><span class="ss">)</span>:
+    ..   ..   <span class="mi">0</span><span class="nv">x06</span> ..
+
+<span class="nv">Size</span> <span class="nv">of</span> <span class="nv">the</span> <span class="nv">IP</span> <span class="nv">address</span> <span class="ss">(</span><span class="nv">IPv4</span><span class="o">/</span><span class="nv">IPv6</span><span class="ss">)</span>:
+    ..   ..   ..   <span class="mi">0</span><span class="nv">x04</span>
+
+<span class="nv">Hardware</span> <span class="ss">(</span><span class="nv">MAC</span><span class="ss">)</span> <span class="nv">address</span>:
+    <span class="mi">0</span><span class="nv">xf4</span> <span class="mi">0</span><span class="nv">x52</span> <span class="mi">0</span><span class="nv">x14</span> <span class="mi">0</span><span class="nv">xf3</span>
+    <span class="mi">0</span><span class="nv">x01</span> <span class="mi">0</span><span class="nv">xdf</span> ..   ..
+
+<span class="s1">&#39;</span><span class="s">Ignore flag</span><span class="s1">&#39;</span> <span class="nv">and</span> <span class="nv">DHCP</span><span class="o">/</span><span class="nv">Static</span> <span class="nv">flag</span> <span class="ss">(</span><span class="nv">DHCP</span> <span class="nv">is</span> <span class="mi">0</span><span class="ss">)</span>
+    ..   ..   <span class="mi">0</span><span class="nv">x00</span> <span class="mi">0</span><span class="nv">x01</span>
+
+<span class="ss">(</span><span class="nv">Below</span> <span class="nv">fields</span> <span class="nv">only</span> <span class="nv">required</span> <span class="k">if</span> <span class="nv">setting</span> <span class="nv">a</span> <span class="nv">static</span> <span class="nv">IP</span><span class="ss">)</span>
+
+<span class="nv">IP</span> <span class="nv">Address</span>:
+    <span class="mi">0</span><span class="nv">x0a</span> <span class="mi">0</span><span class="nv">x3d</span> <span class="mi">0</span><span class="nv">xa1</span> <span class="mi">0</span><span class="nv">x42</span>
+
+<span class="nv">Subnet</span> <span class="nv">Mask</span> <span class="ss">(</span><span class="nv">eg</span>, <span class="o">/</span><span class="mi">16</span><span class="ss">)</span>:
+    <span class="mi">0</span><span class="nv">x10</span> ..   ..   ..
+<span class="nv">Gateway</span> <span class="nv">IP</span> <span class="nv">Address</span>:
+    ..   <span class="mi">0</span><span class="nv">x0a</span> <span class="mi">0</span><span class="nv">x3d</span> <span class="mi">0</span><span class="nv">x02</span>
+    <span class="mi">0</span><span class="nv">x01</span>
+</pre></div>
+
+
+<p>Clearing a network override is as simple as making a request empty aside from the header:</p>
+<div class="highlight"><pre><span></span><span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x08</span> <span class="mi">0</span><span class="n">x61</span> <span class="mi">0</span><span class="n">x80</span> <span class="mi">0</span><span class="n">x21</span> <span class="mi">0</span><span class="n">x70</span> <span class="mi">0</span><span class="n">x62</span> <span class="mi">0</span><span class="n">x21</span> <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x01</span> <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x00</span>
+</pre></div>
+
+
+<p>You can also read back the request over IPMI with this request:</p>
+<div class="highlight"><pre><span></span><span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x09</span> <span class="mi">0</span><span class="n">x61</span> <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x00</span>
+</pre></div>
+
+
+<p>That's it! Ideally this is something you would be scripting rather than bashing out on the keyboard - the main use case at the moment is as a way to force a machine to netboot against a known good source, rather than whatever may be available on its other interfaces.</p>
+<p>[1] The reason this is only available on OpenPOWER machines at the moment is that support for the IPMI command itself depends on the BMC firmware, and non-OpenPOWER machines use an FSP which is a different platform.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2016/03/15/and-now-for-something-completely-different-approximate-computing/">And now for something completely different: approximate computing</a>
       </h1>
     <p class="meta">
@@ -241,105 +324,6 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>After my first week at Ozlabs I cloned this blog from Octopress and reformatted it for pelican static site generator.For those who don't know Octopress is a ruby based static site generator so converting the embedded ruby gems to pelicans python code was no easy task for this newbie. Luckily I had a team of some of the best software developers in the world to help and teach me their ways. After we sorted the change from ruby to python and I was able to understand both languages, I presented my work to the team. They then decided to throw me a curve ball as they did not like any of pelicans default themes, instead they wanted the original Octopress theme on the new blog. This is how I learnt GitHub is my bestest friend, because some kind soul had already converted the ruby theme into python and it ran perfectly!</p>
 <p>Now it was a simple task of re-formatting the ruby-gem text files into markdown which is pelican compatible(which is why we chose pelican in the first place). So now we had a working pelican blog on the Octopress theme, one issue it was very annoying to navigate. Using my newly learned skills and understanding of python I inserted tags, categories, web-links, navigation bar and I started learning how to code C. And it all worked fine! That was what I a newbie could accomplish in one week. I still have two more weeks left here and I have plenty of really interesting work left to do. This has been one of the greatest learning experiences of my life and I would do it again if I could! So if you are looking for experience in it or software development look no further because you could be learning to code from the people who wrote the language itself. The <em>Linux Gods</em>.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2016/02/15/panic/">Panic, flushing and compromise</a>
-      </h1>
-    <p class="meta">
-<time datetime="2016-02-15T14:22:00+11:00" pubdate>Mon 15 February 2016</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
-    </span>
-  </span>
-<time datetime="2016-02-15T14:22:00+11:00" pubdate>Mon 15 February 2016</time></div>
-
-  <div class="entry-content"><p>This is a tale of a simple problem, with a relatively simple solution, that ended up being pretty complicated.</p>
-<p>The BMC of OpenPOWER machines expose a serial console.  It's pretty useful for getting information as the system is booting, or when it's having issues and the network is down.  OpenPOWER machines also have runtime firmware, namely <a href="https://github.com/open-power/skiboot">skiboot</a>, which the Linux kernel calls to make certain things happen.  One of those is writing to the serial console.  There's a function that <a href="https://github.com/open-power/skiboot/blob/master/core/opal.c">skiboot exposes</a>, <code>opal_poll_events()</code> (which then calls <code>opal_run_pollers()</code>), which the kernel calls frequently.  Among other things, it performs a partial flush of the serial console.  And that all works fine...until the kernel panics.</p>
-<p>Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.</p>
-<p>Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.</p>
-<p>There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the <code>opal_cec_reboot()</code> function.  So all we need to do is flush out the console buffer:</p>
-<div class="highlight"><pre><span></span><span class="k">static</span> <span class="n">int64</span> <span class="nf">opal_cec_reboot</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;OPAL: Reboot request...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-
-    <span class="n">console_complete_flush</span><span class="p">();</span> <span class="c1">// &lt;-- what I added</span>
-
-    <span class="c1">// rebooting stuff happens here...</span>
-
-    <span class="k">return</span> <span class="n">OPAL_SUCCESS</span><span class="p">;</span>
-<span class="p">}</span>
-</pre></div>
-
-
-<p>Writing a complete flushing function was pretty easy, then call it from the power down and reboot functions.  Easy, all nicely contained in firmware.</p>
-<p>Now, what if the kernel isn't configured to reboot after panic.  Or, what if the reboot timer is really long?  Do you want to wait 3 minutes to see your panic output?  Probably not.  We need to call the pollers after panic.</p>
-<p>First, I had to figure out what the kernel actually <em>does</em> when it panics.  Let's have a look at the <a href="https://github.com/torvalds/linux/blob/master/kernel/panic.c">panic function itself</a> to figure out where we could work some code in.</p>
-<p>In the <code>panic()</code> function, the easiest place I found to put in some code was <code>panic_blink()</code>.  This is supposed to be a function to blink the LEDs on your keyboard when the kernel is panicking, but we could set it to <code>opal_poll_events()</code> and it'd work fine.  There, problem solved!</p>
-<p>Oh, wait.  That will never get accepted upstream, ever.  Let's try again.</p>
-<p>Well, there are <code>#ifdef</code>s in the code that are architecture specific, for s390 and SPARC.  I could add an <code>#ifdef</code> to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from <code>arch/powerpc</code>, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.</p>
-<p>As a kernel noob, I found myself digging into what every function called by <code>panic()</code> actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:</p>
-<div class="highlight"><pre><span></span>    <span class="n">kmsg_dump</span><span class="p">(</span><span class="n">KMSG_DUMP_PANIC</span><span class="p">);</span>
-</pre></div>
-
-
-<p>It turns out <code>kmsg_dump()</code> does what it says: dumps messages from the kernel.  Different parts of the kernel can register their own dumpers, so the kernel can have a variety of dumpers for different purposes.  One existing example in OpenPOWER is a kmsg dumper that stores messages in <code>nvram</code> (non-volatile RAM), so you can find it after you reboot.</p>
-<p>Well, we don't really want to dump any output, it's already been sent to the output buffer.  We just need to flush it.  Pretty simple, just call <code>opal_poll_events()</code> a whole bunch of times, right?  That <em>would</em> work, though it'd be nice to have a better way than just calling the pollers.  Instead, we can add a new API call to skiboot specifically for console flushing, and call it from the kmsg dumper.</p>
-<p>Initially, I wired up the skiboot complete console flushing function to a new OPAL API call, and called that from the kernel.  After some feedback, this was refactored into a partial, incremental flush so it was more generic.  I also had to consider what happened if the machine was running a newer kernel and an older skiboot, so if the skiboot version didn't have my new flushing call it would fall back to calling the pollers an arbitrary amount of times.</p>
-<p>In the end, it looks like this:</p>
-<div class="highlight"><pre><span></span><span class="cm">/*</span>
-<span class="cm"> * Console output is controlled by OPAL firmware.  The kernel regularly calls</span>
-<span class="cm"> * OPAL_POLL_EVENTS, which flushes some console output.  In a panic state,</span>
-<span class="cm"> * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message</span>
-<span class="cm"> * may not be completely printed.  This function does not actually dump the</span>
-<span class="cm"> * message, it just ensures that OPAL completely flushes the console buffer.</span>
-<span class="cm"> */</span>
-<span class="k">static</span> <span class="kt">void</span> <span class="nf">force_opal_console_flush</span><span class="p">(</span><span class="k">struct</span> <span class="n">kmsg_dumper</span> <span class="o">*</span><span class="n">dumper</span><span class="p">,</span>
-                                     <span class="k">enum</span> <span class="n">kmsg_dump_reason</span> <span class="n">reason</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
-    <span class="kt">int64_t</span> <span class="n">ret</span><span class="p">;</span>
-
-    <span class="cm">/*</span>
-<span class="cm">     * Outside of a panic context the pollers will continue to run,</span>
-<span class="cm">     * so we don&#39;t need to do any special flushing.</span>
-<span class="cm">     */</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">reason</span> <span class="o">!=</span> <span class="n">KMSG_DUMP_PANIC</span><span class="p">)</span>
-        <span class="k">return</span><span class="p">;</span>
-
-    <span class="k">if</span> <span class="p">(</span><span class="n">opal_check_token</span><span class="p">(</span><span class="n">OPAL_CONSOLE_FLUSH</span><span class="p">))</span> <span class="p">{</span>
-        <span class="n">ret</span> <span class="o">=</span> <span class="n">opal_console_flush</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
-
-        <span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="n">OPAL_UNSUPPORTED</span> <span class="o">||</span> <span class="n">ret</span> <span class="o">==</span> <span class="n">OPAL_PARAMETER</span><span class="p">)</span>
-            <span class="k">return</span><span class="p">;</span>
-
-        <span class="cm">/* Incrementally flush until there&#39;s nothing left */</span>
-        <span class="k">while</span> <span class="p">(</span><span class="n">opal_console_flush</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="n">OPAL_SUCCESS</span><span class="p">);</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="cm">/*</span>
-<span class="cm">         * If OPAL_CONSOLE_FLUSH is not implemented in the firmware,</span>
-<span class="cm">         * the console can still be flushed by calling the polling</span>
-<span class="cm">         * function enough times to flush the buffer.  We don&#39;t know</span>
-<span class="cm">         * how much output still needs to be flushed, but we can be</span>
-<span class="cm">         * generous since the kernel is in panic and doesn&#39;t need</span>
-<span class="cm">         * to do much else.</span>
-<span class="cm">         */</span>
-        <span class="n">printk</span><span class="p">(</span><span class="n">KERN_NOTICE</span> <span class="s">&quot;opal: OPAL_CONSOLE_FLUSH missing.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-        <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1024</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-            <span class="n">opal_poll_events</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-
-
-<p>You can find the full code in-tree <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c">here</a>.</p>
-<p>And thus, panic messages now roam free 'cross the countryside, causing developer frustration around the world.  At least now they know why they're frustrated.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index9.html">&larr; Older</a>
 
@@ -351,6 +335,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
       </li>
       <li class="post">
@@ -361,9 +348,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2018/12/19/ipmi-initiating-better-overrides/">IPMI: Initiating Better Overrides</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/">OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</a>
       </li>
     </ul>
   </section>
@@ -384,7 +368,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>

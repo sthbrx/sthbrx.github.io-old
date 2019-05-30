@@ -376,21 +376,21 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 &lt;h2&gt;Setup quirks&lt;/h2&gt;
 &lt;p&gt;We are told to edit &lt;code&gt;~/kernel/rpmbuild/SPEC/kernel.spec&lt;/code&gt;. This doesn't exist because the directory is &lt;code&gt;SPECS&lt;/code&gt; not &lt;code&gt;SPEC&lt;/code&gt;: you need to edit &lt;code&gt;~/kernel/rpmbuild/SPECS/kernel.spec&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;I also found there was an extra quote mark in the supplied patch script after &lt;code&gt;-lustre.patch&lt;/code&gt;. I removed that and ran this instead:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;for patch in $(&lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&amp;quot;3.10-rhel7.series&amp;quot;); do \
-      patch_file=&amp;quot;&lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-release/lustre/kernel_patches/patches/&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; \
-      cat &amp;quot;&lt;span class="cp"&gt;${&lt;/span&gt;&lt;span class="n"&gt;patch_file&lt;/span&gt;&lt;span class="cp"&gt;}&lt;/span&gt;&amp;quot; &amp;gt;&amp;gt; &lt;span class="nv"&gt;$HOME&lt;/span&gt;/lustre-kernel-x86_64-lustre.patch \
-done
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;patch&lt;/span&gt; &lt;span class="nv"&gt;in&lt;/span&gt; $&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;3.10-rhel7.series&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;&lt;span class="c1"&gt;; do \&lt;/span&gt;
+      &lt;span class="nv"&gt;patch_file&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;$HOME/lustre-release/lustre/kernel_patches/patches/${patch}&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; \
+      &lt;span class="nv"&gt;cat&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;${patch_file}&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&amp;gt;&lt;/span&gt; $&lt;span class="nv"&gt;HOME&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;kernel&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;x86_64&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;.&lt;span class="nv"&gt;patch&lt;/span&gt; \
+&lt;span class="nv"&gt;done&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;The fact that there is 'x86_64' in the patch name doesn't matter as you're about to copy it under a different name to a place where it will be included by the spec file.&lt;/p&gt;
 &lt;h2&gt;Building for ppc64le&lt;/h2&gt;
 &lt;p&gt;Building for ppc64le was reasonably straight-forward. I had one small issue:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[build@dja-centos-guest rpmbuild]$ rpmbuild -bp --target=`uname -m` ./SPECS/kernel.spec
-Building target platforms: ppc64le
-Building for target ppc64le
-error: Failed build dependencies:
-       net-tools is needed by kernel-3.10.0-327.36.3.el7.ppc64le
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[&lt;span class="nv"&gt;build&lt;/span&gt;@&lt;span class="nv"&gt;dja&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;centos&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;guest&lt;/span&gt; &lt;span class="nv"&gt;rpmbuild&lt;/span&gt;]$ &lt;span class="nv"&gt;rpmbuild&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;bp&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="nv"&gt;target&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;`&lt;span class="nv"&gt;uname&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;m&lt;/span&gt;` .&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;SPECS&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;kernel&lt;/span&gt;.&lt;span class="nv"&gt;spec&lt;/span&gt;
+&lt;span class="nv"&gt;Building&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;platforms&lt;/span&gt;: &lt;span class="nv"&gt;ppc64le&lt;/span&gt;
+&lt;span class="nv"&gt;Building&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;ppc64le&lt;/span&gt;
+&lt;span class="nv"&gt;error&lt;/span&gt;: &lt;span class="nv"&gt;Failed&lt;/span&gt; &lt;span class="nv"&gt;build&lt;/span&gt; &lt;span class="nv"&gt;dependencies&lt;/span&gt;:
+       &lt;span class="nv"&gt;net&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;tools&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;needed&lt;/span&gt; &lt;span class="nv"&gt;by&lt;/span&gt; &lt;span class="nv"&gt;kernel&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt;.&lt;span class="mi"&gt;10&lt;/span&gt;.&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;327&lt;/span&gt;.&lt;span class="mi"&gt;36&lt;/span&gt;.&lt;span class="mi"&gt;3&lt;/span&gt;.&lt;span class="nv"&gt;el7&lt;/span&gt;.&lt;span class="nv"&gt;ppc64le&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -416,8 +416,8 @@ error: Failed build dependencies:
 &lt;li&gt;&lt;code&gt;f_eofblocks&lt;/code&gt;: This may need fixing for large page sizes, see &lt;a href="https://jira.hpdd.intel.com/browse/LU-4677?focusedCommentId=78814&amp;amp;page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-78814"&gt;this bug&lt;/a&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;I disabled the tests by adding the following two lines to the spec file, just before &lt;code&gt;make %{?_smp_mflags} check&lt;/code&gt;.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;rm -rf tests/f_pgsize_gt_blksize
-rm -rf tests/f_eofblocks
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;f_pgsize_gt_blksize&lt;/span&gt;
+&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;f_eofblocks&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -425,12 +425,12 @@ rm -rf tests/f_eofblocks
 &lt;p&gt;Following that I went back to the &lt;code&gt;lustre-release&lt;/code&gt; build products and was able to successfully run &lt;code&gt;yum localinstall *ppc64le.rpm&lt;/code&gt;!&lt;/p&gt;
 &lt;h1&gt;Testing the server&lt;/h1&gt;
 &lt;p&gt;After disabling SELinux and rebooting, I ran the test script:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo /usr/lib64/lustre/tests/llmount.sh
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib64&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;tests&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;llmount&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sh&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This spat out one scary warning:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mount.lustre FATAL: unhandled/unloaded fs type 0 &amp;#39;ext3&amp;#39;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;mount&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt; &lt;span class="n"&gt;FATAL&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;unhandled&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;unloaded&lt;/span&gt; &lt;span class="n"&gt;fs&lt;/span&gt; &lt;span class="k"&gt;type&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;ext3&amp;#39;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -441,22 +441,22 @@ rm -rf tests/f_eofblocks
 &lt;p&gt;I tried with an existing Ubuntu 16.04 VM that I use for much of my day to day development.&lt;/p&gt;
 &lt;p&gt;A quick google suggested that I could grab the &lt;code&gt;lustre-release&lt;/code&gt; repository and run &lt;code&gt;make debs&lt;/code&gt; to get Debian packages for my system.&lt;/p&gt;
 &lt;p&gt;I needed the following dependencies:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo apt install module-assistant debhelper dpatch libsnmp-dev quilt
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;apt&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;module&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;assistant&lt;/span&gt; &lt;span class="n"&gt;debhelper&lt;/span&gt; &lt;span class="n"&gt;dpatch&lt;/span&gt; &lt;span class="n"&gt;libsnmp&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt; &lt;span class="n"&gt;quilt&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;With those the packages built successfully, and could be easily installed:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;dpkg -i lustre-client-modules-4.4.0-57-generic_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deblustre-utils_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deb
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;dpkg&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;client&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;57&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;generic_2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;9&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;60&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;g1d2fbad&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="n"&gt;_ppc64el&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;deblustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;utils_2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;9&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;52&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;60&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;g1d2fbad&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;dirty&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="n"&gt;_ppc64el&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;deb&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;I tried to connect to the server:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo mount -t lustre $SERVER_IP@tcp:/lustre /lustre/
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;sudo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;mount&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;t&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="n"&gt;SERVER_IP&lt;/span&gt;&lt;span class="nv"&gt;@tcp&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Initially I wasn't able to connect to the server at all. I remembered that (unlike Ubuntu), CentOS comes with quite an aggressive firewall by default. I ran the following on the server:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;systemctl stop firewalld
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="n"&gt;firewalld&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -464,22 +464,22 @@ rm -rf tests/f_eofblocks
 &lt;h1&gt;Testing with an x86_64 client&lt;/h1&gt;
 &lt;p&gt;I then tried to run &lt;code&gt;make debs&lt;/code&gt; on my Ubuntu 16.10 x86_64 laptop.&lt;/p&gt;
 &lt;p&gt;This did not go well - I got the following error:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;liblustreapi.c: In function ‘llapi_get_poollist’:
-liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-declarations]
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;liblustreapi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="k"&gt;c&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="k"&gt;In&lt;/span&gt; &lt;span class="k"&gt;function&lt;/span&gt; &lt;span class="err"&gt;‘&lt;/span&gt;&lt;span class="n"&gt;llapi_get_poollist&lt;/span&gt;&lt;span class="err"&gt;’&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;span class="n"&gt;liblustreapi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="k"&gt;c&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;1201&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;error&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="err"&gt;‘&lt;/span&gt;&lt;span class="n"&gt;readdir_r&lt;/span&gt;&lt;span class="err"&gt;’&lt;/span&gt; &lt;span class="k"&gt;is&lt;/span&gt; &lt;span class="n"&gt;deprecated&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Werror&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;deprecated&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;declarations&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This looks like one of the new errors introduced in recent GCC versions, and is &lt;a href="https://jira.hpdd.intel.com/browse/LU-8724?focusedCommentId=175244&amp;amp;page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-175244"&gt;a known bug&lt;/a&gt;. To work around it, I found the following stanza in a &lt;code&gt;lustre/autoconf/lustre-core.m4&lt;/code&gt;, and removed the &lt;code&gt;-Werror&lt;/code&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;AS_IF([test $target_cpu == &amp;quot;i686&amp;quot; -o $target_cpu == &amp;quot;x86_64&amp;quot;],
-        [CFLAGS=&amp;quot;$CFLAGS -Wall -Werror&amp;quot;])
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;AS_IF&lt;/span&gt;&lt;span class="p"&gt;([&lt;/span&gt;&lt;span class="n"&gt;test&lt;/span&gt; &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="n"&gt;target_cpu&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="ss"&gt;&amp;quot;i686&amp;quot;&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;o&lt;/span&gt; &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="n"&gt;target_cpu&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="ss"&gt;&amp;quot;x86_64&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt;
+        &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;CFLAGS&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="ss"&gt;&amp;quot;$CFLAGS -Wall -Werror&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Even this wasn't enough: I got the following errors:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
-         .d_compare = ll_dcompare,
-                  ^~~~~~~~~~~
-/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: note: (near initialization for ‘ll_d_ops.d_compare’)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;dja&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;release&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;debian&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tmp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;deb&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;usr_src&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;llite&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;dcache&lt;/span&gt;.&lt;span class="nv"&gt;c&lt;/span&gt;:&lt;span class="mi"&gt;387&lt;/span&gt;:&lt;span class="mi"&gt;22&lt;/span&gt;: &lt;span class="nv"&gt;error&lt;/span&gt;: &lt;span class="nv"&gt;initialization&lt;/span&gt; &lt;span class="nv"&gt;from&lt;/span&gt; &lt;span class="nv"&gt;incompatible&lt;/span&gt; &lt;span class="nv"&gt;pointer&lt;/span&gt; &lt;span class="nv"&gt;type&lt;/span&gt; [&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;Werror&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;incompatible&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;pointer&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;types&lt;/span&gt;]
+         .&lt;span class="nv"&gt;d_compare&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;ll_dcompare&lt;/span&gt;,
+                  &lt;span class="o"&gt;^~~~~~~~~~~&lt;/span&gt;
+&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;dja&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;release&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;debian&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tmp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;deb&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;usr_src&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lustre&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;llite&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;dcache&lt;/span&gt;.&lt;span class="nv"&gt;c&lt;/span&gt;:&lt;span class="mi"&gt;387&lt;/span&gt;:&lt;span class="mi"&gt;22&lt;/span&gt;: &lt;span class="nv"&gt;note&lt;/span&gt;: &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;near&lt;/span&gt; &lt;span class="nv"&gt;initialization&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; ‘&lt;span class="nv"&gt;ll_d_ops&lt;/span&gt;.&lt;span class="nv"&gt;d_compare&lt;/span&gt;’&lt;span class="ss"&gt;)&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -502,13 +502,13 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
 &lt;p&gt;Firstly, you'll need CUDA and the NVidia drivers.&lt;/p&gt;
 &lt;p&gt;You can install CUDA by following the instructions on NVidia's &lt;a href="https://developer.nvidia.com/cuda-downloads"&gt;CUDA Downloads&lt;/a&gt; page.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install epel-release
-yum install dkms
-# download the rpm from the NVidia website
-rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
-yum clean expire-cache
-yum install cuda
-# this will take a while...
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;install&lt;/span&gt; &lt;span class="nv"&gt;epel&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;release&lt;/span&gt;
+&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;install&lt;/span&gt; &lt;span class="nv"&gt;dkms&lt;/span&gt;
+# &lt;span class="nv"&gt;download&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;rpm&lt;/span&gt; &lt;span class="nv"&gt;from&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;NVidia&lt;/span&gt; &lt;span class="nv"&gt;website&lt;/span&gt;
+&lt;span class="nv"&gt;rpm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;i&lt;/span&gt; &lt;span class="nv"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;repo&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;rhel7&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;local&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;ga2&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;.&lt;span class="mi"&gt;0&lt;/span&gt;.&lt;span class="mi"&gt;54&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;.&lt;span class="nv"&gt;ppc64le&lt;/span&gt;.&lt;span class="nv"&gt;rpm&lt;/span&gt;
+&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;clean&lt;/span&gt; &lt;span class="nv"&gt;expire&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;cache&lt;/span&gt;
+&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;install&lt;/span&gt; &lt;span class="nv"&gt;cuda&lt;/span&gt;
+# &lt;span class="nv"&gt;this&lt;/span&gt; &lt;span class="nv"&gt;will&lt;/span&gt; &lt;span class="nv"&gt;take&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="k"&gt;while&lt;/span&gt;...
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -522,16 +522,16 @@ yum install cuda
 
 
 &lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
-cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;amp;&amp;amp; ./bandwidthTest
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;samples&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sh&lt;/span&gt; &lt;span class="o"&gt;~&lt;/span&gt;
+&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;~/&lt;/span&gt;&lt;span class="n"&gt;NVIDIA_CUDA&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;_Samples&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="n"&gt;_Utilities&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bandwidthTest&lt;/span&gt;
+&lt;span class="n"&gt;make&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bandwidthTest&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.&lt;/p&gt;
 &lt;h3&gt;Compilers&lt;/h3&gt;
 &lt;p&gt;You need a c++ compiler:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install gcc-c++
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;gcc&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;c&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -543,16 +543,16 @@ make &amp;amp;&amp;amp; ./bandwidthTest
 &lt;p&gt;If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get &lt;code&gt;charm++ built successfully.&lt;/code&gt; at the end, you should be OK.&lt;/p&gt;
 &lt;h2&gt;Testing NAMD&lt;/h2&gt;
 &lt;p&gt;We have been testing NAMD using the STMV files available from the &lt;a href="http://www.ks.uiuc.edu/Research/namd/utilities/"&gt;NAMD website&lt;/a&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cd NAMD_2.12_Source/Linux-POWER-g++
-wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
-tar -xf stmv.tar.gz
-sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="n"&gt;NAMD_2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;12&lt;/span&gt;&lt;span class="n"&gt;_Source&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Linux&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;POWER&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;g&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;
+&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;http&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;www&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;ks&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;uiuc&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;edu&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Research&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;namd&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;utilities&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;tar&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+&lt;span class="n"&gt;tar&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;xf&lt;/span&gt; &lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;tar&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;charmrun&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;p80&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;namd2&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;pemap&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;159&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;idlepoll&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;commthread&lt;/span&gt; &lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;namd&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
 &lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;Pe&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="n"&gt;physical&lt;/span&gt; &lt;span class="n"&gt;rank&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="n"&gt;binding&lt;/span&gt; &lt;span class="k"&gt;to&lt;/span&gt; &lt;span class="n"&gt;CUDA&lt;/span&gt; &lt;span class="n"&gt;device&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="k"&gt;on&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;hostname&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;Graphics Device&amp;#39;&lt;/span&gt;  &lt;span class="n"&gt;Mem&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;4042&lt;/span&gt;&lt;span class="n"&gt;MB&lt;/span&gt;  &lt;span class="n"&gt;Rev&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -565,10 +565,10 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 &lt;h2&gt;Other notes&lt;/h2&gt;
 &lt;p&gt;Namd requires some libraries, some of which they supply as binary downloads on &lt;a href="http://www.ks.uiuc.edu/Research/namd/libraries/"&gt;their website&lt;/a&gt;.
 Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
-/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: &lt;span class="nv"&gt;failed&lt;/span&gt; &lt;span class="nv"&gt;to&lt;/span&gt; &lt;span class="nv"&gt;merge&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;specific&lt;/span&gt; &lt;span class="nv"&gt;data&lt;/span&gt; &lt;span class="nv"&gt;of&lt;/span&gt; &lt;span class="nv"&gt;file&lt;/span&gt; .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;regfree&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
+&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;regerror&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;: &lt;span class="nv"&gt;compiled&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;big&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt; &lt;span class="nv"&gt;system&lt;/span&gt; &lt;span class="nv"&gt;and&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;little&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt;
+&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: &lt;span class="nv"&gt;failed&lt;/span&gt; &lt;span class="nv"&gt;to&lt;/span&gt; &lt;span class="nv"&gt;merge&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;specific&lt;/span&gt; &lt;span class="nv"&gt;data&lt;/span&gt; &lt;span class="nv"&gt;of&lt;/span&gt; &lt;span class="nv"&gt;file&lt;/span&gt; .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;regerror&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
+&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;tclAlloc&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;: &lt;span class="nv"&gt;compiled&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;big&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt; &lt;span class="nv"&gt;system&lt;/span&gt; &lt;span class="nv"&gt;and&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;little&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 

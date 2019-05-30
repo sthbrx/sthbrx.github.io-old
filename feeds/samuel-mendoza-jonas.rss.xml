@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Samuel Mendoza-Jonas</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 25 Feb 2019 16:47:00 +1100</lastBuildDate><item><title>What Do You Mean "No"?</title><link>https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/</link><description>&lt;p&gt;Quite often when building small Linux images having separate user accounts isn't always at the top of the list of things to include. Petitboot is no different; the most common operations like mounting disks, configuring interfaces, and calling &lt;code&gt;kexec&lt;/code&gt; all require root and Petitboot generally only exists long enough to boot into the next thing, so why not run it all as root?&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Samuel Mendoza-Jonas</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 29 May 2019 16:47:00 +1000</lastBuildDate><item><title>dm-crypt: Password Prompts Proliferate</title><link>https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/</link><description>&lt;p&gt;&lt;a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/"&gt;Just recently&lt;/a&gt; Petitboot added a method to ask the user for a password before allowing certain actions to proceed. Underneath the covers this is checking against the root password, but the UI "pop-up" asking for the password is relatively generic. Something else which has been on the to-do list for a while is support for mounting encrpyted partitions, but there wasn't a good way to retrieve the password for them - until now!&lt;/p&gt;
+&lt;p&gt;With the password problem solved, there isn't too much else to do. If Petitboot sees an encrypted partition it makes a note of it and informs the UI via the &lt;code&gt;device_add&lt;/code&gt; interface. Seeing this the UI shows this device in the UI even though there aren't any boot options associated with it yet:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="encrypted_hdr" src="/images/sammj/encrypted_hdr.png"&gt;&lt;/p&gt;
+&lt;p&gt;Unlike normal devices in the menu these are selectable; once that happens the user is prompted for the password:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="encrypted_password" src="/images/sammj/encrypted_password.png"&gt;&lt;/p&gt;
+&lt;p&gt;With password in hand pb-discover will then try to open the device with &lt;code&gt;cryptsetup&lt;/code&gt;. If that succeeds the encrypted device is removed from the UI and replaced with the new un-encrypted device:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="unencrypted_hdr" src="/images/sammj/unencrypted_hdr.png"&gt;&lt;/p&gt;
+&lt;p&gt;That's it! These devices can't be auto-booted from at the moment since the password needs to be manually entered. The UI also doesn't have a way yet to select specific options for &lt;code&gt;cryptsetup&lt;/code&gt;, but if you find yourself needing to do so you can run &lt;code&gt;cryptsetup&lt;/code&gt; manually from the shell and pb-discover will recognise the new unencrypted device automatically.&lt;/p&gt;
+&lt;p&gt;This is in Petitboot as of v1.10.3 so go check it out! Just make sure your image includes the kernel and cryptsetup &lt;a href="https://github.com/open-power/op-build/pull/2840"&gt;dependencies&lt;/a&gt;.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Samuel Mendoza-Jonas</dc:creator><pubDate>Wed, 29 May 2019 16:47:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2019-05-29:/blog/2019/05/29/dm-crypt-password-prompts-proliferate/</guid><category>linux</category><category>firmware</category><category>goodposts</category><category>realcontent</category><category>sparseposting</category><category>openpower</category><category>petitboot</category><category>security</category></item><item><title>What Do You Mean "No"?</title><link>https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/</link><description>&lt;p&gt;Quite often when building small Linux images having separate user accounts isn't always at the top of the list of things to include. Petitboot is no different; the most common operations like mounting disks, configuring interfaces, and calling &lt;code&gt;kexec&lt;/code&gt; all require root and Petitboot generally only exists long enough to boot into the next thing, so why not run it all as root?&lt;/p&gt;
 &lt;p&gt;The picture is less clear when we start to think about what is possible to do in Petitboot by default. If someone comes across an open Petitboot console they're only a few keystrokes away from wiping disks, changing files, or even flashing firmware. Depending on how your system is used that may or may not be something you care about, but over time there have been a few requests to "add a password screen to Petitboot" to at least make it so that the system isn't open season for whoever sees it.&lt;/p&gt;
 &lt;h2&gt;Enter Password:&lt;/h2&gt;
 &lt;p&gt;The most direct way to avoid this would be to slap a password prompt onto Petitboot before any changes can be made. There are two immediate drawbacks to this:&lt;/p&gt;
@@ -46,8 +54,8 @@
 
 
 &lt;p&gt;Where the string is null-terminated, &lt;code&gt;2,0,0&lt;/code&gt; is the IBM IANA ID, and the contents of any remaining data is not important. The &lt;a href="https://github.com/open-power/petitboot/blob/master/utils/ipmi-mailbox-config.py"&gt;ipmi-mailbox-config.py&lt;/a&gt; script constructs and sends the required IPMI commands from a given parameter string to make this easier, eg:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;./utils/ipmi-mailbox-config.py -b bmc-ip -u user -p pass -m 5 \
-        -c &amp;quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&amp;quot;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;utils&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;ipmi&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;mailbox&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;py&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;b&lt;/span&gt; &lt;span class="n"&gt;bmc&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ip&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt; &lt;span class="k"&gt;user&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="n"&gt;pass&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;m&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="err"&gt;\&lt;/span&gt;
+        &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;c&lt;/span&gt; &lt;span class="ss"&gt;&amp;quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&amp;quot;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -160,8 +168,8 @@ ways of making sure your changes persist:&lt;/p&gt;
 &lt;h2&gt;Before v1.2.2&lt;/h2&gt;
 &lt;p&gt;If you really need to save changes from within Petitboot, the most
 straightforward way is to disable snapshots. Drop to the shell and enter&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;nvram --update-config petitboot,snapshots?=false
-reboot
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;nvram&lt;/span&gt; &lt;span class="c1"&gt;--update-config petitboot,snapshots?=false&lt;/span&gt;
+&lt;span class="n"&gt;reboot&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -170,9 +178,9 @@ modify it as normal.&lt;/p&gt;
 &lt;h2&gt;After v1.2.2&lt;/h2&gt;
 &lt;p&gt;To make this easier while keeping the benefit of snapshots, v1.2.2 introduces
 a new user-event that will merge snapshots on demand. For example:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mount -o remount,rw /var/petitboot/mnt/dev/sda2
-cp /var/log/messages /var/petitboot/mnt/dev/sda2/
-pb-event sync@sda2
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;mount&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;o&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;remount&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="n"&gt;rw&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;petitboot&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;sda2&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;cp&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;messages&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;petitboot&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;sda2&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;pb&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;event&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;sync&lt;/span&gt;&lt;span class="nv"&gt;@sda2&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -189,24 +197,24 @@ method you prefer. (For example &lt;code&gt;bsdtar -xf /path/to/image.iso&lt;/co
 &lt;p&gt;You'll get a bunch of files but for our purposes we only care about a few; the
 kernel, the initrd, and the bootloader configuration file. Using
 the Ubuntu 16.04 ppc64el ISO as an example, these are:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;./install/vmlinux
-./install/initrd.gz.
-./boot/grub/grub.cfg
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vmlinux&lt;/span&gt;
+&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;initrd&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;
+&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;boot&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;grub&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;grub&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;cfg&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;In grub.cfg we can see that the boot arguments are actually quite simple:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;set timeout=-1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;set&lt;/span&gt; &lt;span class="n"&gt;timeout&lt;/span&gt;&lt;span class="o"&gt;=-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;
 
-menuentry &amp;quot;Install&amp;quot; {
-    linux   /install/vmlinux tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
-    initrd  /install/initrd.gz
-}
+&lt;span class="n"&gt;menuentry&lt;/span&gt; &lt;span class="ss"&gt;&amp;quot;Install&amp;quot;&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;linux&lt;/span&gt;   &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vmlinux&lt;/span&gt; &lt;span class="n"&gt;tasks&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;standard&lt;/span&gt; &lt;span class="n"&gt;pkgsel&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;language&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;pack&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;patterns&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;pkgsel&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;language&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;support&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;false&lt;/span&gt; &lt;span class="c1"&gt;--- quiet&lt;/span&gt;
+    &lt;span class="n"&gt;initrd&lt;/span&gt;  &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;initrd&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 
-menuentry &amp;quot;Rescue mode&amp;quot; {
-    linux   /install/vmlinux rescue/enable=true --- quiet
-    initrd  /install/initrd.gz
-}
+&lt;span class="n"&gt;menuentry&lt;/span&gt; &lt;span class="ss"&gt;&amp;quot;Rescue mode&amp;quot;&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;linux&lt;/span&gt;   &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vmlinux&lt;/span&gt; &lt;span class="n"&gt;rescue&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;enable&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;true&lt;/span&gt; &lt;span class="c1"&gt;--- quiet&lt;/span&gt;
+    &lt;span class="n"&gt;initrd&lt;/span&gt;  &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;initrd&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -217,10 +225,10 @@ server, but that does not mean we need to use PXE - if you just want a quick
 install you only need make these files accessible to Petitboot, and then we can
 use the 'Retrieve config from URL' option to download the files.&lt;/p&gt;
 &lt;p&gt;Create a petitboot.conf file somewhere accessible that contains (for Ubuntu):&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;label Install Ubuntu 16.04 Xenial Xerus
-    kernel http://myaccesibleserver/path/to/vmlinux
-    initrd http://myaccesibleserver/path/to/initrd.gz
-    append tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;label&lt;/span&gt; &lt;span class="n"&gt;Install&lt;/span&gt; &lt;span class="n"&gt;Ubuntu&lt;/span&gt; &lt;span class="mi"&gt;16&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;04&lt;/span&gt; &lt;span class="n"&gt;Xenial&lt;/span&gt; &lt;span class="n"&gt;Xerus&lt;/span&gt;
+    &lt;span class="n"&gt;kernel&lt;/span&gt; &lt;span class="n"&gt;http&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;myaccesibleserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;path&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vmlinux&lt;/span&gt;
+    &lt;span class="n"&gt;initrd&lt;/span&gt; &lt;span class="n"&gt;http&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;myaccesibleserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;path&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;initrd&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+    &lt;span class="n"&gt;append&lt;/span&gt; &lt;span class="n"&gt;tasks&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;standard&lt;/span&gt; &lt;span class="n"&gt;pkgsel&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;language&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;pack&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;patterns&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;pkgsel&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;language&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;support&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;false&lt;/span&gt; &lt;span class="c1"&gt;--- quiet&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -259,53 +267,53 @@ At the same time Petitboot makes PXE requests on configured network interfaces s
 &lt;p&gt;Any of these options will cause any existing network configurations to be ignored.&lt;/p&gt;
 &lt;h2&gt;Building the Request&lt;/h2&gt;
 &lt;p&gt;Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H $yourbmc -U $user -P $pass raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="n"&gt;yourbmc&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="k"&gt;user&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="n"&gt;pass&lt;/span&gt; &lt;span class="n"&gt;raw&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x08&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x61&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x80&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x21&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x70&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x62&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x21&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x01&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x06&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x04&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;xf4&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x52&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x14&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;xf3&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x01&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;xdf&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x01&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x0a&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x3d&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;xa1&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x42&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x10&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x0a&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x3d&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x2&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x1&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Specify the &amp;quot;chassis bootdev&amp;quot; command, field 96, data field 1:
-    0x00 0x08 0x61 0x80
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;Specify&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;chassis bootdev&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="nv"&gt;command&lt;/span&gt;, &lt;span class="nv"&gt;field&lt;/span&gt; &lt;span class="mi"&gt;96&lt;/span&gt;, &lt;span class="nv"&gt;data&lt;/span&gt; &lt;span class="nv"&gt;field&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;:
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x08&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x61&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x80&lt;/span&gt;
 
-Unique value that Petitboot recognises:
-    0x21 0x70 0x62 0x21
+&lt;span class="nv"&gt;Unique&lt;/span&gt; &lt;span class="nv"&gt;value&lt;/span&gt; &lt;span class="nv"&gt;that&lt;/span&gt; &lt;span class="nv"&gt;Petitboot&lt;/span&gt; &lt;span class="nv"&gt;recognises&lt;/span&gt;:
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x21&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x70&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x62&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x21&lt;/span&gt;
 
-Version field (1)
-    0x00 0x01 ..   ..
+&lt;span class="nv"&gt;Version&lt;/span&gt; &lt;span class="nv"&gt;field&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x01&lt;/span&gt; ..   ..
 
-Size of the hardware address (6):
-    ..   ..   0x06 ..
+&lt;span class="nv"&gt;Size&lt;/span&gt; &lt;span class="nv"&gt;of&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;hardware&lt;/span&gt; &lt;span class="nv"&gt;address&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;6&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;:
+    ..   ..   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x06&lt;/span&gt; ..
 
-Size of the IP address (IPv4/IPv6):
-    ..   ..   ..   0x04
+&lt;span class="nv"&gt;Size&lt;/span&gt; &lt;span class="nv"&gt;of&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;IP&lt;/span&gt; &lt;span class="nv"&gt;address&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;IPv4&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;IPv6&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;:
+    ..   ..   ..   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x04&lt;/span&gt;
 
-Hardware (MAC) address:
-    0xf4 0x52 0x14 0xf3
-    0x01 0xdf ..   ..
+&lt;span class="nv"&gt;Hardware&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;MAC&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="nv"&gt;address&lt;/span&gt;:
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xf4&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x52&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x14&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xf3&lt;/span&gt;
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x01&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xdf&lt;/span&gt; ..   ..
 
-&amp;#39;Ignore flag&amp;#39; and DHCP/Static flag (DHCP is 0)
-    ..   ..   0x00 0x01
+&lt;span class="s1"&gt;&amp;#39;&lt;/span&gt;&lt;span class="s"&gt;Ignore flag&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;&lt;/span&gt; &lt;span class="nv"&gt;and&lt;/span&gt; &lt;span class="nv"&gt;DHCP&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;Static&lt;/span&gt; &lt;span class="nv"&gt;flag&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;DHCP&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
+    ..   ..   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x01&lt;/span&gt;
 
-(Below fields only required if setting a static IP)
+&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;Below&lt;/span&gt; &lt;span class="nv"&gt;fields&lt;/span&gt; &lt;span class="nv"&gt;only&lt;/span&gt; &lt;span class="nv"&gt;required&lt;/span&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="nv"&gt;setting&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;static&lt;/span&gt; &lt;span class="nv"&gt;IP&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
 
-IP Address:
-    0x0a 0x3d 0xa1 0x42
+&lt;span class="nv"&gt;IP&lt;/span&gt; &lt;span class="nv"&gt;Address&lt;/span&gt;:
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x0a&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x3d&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xa1&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x42&lt;/span&gt;
 
-Subnet Mask (eg, /16):
-    0x10 ..   ..   ..
-Gateway IP Address:
-    ..   0x0a 0x3d 0x02
-    0x01
+&lt;span class="nv"&gt;Subnet&lt;/span&gt; &lt;span class="nv"&gt;Mask&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;eg&lt;/span&gt;, &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;16&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;:
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x10&lt;/span&gt; ..   ..   ..
+&lt;span class="nv"&gt;Gateway&lt;/span&gt; &lt;span class="nv"&gt;IP&lt;/span&gt; &lt;span class="nv"&gt;Address&lt;/span&gt;:
+    ..   &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x0a&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x3d&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x02&lt;/span&gt;
+    &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x01&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Clearing a network override is as simple as making a request empty aside from the header:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x08&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x61&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x80&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x21&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x70&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x62&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x21&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x01&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;You can also read back the request over IPMI with this request:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;0x00 0x09 0x61 0x00 0x00
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x09&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x61&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x00&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 

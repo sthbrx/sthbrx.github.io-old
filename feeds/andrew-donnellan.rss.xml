@@ -137,13 +137,13 @@
 &lt;h2&gt;Kconfig&lt;/h2&gt;
 &lt;p&gt;The final piece of the puzzle is building our new code into the kernel image.&lt;/p&gt;
 &lt;p&gt;To allow us to switch this important functionality on and off, I added a config option to &lt;code&gt;fs/Kconfig&lt;/code&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;config SSH_KEY
-        bool &amp;quot;Andrew&amp;#39;s dumb SSH key hack&amp;quot;
-        default y
-        help
-          Hardcode an SSH key for /root/.ssh/authorized_keys.
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;config&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;
+        &lt;span class="nv"&gt;bool&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;Andrew&amp;#39;s dumb SSH key hack&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+        &lt;span class="nv"&gt;default&lt;/span&gt; &lt;span class="nv"&gt;y&lt;/span&gt;
+        &lt;span class="nv"&gt;help&lt;/span&gt;
+          &lt;span class="nv"&gt;Hardcode&lt;/span&gt; &lt;span class="nv"&gt;an&lt;/span&gt; &lt;span class="nv"&gt;SSH&lt;/span&gt; &lt;span class="nv"&gt;key&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.
 
-          This is a stupid idea. If unsure, say N.
+          &lt;span class="nv"&gt;This&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;stupid&lt;/span&gt; &lt;span class="nv"&gt;idea&lt;/span&gt;. &lt;span class="k"&gt;If&lt;/span&gt; &lt;span class="nv"&gt;unsure&lt;/span&gt;, &lt;span class="nv"&gt;say&lt;/span&gt; &lt;span class="nv"&gt;N&lt;/span&gt;.
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -155,11 +155,11 @@
 
 &lt;p&gt;If &lt;code&gt;CONFIG_SSH_KEY&lt;/code&gt; is set to &lt;code&gt;y&lt;/code&gt;, &lt;code&gt;obj-$(CONFIG_SSH_KEY)&lt;/code&gt; evaluates to &lt;code&gt;obj-y&lt;/code&gt; and thus &lt;code&gt;ssh-key.o&lt;/code&gt; gets compiled. Conversely, &lt;code&gt;obj-n&lt;/code&gt; is completely ignored by the build system.&lt;/p&gt;
 &lt;p&gt;I thought I was all done... then &lt;a href="https://twitter.com/mramboar"&gt;Andrew&lt;/a&gt; suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;config SSH_KEY_VALUE
-        string &amp;quot;Value for SSH key&amp;quot;
-        depends on SSH_KEY
-        help
-          Enter in the content for /root/.ssh/authorized_keys.
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;config&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY_VALUE&lt;/span&gt;
+        &lt;span class="nv"&gt;string&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;Value for SSH key&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+        &lt;span class="nv"&gt;depends&lt;/span&gt; &lt;span class="nv"&gt;on&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;
+        &lt;span class="nv"&gt;help&lt;/span&gt;
+          &lt;span class="nv"&gt;Enter&lt;/span&gt; &lt;span class="nv"&gt;in&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;content&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -188,19 +188,19 @@
 &lt;p&gt;Annoyingly, the &lt;code&gt;msglog&lt;/code&gt; file reports itself as size 0 (I'm not sure exactly why, but I &lt;em&gt;think&lt;/em&gt; it's due to limitations in sysfs), so if you try to copy the file with &lt;code&gt;cp&lt;/code&gt;, you end up with just a blank file. However, you can read it with &lt;code&gt;cat&lt;/code&gt; or &lt;code&gt;less&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;From &lt;code&gt;xmon&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;&lt;code&gt;xmon&lt;/code&gt; is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with &lt;code&gt;kgdb&lt;/code&gt;. On our development systems, we often configure &lt;code&gt;xmon&lt;/code&gt; to automatically begin debugging whenever we hit an oops or panic (using &lt;code&gt;xmon=on&lt;/code&gt; on the kernel command line, or the &lt;code&gt;XMON_DEFAULT&lt;/code&gt; Kconfig option). It can also be manually triggered:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
-sysrq: SysRq : Entering xmon
-cpu 0x7: Vector: 0  at [c000000fcd717a80]
-pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
-lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
-sp: c000000fcd717be0
-msr: 9000000000009033
-current = 0xc000000fcd689200
-paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
-pid   = 7127, comm = bash
-Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
-enter ? for help
-7:mon&amp;gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;@&lt;span class="nv"&gt;p86&lt;/span&gt;:&lt;span class="o"&gt;~&lt;/span&gt;# &lt;span class="nv"&gt;echo&lt;/span&gt; &lt;span class="nv"&gt;x&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;proc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;sysrq&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;trigger&lt;/span&gt;
+&lt;span class="nv"&gt;sysrq&lt;/span&gt;: &lt;span class="nv"&gt;SysRq&lt;/span&gt; : &lt;span class="nv"&gt;Entering&lt;/span&gt; &lt;span class="nv"&gt;xmon&lt;/span&gt;
+&lt;span class="nv"&gt;cpu&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x7&lt;/span&gt;: &lt;span class="nv"&gt;Vector&lt;/span&gt;: &lt;span class="mi"&gt;0&lt;/span&gt;  &lt;span class="nv"&gt;at&lt;/span&gt; [&lt;span class="nv"&gt;c000000fcd717a80&lt;/span&gt;]
+&lt;span class="nv"&gt;pc&lt;/span&gt;: &lt;span class="nv"&gt;c000000000085ad8&lt;/span&gt;: &lt;span class="nv"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x80&lt;/span&gt;
+&lt;span class="nv"&gt;lr&lt;/span&gt;: &lt;span class="nv"&gt;c000000000085ad8&lt;/span&gt;: &lt;span class="nv"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x80&lt;/span&gt;
+&lt;span class="nv"&gt;sp&lt;/span&gt;: &lt;span class="nv"&gt;c000000fcd717be0&lt;/span&gt;
+&lt;span class="nv"&gt;msr&lt;/span&gt;: &lt;span class="mi"&gt;9000000000009033&lt;/span&gt;
+&lt;span class="nv"&gt;current&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xc000000fcd689200&lt;/span&gt;
+&lt;span class="nv"&gt;paca&lt;/span&gt;    &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xc00000000fe01c00&lt;/span&gt;   &lt;span class="nv"&gt;softe&lt;/span&gt;: &lt;span class="mi"&gt;0&lt;/span&gt;        &lt;span class="nv"&gt;irq_happened&lt;/span&gt;: &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x01&lt;/span&gt;
+&lt;span class="nv"&gt;pid&lt;/span&gt;   &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;7127&lt;/span&gt;, &lt;span class="nv"&gt;comm&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;bash&lt;/span&gt;
+&lt;span class="nv"&gt;Linux&lt;/span&gt; &lt;span class="nv"&gt;version&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;ajd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;11118&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;g968f3e3&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;ajd&lt;/span&gt;@&lt;span class="nv"&gt;ka1&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;gcc&lt;/span&gt; &lt;span class="nv"&gt;version&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="mi"&gt;2&lt;/span&gt;.&lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="mi"&gt;20150930&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;GCC&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="sc"&gt;#1&lt;/span&gt; &lt;span class="nv"&gt;SMP&lt;/span&gt; &lt;span class="nv"&gt;Tue&lt;/span&gt; &lt;span class="nv"&gt;Mar&lt;/span&gt; &lt;span class="mi"&gt;22&lt;/span&gt; &lt;span class="mi"&gt;17&lt;/span&gt;:&lt;span class="mi"&gt;01&lt;/span&gt;:&lt;span class="mi"&gt;58&lt;/span&gt; &lt;span class="nv"&gt;AEDT&lt;/span&gt; &lt;span class="mi"&gt;2016&lt;/span&gt;
+&lt;span class="nv"&gt;enter&lt;/span&gt; ? &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;help&lt;/span&gt;
+&lt;span class="mi"&gt;7&lt;/span&gt;:&lt;span class="nv"&gt;mon&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -234,21 +234,21 @@ enter ? for help
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;code&gt;opal-dump-parse&lt;/code&gt; (also in the &lt;code&gt;ppc64-diag&lt;/code&gt; suite) can be used to extract the sections we care about from the dump:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
-|---------------------------------------------------------|
-|ID              SECTION                              SIZE|
-|---------------------------------------------------------|
-|1              Opal-log                           1048576|
-|2              HostBoot-Runtime-log               1048576|
-|128            printk                             1048576|
-|---------------------------------------------------------|
-List completed
-root@p86:/var/log/dump# opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 
-Captured log to file Opal-log.842EA8A.00000001.20160322063051
-root@p86:/var/log/dump# opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 
-Captured log to file HostBoot-Runtime-log.842EA8A.00000001.20160322063051
-root@p86:/var/log/dump# opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 
-Captured log to file printk.842EA8A.00000001.20160322063051
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;l&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="c1"&gt;---------------------------------------------------------|&lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="n"&gt;ID&lt;/span&gt;&lt;span class="w"&gt;              &lt;/span&gt;&lt;span class="k"&gt;SECTION&lt;/span&gt;&lt;span class="w"&gt;                              &lt;/span&gt;&lt;span class="k"&gt;SIZE&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="c1"&gt;---------------------------------------------------------|&lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="w"&gt;              &lt;/span&gt;&lt;span class="n"&gt;Opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt;                           &lt;/span&gt;&lt;span class="mi"&gt;1048576&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="w"&gt;              &lt;/span&gt;&lt;span class="n"&gt;HostBoot&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Runtime&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt;               &lt;/span&gt;&lt;span class="mi"&gt;1048576&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="mi"&gt;128&lt;/span&gt;&lt;span class="w"&gt;            &lt;/span&gt;&lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="w"&gt;                             &lt;/span&gt;&lt;span class="mi"&gt;1048576&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="c1"&gt;---------------------------------------------------------|&lt;/span&gt;
+&lt;span class="n"&gt;List&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;completed&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="n"&gt;Captured&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;file&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="n"&gt;Captured&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;file&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;HostBoot&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Runtime&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;128&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="n"&gt;Captured&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;file&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 

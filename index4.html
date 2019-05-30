@@ -102,6 +102,416 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/03/20/erasure-coding-for-programmers-part-1/">Erasure Coding for Programmers, Part 1</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-03-20T10:43:00+11:00" pubdate>Mon 20 March 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-03-20T10:43:00+11:00" pubdate>Mon 20 March 2017</time></div>
+
+  <div class="entry-content"><p>Erasure coding is an increasingly popular storage technology - allowing the same level of fault tolerance as replication with a significantly reduced storage footprint.</p>
+<p>Increasingly, erasure coding is available 'out of the box' on storage solutions such as Ceph and OpenStack Swift. Normally, you'd just pull in a library like <a href="https://github.com/01org/isa-l">ISA-L</a> or <a href="http://jerasure.org">jerasure</a>, and set some config options, and you'd be done.</p>
+<p>This post is not about that. This post is about how I went from knowing nothing about erasure coding to writing POWER optimised routines to make it go fast. (These are in the process of being polished for upstream at the moment.) If you want to understand how erasure coding works under the hood - and in particular if you're interested in writing optimised routines to make it run quickly in your platform - this is for you.</p>
+<h2>What are erasure codes anyway?</h2>
+<p>I think the easiest way to begin thinking about erasure codes is "RAID 6 on steroids". RAID 6 allows you to have up to 255 data disks and 2 parity disks (called P and Q), thus allowing you to tolerate the failure of up to 2 arbitrary disks without data loss.</p>
+<p>Erasure codes allow you to have k data disks and m 'parity' or coding disks. You then have a total of m + k disks, and you can tolerate the failure of up to m without losing data.</p>
+<p>The downside of erasure coding is that computing what to put on those parity disks is CPU intensive. Lets look at what we put on them.</p>
+<h2>RAID 6</h2>
+<p>RAID 6 is the easiest way to get started on understanding erasure codes for a number of reasons. H Peter Anvin's paper on RAID 6 in the Linux kernel is an excellent start, but does dive in a bit quickly to the underlying mathematics. So before reading that, read on!</p>
+<h2>Rings and Fields</h2>
+<p>As programmers we're pretty comfortable with modular arithmetic - the idea that if you have:</p>
+<div class="highlight"><pre><span></span><span class="n">unsigned</span> <span class="nb">char</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">255</span><span class="p">;</span>
+<span class="n">a</span><span class="o">++</span><span class="p">;</span>
+</pre></div>
+
+
+<p>the new value of <code>a</code> will be 0, not 256.</p>
+<p>This is an example of an algebraic structure called a <em>ring</em>.</p>
+<p>Rings obey certain laws. For our purposes, we'll consider the following incomplete and somewhat simplified list:</p>
+<ul>
+<li>There is an addition operation.</li>
+<li>There is an additive identity (normally called 0), such that 'a + 0 = a'.</li>
+<li>Every element has an additive inverse, that is, for every element 'a', there is an element -a such that 'a + (-a) = 0'</li>
+<li>There is a multiplication operation.</li>
+<li>There is a multiplicative identity (normally called 1), such that 'a * 1 = a'.</li>
+</ul>
+<p>These operations aren't necessarily addition or multiplication as we might expect from the integers or real numbers. For example, in our modular arithmetic example, we have 'wrap around'. (There are also certain rules the addition and multiplication rules must satisfy - we are glossing over them here.)</p>
+<p>One thing a ring doesn't have a 'multiplicative inverse'. The multiplicative inverse of some non-zero element of the ring (call it a), is the value b such that a * b = 1. (Often instead of b we write 'a^-1', but that looks bad in plain text, so we shall stick to b for now.)</p>
+<p>We do have some inverses in 'mod 256': the inverse of 3 is 171 as 3 * 171 = 513, and 513 = 1 mod 256, but there is no b such that 2 * b = 1 mod 256.</p>
+<p>If every non-zero element of our ring had a multiplicative inverse, we would have what is called a <em>field</em>.</p>
+<p>Now, let's look at a the integers modulo 2, that is, 0 and 1.</p>
+<p>We have this for addition:</p>
+<table>
+<thead>
+<tr>
+<th>+</th>
+<th>0</th>
+<th>1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0</strong></td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td><strong>1</strong></td>
+<td>1</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>Eagle-eyed readers will notice that this is the same as XOR.</p>
+<p>For multiplication: </p>
+<table>
+<thead>
+<tr>
+<th>*</th>
+<th>0</th>
+<th>1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0</strong></td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td><strong>1</strong></td>
+<td>0</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p>As we said, a field is a ring where every non-zero element has a multiplicative inverse. As we can see, the integers modulo 2 shown above is a field: it's a ring, and 1 is its own multiplicative inverse.</p>
+<p>So this is all well and good, but you can't really do very much in a field with 2 elements. This is sad, so we make bigger fields. For this application, we consider the Galois Field with 256 elements - GF(2^8). This field has some surprising and useful properties.</p>
+<p>Remember how we said that integers modulo 256 weren't a field because they didn't have multiplicative inverses? I also just said that GF(2^8) also has 256 elements, but is a field - i.e., it does have inverses! How does that work?</p>
+<p>Consider an element in GF(2^8). There are 2 ways to look at an element in GF(2^8). The first is to consider it as an 8-bit number. So, for example, let's take 100. We can express that as as an 8 bit binary number: 0b01100100.</p>
+<p>We can write that more explicitly as a sum of powers of 2:</p>
+<div class="highlight"><pre><span></span><span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">1</span>
+<span class="o">=</span> <span class="mi">2</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="mi">2</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">2</span><span class="o">^</span><span class="mi">2</span>
+</pre></div>
+
+
+<p>Now the other way we can look at elements in GF(2^8) is to replace the '2's with 'x's, and consider them as polynomials. Each of our bits then represents the coefficient of a term of a polynomial, that is:</p>
+<div class="highlight"><pre><span></span><span class="mi">0</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="mi">1</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="mi">1</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">0</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="mi">0</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">0</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">1</span>
+</pre></div>
+
+
+<p>or more simply</p>
+<div class="highlight"><pre><span></span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+</pre></div>
+
+
+<p>Now, and this is <strong>important</strong>: each of the coefficients are elements of the integers modulo 2: x + x = 2x = 0 as 2 mod 2 = 0. There is no concept of 'carrying' in this addition.</p>
+<p>Let's try: what's 100 + 79 in GF(2^8)?</p>
+<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span>       <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+ <span class="mi">79</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01001111</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span>       <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="mi">100</span> <span class="o">+</span> <span class="mi">79</span>         <span class="o">=&gt;</span>   <span class="mi">0</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span>   <span class="mi">0</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+                 <span class="o">=</span>    <span class="mi">0</span><span class="n">b00101011</span> <span class="o">=</span> <span class="mi">43</span>
+</pre></div>
+
+
+<p>So, 100 + 79 = 43 in GF(2^8)</p>
+<p>You may notice we could have done that much more efficiently: we can add numbers in GF(2^8) by just XORing their binary representations together. Subtraction, amusingly, is the same as addition: 0 + x = x =  0 - x, as -1 is congruent to 1 modulo 2.</p>
+<p>So at this point you might be wanting to explore a few additions yourself. Fortuantely there's a lovely tool that will allow you to do that:</p>
+<div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">gf</span><span class="o">-</span><span class="n">complete</span><span class="o">-</span><span class="n">tools</span>
+<span class="n">gf_add</span> <span class="err">$</span><span class="n">A</span> <span class="err">$</span><span class="n">B</span> <span class="mi">8</span>
+</pre></div>
+
+
+<p>This will give you A + B in GF(2^8).</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_add</span> <span class="mi">100</span> <span class="mi">79</span> <span class="mi">8</span>
+<span class="mi">43</span>
+</pre></div>
+
+
+<p>Excellent!</p>
+<p>So, hold on to your hats, as this is where things get really weird. In modular arithmetic example, we considered the elements of our ring to be numbers, and we performed our addition and multiplication modulo 256. In GF(2^8), we consider our elements as polynomials and we perform our addition and multiplication modulo a polynomial. There is one conventional polynomial used in applications:</p>
+<div class="highlight"><pre><span></span><span class="mi">0</span><span class="n">x11d</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="n">b1</span> <span class="mi">0001</span> <span class="mi">1101</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+</pre></div>
+
+
+<p>It is possible to use other polynomials if they satisfy particular requirements, but for our applications we don't need to worry as we will always use 0x11d. I am not going to attempt to explain anything about this polynomial - take it as an article of faith.</p>
+<p>So when we multiply two numbers, we multiply their polynomial representations. Then, to find out what that is modulo 0x11d, we do polynomial long division by 0x11d, and take the remainder.</p>
+<p>Some examples will help.</p>
+<p>Let's multiply 100 by 3.</p>
+<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+  <span class="mi">3</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b00000011</span> <span class="o">=&gt;</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="p">(</span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span><span class="p">)(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+                         <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+</pre></div>
+
+
+<p>Notice that some of the terms have disappeared: x^6 + x^6 = 0.</p>
+<p>The degree (the largest power of a term) is 7. 7 is less than the degree of 0x11d, which is 8, so we don't need to do anything: the remainder modulo 0x11d is simply x^7 + x^5 + x^3 + x^2.</p>
+<p>In binary form, that is 0b10101100 = 172, so 100 * 3 = 172 in GF(2^8).</p>
+<p>Fortunately <code>gf-complete-tools</code> also allows us to check multiplications:</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_mult</span> <span class="mi">100</span> <span class="mi">3</span> <span class="mi">8</span>
+<span class="mi">172</span>
+</pre></div>
+
+
+<p>Excellent!</p>
+<p>Now let's see what happens if we multiply by a larger number. Let's multiply 100 by 5.</p>
+<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+  <span class="mi">5</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b00000101</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="p">(</span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span><span class="p">)(</span><span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+                           <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+</pre></div>
+
+
+<p>Here we have an x^8 term, so we have a degree of 8. This means will get a different remainder when we divide by our polynomial. We do this with polynomial long division, which you will hopefully remember if you did some solid algebra in high school.</p>
+<div class="highlight"><pre><span></span>                              <span class="mi">1</span>
+                           <span class="c1">---------------------------------------------</span>
+<span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+                          <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+                            <span class="c1">-------------------------------------------</span>
+                          <span class="o">=</span>       <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span>       <span class="o">+</span> <span class="mi">1</span>
+</pre></div>
+
+
+<p>So we have that our original polynomial (x^8 + x^4 + x^3 + x^2 + 1) is congruent to (x^7 + x^6 + x^5 + x^3 + 1) modulo the polynomial 0x11d.
+Looking at the binary representation of that new polynomial, we have 0b11101001 = 233.</p>
+<p>Sure enough:</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_mult</span> <span class="mi">100</span> <span class="mi">5</span> <span class="mi">8</span>
+<span class="mi">233</span>
+</pre></div>
+
+
+<p>Just to solidify the polynomial long division a bit, let's try a slightly larger example, 100 * 9:</p>
+<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+  <span class="mi">9</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b00001001</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="p">(</span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span><span class="p">)(</span><span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+                           <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+</pre></div>
+
+
+<p>Doing long division to reduce our result:</p>
+<div class="highlight"><pre><span></span>                              <span class="n">x</span>
+                           <span class="c1">-----------------------------------</span>
+<span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+                          <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span>       <span class="o">+</span> <span class="n">x</span>
+                            <span class="c1">-------------------------------------------------</span>
+                          <span class="o">=</span>       <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span>
+</pre></div>
+
+
+<p>We still have a polynomial of degree 8, so we can do another step:</p>
+<div class="highlight"><pre><span></span>                              <span class="n">x</span> <span class="o">+</span>   <span class="mi">1</span>
+                           <span class="c1">-----------------------------------</span>
+<span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+                          <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span>       <span class="o">+</span> <span class="n">x</span>
+                            <span class="c1">-------------------------------------------------</span>
+                          <span class="o">=</span>       <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span>
+                          <span class="o">-</span>       <span class="n">x</span><span class="o">^</span><span class="mi">8</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>     <span class="o">+</span> <span class="mi">1</span>
+                                  <span class="c1">-----------------------------------------------</span>
+                          <span class="o">=</span>                   <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span>                   <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+</pre></div>
+
+
+<p>We now have a polynomial of degree less than 8 that is congruent to our original polynomial modulo 0x11d, and the binary form is 0x01100011 = 99.</p>
+<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_mult</span> <span class="mi">100</span> <span class="mi">9</span> <span class="mi">8</span>
+<span class="mi">99</span>
+</pre></div>
+
+
+<p>This process can be done more efficiently, of course - but understanding what is going on will make you <em>much</em> more comfortable with what is going on!</p>
+<p>I will not try to convince you that all multiplicative inverses exist in this magic shadow land of GF(2^8), but it's important for the rest of the algorithms to work that they do exist. Trust me on this.</p>
+<h2>Back to RAID 6</h2>
+<p>Equipped with this knowledge, you are ready to take on <a href="https://www.kernel.org/pub/linux/kernel/people/hpa/raid6.pdf">RAID6 in the kernel</a> (PDF) sections 1 - 2.</p>
+<p>Pause when you get to section 3 - this snippet is a bit magic and benefits from some explanation:</p>
+<blockquote>
+<p>Multiplication by {02} for a single byte can be implemeted using the C code:</p>
+</blockquote>
+<div class="highlight"><pre><span></span><span class="n">uint8_t</span> <span class="k">c</span><span class="p">,</span> <span class="n">cc</span><span class="p">;</span>
+<span class="n">cc</span> <span class="o">=</span> <span class="p">(</span><span class="k">c</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="k">c</span> <span class="o">&amp;</span> <span class="mi">0</span><span class="n">x80</span><span class="p">)</span> <span class="o">?</span> <span class="mi">0</span><span class="n">x1d</span> <span class="p">:</span> <span class="mi">0</span><span class="p">);</span>
+</pre></div>
+
+
+<p>How does this work? Well:</p>
+<p>Say you have a binary number 0bNMMM MMMM. Mutiplication by 2 gives you 0bNMMMMMMM0, which is 9 bits. Now, there are two cases to consider.</p>
+<p>If your leading bit (N) is 0, your product doesn't have an x^8 term, so we don't need to reduce it modulo the irreducible polynomial.</p>
+<p>If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.</p>
+<p>We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)</p>
+<p>So, back to the original statement:</p>
+<div class="highlight"><pre><span></span><span class="ss">(</span><span class="nv">c</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="ss">)</span> <span class="o">^</span> <span class="ss">((</span><span class="nv">c</span> <span class="o">&amp;</span> <span class="mi">0</span><span class="nv">x80</span><span class="ss">)</span> ? <span class="mi">0</span><span class="nv">x1d</span> : <span class="mi">0</span><span class="ss">)</span>
+    <span class="o">|</span>          <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
+    <span class="o">&gt;</span> <span class="nv">multiply</span> <span class="nv">by</span> <span class="mi">2</span>       <span class="o">|</span>     <span class="o">|</span>
+               <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
+               <span class="o">&gt;</span> <span class="nv">is</span> <span class="nv">the</span> <span class="nv">high</span> <span class="nv">bit</span> <span class="nv">set</span> <span class="o">-</span> <span class="nv">will</span> <span class="nv">the</span> <span class="nv">product</span> <span class="nv">have</span> <span class="nv">an</span> <span class="nv">x</span><span class="o">^</span><span class="mi">8</span> <span class="nv">term</span>?
+                          <span class="o">|</span>     <span class="o">|</span>
+                          <span class="o">&gt;</span> <span class="k">if</span> <span class="nv">so</span>, <span class="nv">reduce</span> <span class="nv">by</span> <span class="nv">the</span> <span class="nv">polynomial</span>
+                                <span class="o">|</span>
+                                <span class="o">&gt;</span> <span class="nv">otherwise</span>, <span class="nv">leave</span> <span class="nv">alone</span>
+</pre></div>
+
+
+<p>Hopefully that makes sense.</p>
+<h3>Key points</h3>
+<p>It's critical you understand the section on Altivec (the vperm stuff), so let's cover it in a bit more detail.</p>
+<p>Say you want to do A * V, where A is a constant and V is an 8-bit variable. We can express V as V_a + V_b, where V_a is the top 4 bits of V, and V_b is the bottom 4 bits. A * V = A * V_a + A * V_b</p>
+<p>We can then make lookup tables for multiplication by A.</p>
+<p>If we did this in the most obvious way, we would need a 256 entry lookup table. But by splitting things into the top and bottom halves, we can reduce that to two 16 entry tables. For example, say A = 02.</p>
+<table>
+<thead>
+<tr>
+<th>V_a</th>
+<th>A * V_a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>00</td>
+<td>00</td>
+</tr>
+<tr>
+<td>01</td>
+<td>02</td>
+</tr>
+<tr>
+<td>02</td>
+<td>04</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr>
+<td>0f</td>
+<td>1e</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>V_b</th>
+<th>A * V_b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>00</td>
+<td>00</td>
+</tr>
+<tr>
+<td>10</td>
+<td>20</td>
+</tr>
+<tr>
+<td>20</td>
+<td>40</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr>
+<td>f0</td>
+<td>fd</td>
+</tr>
+</tbody>
+</table>
+<p>We then use vperm to look up entries in these tables and vxor to combine our results.</p>
+<p>So - and this is a key point - for each A value we wish to multiply by, we need to generate a new lookup table.</p>
+<p>So if we wanted A = 03:</p>
+<table>
+<thead>
+<tr>
+<th>V_a</th>
+<th>A * V_a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>00</td>
+<td>00</td>
+</tr>
+<tr>
+<td>01</td>
+<td>03</td>
+</tr>
+<tr>
+<td>02</td>
+<td>06</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr>
+<td>0f</td>
+<td>11</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>V_b</th>
+<th>A * V_b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>00</td>
+<td>00</td>
+</tr>
+<tr>
+<td>10</td>
+<td>30</td>
+</tr>
+<tr>
+<td>20</td>
+<td>60</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr>
+<td>f0</td>
+<td>0d</td>
+</tr>
+</tbody>
+</table>
+<p>One final thing is that Power8 adds a vpermxor instruction, so we can reduce the entire 4 instruction sequence in the paper:</p>
+<div class="highlight"><pre><span></span><span class="n">vsrb</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">v14</span>
+<span class="n">vperm</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v12</span><span class="p">,</span> <span class="n">v12</span><span class="p">,</span> <span class="n">v0</span>
+<span class="n">vperm</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v1</span>
+<span class="n">vxor</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v1</span>
+</pre></div>
+
+
+<p>to 1 vpermxor:</p>
+<div class="highlight"><pre><span></span><span class="n">vpermxor</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v12</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v0</span>
+</pre></div>
+
+
+<p>Isn't POWER grand?</p>
+<h2>OK, but how does this relate to erasure codes?</h2>
+<p>I'm glad you asked.</p>
+<p>Galois Field arithmetic, and its application in RAID 6 is the basis for erasure coding. (It's also the basis for CRCs - two for the price of one!)</p>
+<p>But, that's all to come in part 2, which will definitely be published before 7 April!</p>
+<p>Many thanks to Sarah Axtens who reviewed the mathematical content of this post and suggested significant improvements. All errors and gross oversimplifications remain my own. Thanks also to the OzLabs crew for their feedback and comments.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">High Power Lustre</a>
       </h1>
     <p class="meta">
@@ -124,21 +534,21 @@ document.addEventListener('DOMContentLoaded', function() {
 <h2>Setup quirks</h2>
 <p>We are told to edit <code>~/kernel/rpmbuild/SPEC/kernel.spec</code>. This doesn't exist because the directory is <code>SPECS</code> not <code>SPEC</code>: you need to edit <code>~/kernel/rpmbuild/SPECS/kernel.spec</code>.</p>
 <p>I also found there was an extra quote mark in the supplied patch script after <code>-lustre.patch</code>. I removed that and ran this instead:</p>
-<div class="highlight"><pre><span></span>for patch in $(<span class="err">&lt;</span>&quot;3.10-rhel7.series&quot;); do \
-      patch_file=&quot;<span class="nv">$HOME</span>/lustre-release/lustre/kernel_patches/patches/<span class="cp">${</span><span class="n">patch</span><span class="cp">}</span>&quot; \
-      cat &quot;<span class="cp">${</span><span class="n">patch_file</span><span class="cp">}</span>&quot; &gt;&gt; <span class="nv">$HOME</span>/lustre-kernel-x86_64-lustre.patch \
-done
+<div class="highlight"><pre><span></span><span class="k">for</span> <span class="nv">patch</span> <span class="nv">in</span> $<span class="ss">(</span><span class="o">&lt;</span><span class="s2">&quot;</span><span class="s">3.10-rhel7.series</span><span class="s2">&quot;</span><span class="ss">)</span><span class="c1">; do \</span>
+      <span class="nv">patch_file</span><span class="o">=</span><span class="s2">&quot;</span><span class="s">$HOME/lustre-release/lustre/kernel_patches/patches/${patch}</span><span class="s2">&quot;</span> \
+      <span class="nv">cat</span> <span class="s2">&quot;</span><span class="s">${patch_file}</span><span class="s2">&quot;</span> <span class="o">&gt;&gt;</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">kernel</span><span class="o">-</span><span class="nv">x86_64</span><span class="o">-</span><span class="nv">lustre</span>.<span class="nv">patch</span> \
+<span class="nv">done</span>
 </pre></div>
 
 
 <p>The fact that there is 'x86_64' in the patch name doesn't matter as you're about to copy it under a different name to a place where it will be included by the spec file.</p>
 <h2>Building for ppc64le</h2>
 <p>Building for ppc64le was reasonably straight-forward. I had one small issue:</p>
-<div class="highlight"><pre><span></span>[build@dja-centos-guest rpmbuild]$ rpmbuild -bp --target=`uname -m` ./SPECS/kernel.spec
-Building target platforms: ppc64le
-Building for target ppc64le
-error: Failed build dependencies:
-       net-tools is needed by kernel-3.10.0-327.36.3.el7.ppc64le
+<div class="highlight"><pre><span></span>[<span class="nv">build</span>@<span class="nv">dja</span><span class="o">-</span><span class="nv">centos</span><span class="o">-</span><span class="nv">guest</span> <span class="nv">rpmbuild</span>]$ <span class="nv">rpmbuild</span> <span class="o">-</span><span class="nv">bp</span> <span class="o">--</span><span class="nv">target</span><span class="o">=</span>`<span class="nv">uname</span> <span class="o">-</span><span class="nv">m</span>` .<span class="o">/</span><span class="nv">SPECS</span><span class="o">/</span><span class="nv">kernel</span>.<span class="nv">spec</span>
+<span class="nv">Building</span> <span class="nv">target</span> <span class="nv">platforms</span>: <span class="nv">ppc64le</span>
+<span class="nv">Building</span> <span class="k">for</span> <span class="nv">target</span> <span class="nv">ppc64le</span>
+<span class="nv">error</span>: <span class="nv">Failed</span> <span class="nv">build</span> <span class="nv">dependencies</span>:
+       <span class="nv">net</span><span class="o">-</span><span class="nv">tools</span> <span class="nv">is</span> <span class="nv">needed</span> <span class="nv">by</span> <span class="nv">kernel</span><span class="o">-</span><span class="mi">3</span>.<span class="mi">10</span>.<span class="mi">0</span><span class="o">-</span><span class="mi">327</span>.<span class="mi">36</span>.<span class="mi">3</span>.<span class="nv">el7</span>.<span class="nv">ppc64le</span>
 </pre></div>
 
 
@@ -164,8 +574,8 @@ error: Failed build dependencies:
 <li><code>f_eofblocks</code>: This may need fixing for large page sizes, see <a href="https://jira.hpdd.intel.com/browse/LU-4677?focusedCommentId=78814&amp;page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-78814">this bug</a>.</li>
 </ul>
 <p>I disabled the tests by adding the following two lines to the spec file, just before <code>make %{?_smp_mflags} check</code>.</p>
-<div class="highlight"><pre><span></span>rm -rf tests/f_pgsize_gt_blksize
-rm -rf tests/f_eofblocks
+<div class="highlight"><pre><span></span><span class="n">rm</span> <span class="o">-</span><span class="n">rf</span> <span class="n">tests</span><span class="o">/</span><span class="n">f_pgsize_gt_blksize</span>
+<span class="n">rm</span> <span class="o">-</span><span class="n">rf</span> <span class="n">tests</span><span class="o">/</span><span class="n">f_eofblocks</span>
 </pre></div>
 
 
@@ -173,12 +583,12 @@ rm -rf tests/f_eofblocks
 <p>Following that I went back to the <code>lustre-release</code> build products and was able to successfully run <code>yum localinstall *ppc64le.rpm</code>!</p>
 <h1>Testing the server</h1>
 <p>After disabling SELinux and rebooting, I ran the test script:</p>
-<div class="highlight"><pre><span></span>sudo /usr/lib64/lustre/tests/llmount.sh
+<div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib64</span><span class="o">/</span><span class="n">lustre</span><span class="o">/</span><span class="n">tests</span><span class="o">/</span><span class="n">llmount</span><span class="p">.</span><span class="n">sh</span>
 </pre></div>
 
 
 <p>This spat out one scary warning:</p>
-<div class="highlight"><pre><span></span>mount.lustre FATAL: unhandled/unloaded fs type 0 &#39;ext3&#39;
+<div class="highlight"><pre><span></span><span class="n">mount</span><span class="p">.</span><span class="n">lustre</span> <span class="n">FATAL</span><span class="p">:</span> <span class="n">unhandled</span><span class="o">/</span><span class="n">unloaded</span> <span class="n">fs</span> <span class="k">type</span> <span class="mi">0</span> <span class="s1">&#39;ext3&#39;</span>
 </pre></div>
 
 
@@ -189,22 +599,22 @@ rm -rf tests/f_eofblocks
 <p>I tried with an existing Ubuntu 16.04 VM that I use for much of my day to day development.</p>
 <p>A quick google suggested that I could grab the <code>lustre-release</code> repository and run <code>make debs</code> to get Debian packages for my system.</p>
 <p>I needed the following dependencies:</p>
-<div class="highlight"><pre><span></span>sudo apt install module-assistant debhelper dpatch libsnmp-dev quilt
+<div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">module</span><span class="o">-</span><span class="n">assistant</span> <span class="n">debhelper</span> <span class="n">dpatch</span> <span class="n">libsnmp</span><span class="o">-</span><span class="n">dev</span> <span class="n">quilt</span>
 </pre></div>
 
 
 <p>With those the packages built successfully, and could be easily installed:</p>
-<div class="highlight"><pre><span></span>dpkg -i lustre-client-modules-4.4.0-57-generic_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deblustre-utils_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deb
+<div class="highlight"><pre><span></span><span class="n">dpkg</span> <span class="o">-</span><span class="n">i</span> <span class="n">lustre</span><span class="o">-</span><span class="n">client</span><span class="o">-</span><span class="n">modules</span><span class="o">-</span><span class="mi">4</span><span class="p">.</span><span class="mi">4</span><span class="p">.</span><span class="mi">0</span><span class="o">-</span><span class="mi">57</span><span class="o">-</span><span class="n">generic_2</span><span class="p">.</span><span class="mi">9</span><span class="p">.</span><span class="mi">52</span><span class="o">-</span><span class="mi">60</span><span class="o">-</span><span class="n">g1d2fbad</span><span class="o">-</span><span class="n">dirty</span><span class="o">-</span><span class="mi">1</span><span class="n">_ppc64el</span><span class="p">.</span><span class="n">deblustre</span><span class="o">-</span><span class="n">utils_2</span><span class="p">.</span><span class="mi">9</span><span class="p">.</span><span class="mi">52</span><span class="o">-</span><span class="mi">60</span><span class="o">-</span><span class="n">g1d2fbad</span><span class="o">-</span><span class="n">dirty</span><span class="o">-</span><span class="mi">1</span><span class="n">_ppc64el</span><span class="p">.</span><span class="n">deb</span>
 </pre></div>
 
 
 <p>I tried to connect to the server:</p>
-<div class="highlight"><pre><span></span>sudo mount -t lustre $SERVER_IP@tcp:/lustre /lustre/
+<div class="highlight"><pre><span></span><span class="n">sudo</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">t</span><span class="w"> </span><span class="n">lustre</span><span class="w"> </span><span class="err">$</span><span class="n">SERVER_IP</span><span class="nv">@tcp</span><span class="err">:</span><span class="o">/</span><span class="n">lustre</span><span class="w"> </span><span class="o">/</span><span class="n">lustre</span><span class="o">/</span><span class="w"></span>
 </pre></div>
 
 
 <p>Initially I wasn't able to connect to the server at all. I remembered that (unlike Ubuntu), CentOS comes with quite an aggressive firewall by default. I ran the following on the server:</p>
-<div class="highlight"><pre><span></span>systemctl stop firewalld
+<div class="highlight"><pre><span></span><span class="n">systemctl</span> <span class="n">stop</span> <span class="n">firewalld</span>
 </pre></div>
 
 
@@ -212,22 +622,22 @@ rm -rf tests/f_eofblocks
 <h1>Testing with an x86_64 client</h1>
 <p>I then tried to run <code>make debs</code> on my Ubuntu 16.10 x86_64 laptop.</p>
 <p>This did not go well - I got the following error:</p>
-<div class="highlight"><pre><span></span>liblustreapi.c: In function ‘llapi_get_poollist’:
-liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-declarations]
+<div class="highlight"><pre><span></span><span class="n">liblustreapi</span><span class="p">.</span><span class="k">c</span><span class="p">:</span> <span class="k">In</span> <span class="k">function</span> <span class="err">‘</span><span class="n">llapi_get_poollist</span><span class="err">’</span><span class="p">:</span>
+<span class="n">liblustreapi</span><span class="p">.</span><span class="k">c</span><span class="p">:</span><span class="mi">1201</span><span class="p">:</span><span class="mi">3</span><span class="p">:</span> <span class="n">error</span><span class="p">:</span> <span class="err">‘</span><span class="n">readdir_r</span><span class="err">’</span> <span class="k">is</span> <span class="n">deprecated</span> <span class="p">[</span><span class="o">-</span><span class="n">Werror</span><span class="o">=</span><span class="n">deprecated</span><span class="o">-</span><span class="n">declarations</span><span class="p">]</span>
 </pre></div>
 
 
 <p>This looks like one of the new errors introduced in recent GCC versions, and is <a href="https://jira.hpdd.intel.com/browse/LU-8724?focusedCommentId=175244&amp;page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-175244">a known bug</a>. To work around it, I found the following stanza in a <code>lustre/autoconf/lustre-core.m4</code>, and removed the <code>-Werror</code>:</p>
-<div class="highlight"><pre><span></span>AS_IF([test $target_cpu == &quot;i686&quot; -o $target_cpu == &quot;x86_64&quot;],
-        [CFLAGS=&quot;$CFLAGS -Wall -Werror&quot;])
+<div class="highlight"><pre><span></span><span class="n">AS_IF</span><span class="p">([</span><span class="n">test</span> <span class="err">$</span><span class="n">target_cpu</span> <span class="o">==</span> <span class="ss">&quot;i686&quot;</span> <span class="o">-</span><span class="n">o</span> <span class="err">$</span><span class="n">target_cpu</span> <span class="o">==</span> <span class="ss">&quot;x86_64&quot;</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">CFLAGS</span><span class="o">=</span><span class="ss">&quot;$CFLAGS -Wall -Werror&quot;</span><span class="p">])</span>
 </pre></div>
 
 
 <p>Even this wasn't enough: I got the following errors:</p>
-<div class="highlight"><pre><span></span>/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
-         .d_compare = ll_dcompare,
-                  ^~~~~~~~~~~
-/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: note: (near initialization for ‘ll_d_ops.d_compare’)
+<div class="highlight"><pre><span></span><span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">error</span>: <span class="nv">initialization</span> <span class="nv">from</span> <span class="nv">incompatible</span> <span class="nv">pointer</span> <span class="nv">type</span> [<span class="o">-</span><span class="nv">Werror</span><span class="o">=</span><span class="nv">incompatible</span><span class="o">-</span><span class="nv">pointer</span><span class="o">-</span><span class="nv">types</span>]
+         .<span class="nv">d_compare</span> <span class="o">=</span> <span class="nv">ll_dcompare</span>,
+                  <span class="o">^~~~~~~~~~~</span>
+<span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">note</span>: <span class="ss">(</span><span class="nv">near</span> <span class="nv">initialization</span> <span class="k">for</span> ‘<span class="nv">ll_d_ops</span>.<span class="nv">d_compare</span>’<span class="ss">)</span>
 </pre></div>
 
 
@@ -271,13 +681,13 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 <h3>GPU Drivers and CUDA</h3>
 <p>Firstly, you'll need CUDA and the NVidia drivers.</p>
 <p>You can install CUDA by following the instructions on NVidia's <a href="https://developer.nvidia.com/cuda-downloads">CUDA Downloads</a> page.</p>
-<div class="highlight"><pre><span></span>yum install epel-release
-yum install dkms
-# download the rpm from the NVidia website
-rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
-yum clean expire-cache
-yum install cuda
-# this will take a while...
+<div class="highlight"><pre><span></span><span class="nv">yum</span> <span class="nv">install</span> <span class="nv">epel</span><span class="o">-</span><span class="nv">release</span>
+<span class="nv">yum</span> <span class="nv">install</span> <span class="nv">dkms</span>
+# <span class="nv">download</span> <span class="nv">the</span> <span class="nv">rpm</span> <span class="nv">from</span> <span class="nv">the</span> <span class="nv">NVidia</span> <span class="nv">website</span>
+<span class="nv">rpm</span> <span class="o">-</span><span class="nv">i</span> <span class="nv">cuda</span><span class="o">-</span><span class="nv">repo</span><span class="o">-</span><span class="nv">rhel7</span><span class="o">-</span><span class="mi">8</span><span class="o">-</span><span class="mi">0</span><span class="o">-</span><span class="nv">local</span><span class="o">-</span><span class="nv">ga2</span><span class="o">-</span><span class="mi">8</span>.<span class="mi">0</span>.<span class="mi">54</span><span class="o">-</span><span class="mi">1</span>.<span class="nv">ppc64le</span>.<span class="nv">rpm</span>
+<span class="nv">yum</span> <span class="nv">clean</span> <span class="nv">expire</span><span class="o">-</span><span class="nv">cache</span>
+<span class="nv">yum</span> <span class="nv">install</span> <span class="nv">cuda</span>
+# <span class="nv">this</span> <span class="nv">will</span> <span class="nv">take</span> <span class="nv">a</span> <span class="k">while</span>...
 </pre></div>
 
 
@@ -291,16 +701,16 @@ yum install cuda
 
 
 <p>Now, open a new terminal session and check to see if it works:</p>
-<div class="highlight"><pre><span></span>cuda-install-samples-8.0.sh ~
-cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;&amp; ./bandwidthTest
+<div class="highlight"><pre><span></span><span class="n">cuda</span><span class="o">-</span><span class="n">install</span><span class="o">-</span><span class="n">samples</span><span class="o">-</span><span class="mi">8</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="n">sh</span> <span class="o">~</span>
+<span class="n">cd</span> <span class="o">~/</span><span class="n">NVIDIA_CUDA</span><span class="o">-</span><span class="mi">8</span><span class="p">.</span><span class="mi">0</span><span class="n">_Samples</span><span class="o">/</span><span class="mi">1</span><span class="n">_Utilities</span><span class="o">/</span><span class="n">bandwidthTest</span>
+<span class="n">make</span> <span class="o">&amp;&amp;</span> <span class="p">.</span><span class="o">/</span><span class="n">bandwidthTest</span>
 </pre></div>
 
 
 <p>If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.</p>
 <h3>Compilers</h3>
 <p>You need a c++ compiler:</p>
-<div class="highlight"><pre><span></span>yum install gcc-c++
+<div class="highlight"><pre><span></span><span class="n">yum</span> <span class="n">install</span> <span class="n">gcc</span><span class="o">-</span><span class="k">c</span><span class="o">++</span>
 </pre></div>
 
 
@@ -312,16 +722,16 @@ make &amp;&amp; ./bandwidthTest
 <p>If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get <code>charm++ built successfully.</code> at the end, you should be OK.</p>
 <h2>Testing NAMD</h2>
 <p>We have been testing NAMD using the STMV files available from the <a href="http://www.ks.uiuc.edu/Research/namd/utilities/">NAMD website</a>:</p>
-<div class="highlight"><pre><span></span>cd NAMD_2.12_Source/Linux-POWER-g++
-wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
-tar -xf stmv.tar.gz
-sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
+<div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">NAMD_2</span><span class="p">.</span><span class="mi">12</span><span class="n">_Source</span><span class="o">/</span><span class="n">Linux</span><span class="o">-</span><span class="n">POWER</span><span class="o">-</span><span class="k">g</span><span class="o">++</span>
+<span class="n">wget</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="p">.</span><span class="n">ks</span><span class="p">.</span><span class="n">uiuc</span><span class="p">.</span><span class="n">edu</span><span class="o">/</span><span class="n">Research</span><span class="o">/</span><span class="n">namd</span><span class="o">/</span><span class="n">utilities</span><span class="o">/</span><span class="n">stmv</span><span class="p">.</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
+<span class="n">tar</span> <span class="o">-</span><span class="n">xf</span> <span class="n">stmv</span><span class="p">.</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
+<span class="n">sudo</span> <span class="p">.</span><span class="o">/</span><span class="n">charmrun</span> <span class="o">+</span><span class="n">p80</span> <span class="p">.</span><span class="o">/</span><span class="n">namd2</span> <span class="o">+</span><span class="n">pemap</span> <span class="mi">0</span><span class="o">-</span><span class="mi">159</span><span class="p">:</span><span class="mi">2</span> <span class="o">+</span><span class="n">idlepoll</span> <span class="o">+</span><span class="n">commthread</span> <span class="n">stmv</span><span class="o">/</span><span class="n">stmv</span><span class="p">.</span><span class="n">namd</span>
 </pre></div>
 
 
 <p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
 <p>You should see messages about finding and using GPUs:</p>
-<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
+<div class="highlight"><pre><span></span><span class="n">Pe</span> <span class="mi">0</span> <span class="n">physical</span> <span class="n">rank</span> <span class="mi">0</span> <span class="n">binding</span> <span class="k">to</span> <span class="n">CUDA</span> <span class="n">device</span> <span class="mi">0</span> <span class="k">on</span> <span class="o">&lt;</span><span class="n">hostname</span><span class="o">&gt;</span><span class="p">:</span> <span class="s1">&#39;Graphics Device&#39;</span>  <span class="n">Mem</span><span class="p">:</span> <span class="mi">4042</span><span class="n">MB</span>  <span class="n">Rev</span><span class="p">:</span> <span class="mi">6</span><span class="p">.</span><span class="mi">0</span>
 </pre></div>
 
 
@@ -334,10 +744,10 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 <h2>Other notes</h2>
 <p>Namd requires some libraries, some of which they supply as binary downloads on <a href="http://www.ks.uiuc.edu/Research/namd/libraries/">their website</a>.
 Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:</p>
-<div class="highlight"><pre><span></span>/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
-/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
+<div class="highlight"><pre><span></span><span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: <span class="nv">failed</span> <span class="nv">to</span> <span class="nv">merge</span> <span class="nv">target</span> <span class="nv">specific</span> <span class="nv">data</span> <span class="nv">of</span> <span class="nv">file</span> .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">regfree</span>.<span class="nv">o</span><span class="ss">)</span>
+<span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">regerror</span>.<span class="nv">o</span><span class="ss">)</span>: <span class="nv">compiled</span> <span class="k">for</span> <span class="nv">a</span> <span class="nv">big</span> <span class="nv">endian</span> <span class="nv">system</span> <span class="nv">and</span> <span class="nv">target</span> <span class="nv">is</span> <span class="nv">little</span> <span class="nv">endian</span>
+<span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: <span class="nv">failed</span> <span class="nv">to</span> <span class="nv">merge</span> <span class="nv">target</span> <span class="nv">specific</span> <span class="nv">data</span> <span class="nv">of</span> <span class="nv">file</span> .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">regerror</span>.<span class="nv">o</span><span class="ss">)</span>
+<span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">tclAlloc</span>.<span class="nv">o</span><span class="ss">)</span>: <span class="nv">compiled</span> <span class="k">for</span> <span class="nv">a</span> <span class="nv">big</span> <span class="nv">endian</span> <span class="nv">system</span> <span class="nv">and</span> <span class="nv">target</span> <span class="nv">is</span> <span class="nv">little</span> <span class="nv">endian</span>
 </pre></div>
 
 
@@ -511,159 +921,6 @@ something better but I'll leave that as an exercise for the reader.</p>
 left without your console output you are now fully equipped to extract the log
 buffer in QEMU and hopefully therein lies the answer to why you failed to boot.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/">Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-01-30T08:54:33+11:00" pubdate>Mon 30 January 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a>
-    </span>
-  </span>
-<time datetime="2017-01-30T08:54:33+11:00" pubdate>Mon 30 January 2017</time></div>
-
-  <div class="entry-content"><h2>Introduction</h2>
-<p>If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky), but also work for RHEL 7 - just swap CentOS for RHEL.</p>
-<h3>Prerequisites</h3>
-<p>Before you power on the system, ensure that you have the following items:</p>
-<ul>
-<li>Ethernet cables;</li>
-<li>USB storage device of 7G or greater;</li>
-<li>An installed ethernet network with a DHCP server;</li>
-<li>Access to the DHCP server's logs;</li>
-<li>Power cords and outlet for your system;</li>
-<li>PC or notebook that has IPMItool level 1.8.15 or greater; and </li>
-<li>a VNC client.</li>
-</ul>
-<p>Download CentOS ISO file from the <a href="http://mirror.centos.org/altarch/7/isos/ppc64le/">Centos Mirror</a>. Select the "Everything" ISO file.</p>
-<p>Note: You must use the 1611 release (dated 2016-12-22) or later due to Linux Kernel support for the server hardware.</p>
-<h2>Step 1: Preparing to power on your system</h2>
-<p>Follow these steps to prepare your system:</p>
-<ol>
-<li>If your system belongs in a rack, install your system into that rack. For instructions, see IBM POWER8 Systems information.</li>
-<li>Connect an Ethernet cable to the left embedded Ethernet port next to the serial port on the back of your system and the other end to your network. This Ethernet port is used for the BMC/IPMI interface.</li>
-<li>Connect another Enternet cable to the right Ethernet port for network connection for the operating system.</li>
-<li>Connect the power cords to the system and plug them into the outlets. </li>
-</ol>
-<p>At this point, your firmware is booting.</p>
-<h2>Step 2: Determining the BMC firmware IP address</h2>
-<p>To determine the IP address of the BMC, examine the latest DHCP server logs for the network connected to the server. The IP address will be requested approximately 2 minutes after being powered on.</p>
-<p>It is possible to set the BMC to a static IP address by following the <a href="https://www.ibm.com/support/knowledgecenter/en/TI0003H/p8eih/p8eih_managing_with_ipmi_ami.htm">IBM documentation on IPMI</a>.</p>
-<h2>Step 3: Connecting to the BMC firmware with IPMItool</h2>
-<p>After you have a network connection set up for your BMC firmware, you can connect using Intelligent Platform Management Interface (IPMI).  IPMI is the default console to use when connecting to the Open Power Abstraction Layer (OPAL) firmware.</p>
-<p>Use the default authentication for servers over IPMI is:</p>
-<ul>
-<li>Default user: ADMIN </li>
-<li>Default password: admin </li>
-</ul>
-<p>To power on your server from a PC or notebook that is running Linux®, follow these steps:</p>
-<p>Open a terminal program on your PC or notebook with <a href="#active-sol-ipmi">Activate Serial-Over-Lan using IPMI</a>. Use other steps here as needed.</p>
-<p>For the following impitool commands, server_ip_address is the IP address of the BMC from Step 2, and ipmi_user and ipmi_password are the default user ID and password for IPMI.</p>
-<h3>Power On using IPMI</h3>
-<p>If your server is not powered on, run the following command to power the server on:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password chassis power on
-</pre></div>
-
-
-<h3><a name="active-sol-ipmi"></a>Activate Serial-Over-Lan using IPMI</h3>
-<p>Activate your IPMI console by running this command:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password sol activate
-</pre></div>
-
-
-<p>After powering on your system, the Petitboot interface loads. If you do not interrupt the boot process by pressing any key within 10 seconds, Petitboot automatically boots the first option. At this point the IPMI console will be connected to the Operating Systems serial. If you get to this stage accidently you can deactivate and reboot as per the following two commands.</p>
-<h3>Deactivate Serial-Over-Lan using IPMI</h3>
-<p>If you need to power off or reboot your system, deactivate the console by running this command:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password sol deactivate
-</pre></div>
-
-
-<h3>Reboot using IPMI</h3>
-<p>If you need to reboot the system, run this command: </p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password chassis power reset
-</pre></div>
-
-
-<h2>Step 4: Creating a USB device and booting</h2>
-<p>At this point, your IPMI console should be contain a Petitboot bootloader menu as illustrated below and you are ready to install Centos 7 on your server.</p>
-<p><img alt="Petitboot menu over IPMI" src="/images/centos7-minsky/petitboot-centos7-usb-topmenu.png"> </p>
-<p>Use one of the following USB devices:</p>
-<ul>
-<li>USB attached DVD player with a single USB cable to stay under 1.0 Amps, or</li>
-<li>7 GB (or more) 2.0 (or later) USB flash drive. </li>
-</ul>
-<p>Follow the following instructions:</p>
-<ol>
-<li>To create the bootable USB device, follow the instructions in the CentOS wiki <a href="https://wiki.centos.org/HowTos/InstallFromUSBkey">Host to Set Up a USB to Install CentOS</a>.</li>
-<li>Insert your bootable USB device into the front USB port. CentOS AltArch installer will automatically appear as a boot option on the Petitboot main screen. If the USB device does not appear select <em>Rescan devices</em>. If your device is not detected, you might have to try a different type.</li>
-<li>Arrow up to select the CentOS boot option. Press <em>e</em> (Edit) to open the Petitboot Option Editor window</li>
-<li>Move the cursor to the Boot arguments section and to include the following information: <code>ro inst.stage2=hd:LABEL=CentOS_7_ppc64le:/ console=hvc0 ip=dhcp</code> (if using RHEL the LABEL will be similar to <code>RHEL-7.3\x20Server.ppc64le:/</code>)</li>
-</ol>
-<p><img alt="Petitboot edited &quot;Install CentOS AltArch 7 (64-bit kernel)" src="/images/centos7-minsky/petitboot-centos7-usb-option-editor-menu.png"></p>
-<p>Notes about the boot arguments:   </p>
-<ul>
-<li><code>ip=dhcp</code> to ensure network is started for VNC installation.</li>
-<li><code>console hvc0</code> is needed as this is not the default.</li>
-<li><code>inst.stage2</code> is needed as the boot process won't automatically find the stage2 install on the install disk.</li>
-<li>append <code>inst.proxy=URL</code> where URL is the proxy URL if installing in a network that requires a proxy to connect externally.</li>
-</ul>
-<p>You can find additional options at <a href="https://rhinstaller.github.io/anaconda/boot-options.html">Anaconda Boot Options</a>.</p>
-<ol>
-<li>Select <em>OK</em> to save your options and return to the Main menu </li>
-<li>On the Petitboot main screen, select the CentOS AltArch option and then press <em>Enter</em>. </li>
-</ol>
-<h2>Step 5: Complete your installation</h2>
-<p>After you select to boot the CentOS installer, the installer wizard walks you through the steps.  </p>
-<ol>
-<li>If the CentOS installer was able to obtain a network address via DHCP, it will present an option to enable the VNC. If no option is presented check your network cables. <img alt="VNC option" src="/images/centos7-minsky/anaconda-centos7-text-start.png"></li>
-<li>Select the <em>Start VNC</em> option and it will provide an OS server IP adress. Note that this will be different to the BMC address previously optained. <img alt="VNC option selected" src="/images/centos7-minsky/anaconda-centos7-vnc-selected.png"></li>
-<li>Run a VNC client program on your PC or notebook and connect to the OS server IP address.</li>
-</ol>
-<p><img alt="VNC of Installer" src="/images/centos7-minsky/anaconda-centos7-vnc-start.png"></p>
-<p>During the install over VNC, there are a couple of consoles active. To switch between them in the ipmitool terminal, press <em>ctrl-b</em> and then between <em>1</em>-<em>4</em> as indicated.</p>
-<p>Using the VNC client program:</p>
-<ol>
-<li>Select "Install Destination"</li>
-<li>Select a device from "Local Standard Disks"</li>
-<li>Select "Full disk summary and boot device"</li>
-<li>Select the device again from "Selected Disks" with the Boot enabled</li>
-<li>Select "Do not install boot loader" from device. <img alt="Disabling install of boot loader" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader.png"> which results in <img alt="Result after disabling boot loader install" src="/images/centos7-minsky/anaconda-centos7-vnc-installation-destination-do-not-install-boot-loader-result.png">.</li>
-</ol>
-<p>Without disabling boot loader, the installer complains about <code>an invalid stage1 device</code>. I suspect it needs a manual Prep partition of 10M to make the installer happy.</p>
-<p>If you have a local Centos repository  you can set this by selecting "Install Source" - the directories at this url should look like <a href="http://mirror.centos.org/altarch/7/os/ppc64le/">CentOS's Install Source for ppc64le</a>.</p>
-<h2>Step 6: Before reboot and using the IPMI Serial-Over-LAN</h2>
-<p>Before reboot, generate the grub.cfg file as Petitboot uses this to generate its boot menu: </p>
-<ol>
-<li>Using the ipmitool's shell (<em>ctrl-b 2</em>):</li>
-<li>Enter the following commands to generate a grub.cfg file</li>
-</ol>
-<div class="highlight"><pre><span></span>chroot /mnt/sysimage
-rm /etc/grub.d/30_os-prober
-grub2-mkconfig -o /boot/grub2/grub.cfg
-exit
-</pre></div>
-
-
-<p><code>/etc/grub.d/30_os-prober</code> is removed as Petitboot probes the other devices anyway so including it would create lots of duplicate menu items.</p>
-<p>The last step is to restart your system.</p>
-<p>Note: While your system is restarting, remove the USB device. </p>
-<p>After the system restarts, Petitboot displays the option to boot CentOS 7.2. Select this option and press Enter. </p>
-<h2>Conclusion</h2>
-<p>After you have booted CentOS, your server is ready to go!
-For more information, see the following resources:</p>
-<ul>
-<li><a href="https://www.ibm.com/support/knowledgecenter/">IBM Knowledge Center</a></li>
-<li><a href="https://www.ibm.com/developerworks/community/groups/service/html/communityview?communityUuid=fe313521-2e95-46f2-817d-44a4f27eba32">The Linux on Power Community</a></li>
-<li><a href="https://developer.ibm.com/linuxonpower/category/announcements/">The Linux on Power Developer Center</a></li>
-<li><a href="https://twitter.com/ibmpowerlinux">Follow us @ibmpowerlinux</a></li>
-</ul></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index5.html">&larr; Older</a>
 
@@ -675,6 +932,9 @@ For more information, see the following resources:</p>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
       </li>
       <li class="post">
@@ -685,9 +945,6 @@ For more information, see the following resources:</p>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2018/12/19/ipmi-initiating-better-overrides/">IPMI: Initiating Better Overrides</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/">OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</a>
       </li>
     </ul>
   </section>
@@ -708,7 +965,7 @@ For more information, see the following resources:</p>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">QEMU</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
