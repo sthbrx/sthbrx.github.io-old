@@ -375,13 +375,13 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
 &lt;p&gt;Firstly, you'll need CUDA and the NVidia drivers.&lt;/p&gt;
 &lt;p&gt;You can install CUDA by following the instructions on NVidia's &lt;a href="https://developer.nvidia.com/cuda-downloads"&gt;CUDA Downloads&lt;/a&gt; page.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;install&lt;/span&gt; &lt;span class="nv"&gt;epel&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;release&lt;/span&gt;
-&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;install&lt;/span&gt; &lt;span class="nv"&gt;dkms&lt;/span&gt;
-# &lt;span class="nv"&gt;download&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;rpm&lt;/span&gt; &lt;span class="nv"&gt;from&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;NVidia&lt;/span&gt; &lt;span class="nv"&gt;website&lt;/span&gt;
-&lt;span class="nv"&gt;rpm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;i&lt;/span&gt; &lt;span class="nv"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;repo&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;rhel7&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;local&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;ga2&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;.&lt;span class="mi"&gt;0&lt;/span&gt;.&lt;span class="mi"&gt;54&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;.&lt;span class="nv"&gt;ppc64le&lt;/span&gt;.&lt;span class="nv"&gt;rpm&lt;/span&gt;
-&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;clean&lt;/span&gt; &lt;span class="nv"&gt;expire&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;cache&lt;/span&gt;
-&lt;span class="nv"&gt;yum&lt;/span&gt; &lt;span class="nv"&gt;install&lt;/span&gt; &lt;span class="nv"&gt;cuda&lt;/span&gt;
-# &lt;span class="nv"&gt;this&lt;/span&gt; &lt;span class="nv"&gt;will&lt;/span&gt; &lt;span class="nv"&gt;take&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="k"&gt;while&lt;/span&gt;...
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install epel-release
+yum install dkms
+# download the rpm from the NVidia website
+rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
+yum clean expire-cache
+yum install cuda
+# this will take a while...
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -395,16 +395,16 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 
 
 &lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;install&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;samples&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sh&lt;/span&gt; &lt;span class="o"&gt;~&lt;/span&gt;
-&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;~/&lt;/span&gt;&lt;span class="n"&gt;NVIDIA_CUDA&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;_Samples&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="n"&gt;_Utilities&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bandwidthTest&lt;/span&gt;
-&lt;span class="n"&gt;make&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bandwidthTest&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
+cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
+make &amp;amp;&amp;amp; ./bandwidthTest
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.&lt;/p&gt;
 &lt;h3&gt;Compilers&lt;/h3&gt;
 &lt;p&gt;You need a c++ compiler:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;gcc&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;c&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install gcc-c++
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -416,16 +416,16 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 &lt;p&gt;If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get &lt;code&gt;charm++ built successfully.&lt;/code&gt; at the end, you should be OK.&lt;/p&gt;
 &lt;h2&gt;Testing NAMD&lt;/h2&gt;
 &lt;p&gt;We have been testing NAMD using the STMV files available from the &lt;a href="http://www.ks.uiuc.edu/Research/namd/utilities/"&gt;NAMD website&lt;/a&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="n"&gt;NAMD_2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;12&lt;/span&gt;&lt;span class="n"&gt;_Source&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Linux&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;POWER&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;g&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;
-&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;http&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;www&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;ks&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;uiuc&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;edu&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Research&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;namd&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;utilities&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;tar&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
-&lt;span class="n"&gt;tar&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;xf&lt;/span&gt; &lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;tar&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
-&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;charmrun&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;p80&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;namd2&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;pemap&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;159&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;idlepoll&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;commthread&lt;/span&gt; &lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;stmv&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;namd&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cd NAMD_2.12_Source/Linux-POWER-g++
+wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
+tar -xf stmv.tar.gz
+sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
 &lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;Pe&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="n"&gt;physical&lt;/span&gt; &lt;span class="n"&gt;rank&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="n"&gt;binding&lt;/span&gt; &lt;span class="k"&gt;to&lt;/span&gt; &lt;span class="n"&gt;CUDA&lt;/span&gt; &lt;span class="n"&gt;device&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="k"&gt;on&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;hostname&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;Graphics Device&amp;#39;&lt;/span&gt;  &lt;span class="n"&gt;Mem&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;4042&lt;/span&gt;&lt;span class="n"&gt;MB&lt;/span&gt;  &lt;span class="n"&gt;Rev&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -438,10 +438,10 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 &lt;h2&gt;Other notes&lt;/h2&gt;
 &lt;p&gt;Namd requires some libraries, some of which they supply as binary downloads on &lt;a href="http://www.ks.uiuc.edu/Research/namd/libraries/"&gt;their website&lt;/a&gt;.
 Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: &lt;span class="nv"&gt;failed&lt;/span&gt; &lt;span class="nv"&gt;to&lt;/span&gt; &lt;span class="nv"&gt;merge&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;specific&lt;/span&gt; &lt;span class="nv"&gt;data&lt;/span&gt; &lt;span class="nv"&gt;of&lt;/span&gt; &lt;span class="nv"&gt;file&lt;/span&gt; .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;regfree&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
-&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;regerror&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;: &lt;span class="nv"&gt;compiled&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;big&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt; &lt;span class="nv"&gt;system&lt;/span&gt; &lt;span class="nv"&gt;and&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;little&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt;
-&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: &lt;span class="nv"&gt;failed&lt;/span&gt; &lt;span class="nv"&gt;to&lt;/span&gt; &lt;span class="nv"&gt;merge&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;specific&lt;/span&gt; &lt;span class="nv"&gt;data&lt;/span&gt; &lt;span class="nv"&gt;of&lt;/span&gt; &lt;span class="nv"&gt;file&lt;/span&gt; .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;regerror&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;
-&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;ld&lt;/span&gt;: .&lt;span class="nv"&gt;rootdir&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;tcl&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;libtcl8&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;tclAlloc&lt;/span&gt;.&lt;span class="nv"&gt;o&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt;: &lt;span class="nv"&gt;compiled&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;big&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt; &lt;span class="nv"&gt;system&lt;/span&gt; &lt;span class="nv"&gt;and&lt;/span&gt; &lt;span class="nv"&gt;target&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;little&lt;/span&gt; &lt;span class="nv"&gt;endian&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
+/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -484,26 +484,26 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;p&gt;For the following impitool commands, server_ip_address is the IP address of the BMC from Step 2, and ipmi_user and ipmi_password are the default user ID and password for IPMI.&lt;/p&gt;
 &lt;h3&gt;Power On using IPMI&lt;/h3&gt;
 &lt;p&gt;If your server is not powered on, run the following command to power the server on:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="n"&gt;ipmi_user&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;chassis&lt;/span&gt; &lt;span class="n"&gt;power&lt;/span&gt; &lt;span class="k"&gt;on&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password chassis power on
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;h3&gt;&lt;a name="active-sol-ipmi"&gt;&lt;/a&gt;Activate Serial-Over-Lan using IPMI&lt;/h3&gt;
 &lt;p&gt;Activate your IPMI console by running this command:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="n"&gt;ipmi_user&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;sol&lt;/span&gt; &lt;span class="n"&gt;activate&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password sol activate
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;After powering on your system, the Petitboot interface loads. If you do not interrupt the boot process by pressing any key within 10 seconds, Petitboot automatically boots the first option. At this point the IPMI console will be connected to the Operating Systems serial. If you get to this stage accidently you can deactivate and reboot as per the following two commands.&lt;/p&gt;
 &lt;h3&gt;Deactivate Serial-Over-Lan using IPMI&lt;/h3&gt;
 &lt;p&gt;If you need to power off or reboot your system, deactivate the console by running this command:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="k"&gt;user&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;sol&lt;/span&gt; &lt;span class="n"&gt;deactivate&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password sol deactivate
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;h3&gt;Reboot using IPMI&lt;/h3&gt;
 &lt;p&gt;If you need to reboot the system, run this command: &lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="k"&gt;user&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;chassis&lt;/span&gt; &lt;span class="n"&gt;power&lt;/span&gt; &lt;span class="k"&gt;reset&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password chassis power reset
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -560,10 +560,10 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;li&gt;Using the ipmitool's shell (&lt;em&gt;ctrl-b 2&lt;/em&gt;):&lt;/li&gt;
 &lt;li&gt;Enter the following commands to generate a grub.cfg file&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;chroot&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;sysimage&lt;/span&gt;
-&lt;span class="nv"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;grub&lt;/span&gt;.&lt;span class="nv"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;30&lt;/span&gt;&lt;span class="nv"&gt;_os&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;prober&lt;/span&gt;
-&lt;span class="nv"&gt;grub2&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;mkconfig&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;o&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;boot&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;grub2&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;grub&lt;/span&gt;.&lt;span class="nv"&gt;cfg&lt;/span&gt;
-&lt;span class="k"&gt;exit&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;chroot /mnt/sysimage
+rm /etc/grub.d/30_os-prober
+grub2-mkconfig -o /boot/grub2/grub.cfg
+exit
 &lt;/pre&gt;&lt;/div&gt;
 
 

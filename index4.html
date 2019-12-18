@@ -102,6 +102,159 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a>
+    </span>
+  </span>
+<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time></div>
+
+  <div class="entry-content"><h2>Methodology</h2>
+<p>To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
+space to compile the software, as well as 3 sparse 1TB disks to create the
+object store.</p>
+<p>We will then build &amp; install the Ceph packages, after adding the PowerPC
+optimisiations to the code. This is done, as ceph-deploy will fetch prebuilt
+packages that do not have the performance patches if the packages are not
+installed.</p>
+<p>Finally, we will use the ceph-deploy to deploy the instance. We will ceph-deploy
+via pip, to avoid file conflicts with the packages that we built.</p>
+<p>For more information on what each command does, visit the following tutorial,
+upon which which this is based:
+<a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></p>
+<h3>Virtual Machine Config</h3>
+<p>Create a virtual machine with at least the following:
+ - 16GB of memory
+ - 16 CPUs
+ - 64GB disk for the root filesystem
+ - 3 x 1TB for the Ceph object store
+ - Ubuntu 16.04 default install (only use the 64GB disk, leave the others unpartitioned)</p>
+<h3>Initial config</h3>
+<ul>
+<li>Enable ssh</li>
+</ul>
+<div class="highlight"><pre><span></span>    sudo apt install openssh-server
+    sudo apt update
+    sudo apt upgrade
+    sudo reboot
+</pre></div>
+
+
+<ul>
+<li>Install build tools</li>
+</ul>
+<div class="highlight"><pre><span></span>    sudo apt install git debhelper
+</pre></div>
+
+
+<h3>Build Ceph</h3>
+<ul>
+<li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
+</ul>
+<div class="highlight"><pre><span></span>    mkdir $HOME/src
+    cd $HOME/src
+    git clone --recursive https://github.com/ceph/ceph.git  # This may take a while
+    cd ceph
+    git checkout master
+    git submodule update --force --init --recursive
+</pre></div>
+
+
+<ul>
+<li>Cherry-pick the Power performance patches:</li>
+</ul>
+<div class="highlight"><pre><span></span>    git remote add kestrels https://github.com/kestrels/ceph.git
+    git fetch --all
+    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
+</pre></div>
+
+
+<ul>
+<li>Install prerequisites</li>
+</ul>
+<div class="highlight"><pre><span></span>    ./install-deps.sh
+    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
+    sudo pip3 install ceph-deploy
+</pre></div>
+
+
+<ul>
+<li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
+</ul>
+<div class="highlight"><pre><span></span>    cd $HOME/src/ceph
+    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
+</pre></div>
+
+
+<ul>
+<li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
+</ul>
+<div class="highlight"><pre><span></span>    cd $HOME/src
+    sudo dpkg -i *.deb
+</pre></div>
+
+
+<h3>Create the ceph-deploy user</h3>
+<div class="highlight"><pre><span></span>    sudo adduser ceph-deploy
+    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy
+    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
+</pre></div>
+
+
+<h3>Configure the ceph-deploy user environment</h3>
+<div class="highlight"><pre><span></span>    su - ceph-deploy
+    ssh-keygen
+    node=`hostname`
+    ssh-copy-id ceph-deploy@$node
+    mkdir $HOME/ceph-cluster
+    cd $HOME/ceph-cluster
+    ceph-deploy new $node # If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts
+    echo &#39;osd pool default size = 2&#39; &gt;&gt; ceph.conf
+    echo &#39;osd crush chooseleaf type = 0&#39; &gt;&gt; ceph.conf
+</pre></div>
+
+
+<h3>Complete the Ceph deployment</h3>
+<div class="highlight"><pre><span></span>    ceph-deploy install <span class="nv">$node</span>
+    ceph-deploy mon create-initial
+    drives=&quot;vda vdb vdc&quot;  # the 1TB drives - check that these are correct for your system
+    for drive in <span class="nv">$drives</span>; do ceph-deploy disk zap <span class="nv">$node</span>:<span class="nv">$drive</span>; ceph-deploy osd prepare <span class="nv">$node</span>:<span class="nv">$drive</span>; done
+    for drive in <span class="nv">$drives</span>; do ceph-deploy osd activate <span class="nv">$node</span>:/dev/<span class="cp">${</span><span class="n">drive</span><span class="cp">}</span>1; done
+    ceph-deploy admin <span class="nv">$node</span>
+    sudo chmod +r /etc/ceph/ceph.client.admin.keyring
+    ceph -s # Check the state of the cluster
+</pre></div>
+
+
+<h3>Configure CephFS</h3>
+<div class="highlight"><pre><span></span>    ceph-deploy mds create $node
+    ceph osd pool create cephfs_data 128
+    ceph osd pool create cephfs_metadata 128
+    ceph fs new cephfs cephfs_metadata cephfs_data
+    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
+    sudo mkdir /mnt/cephfs
+    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
+    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
+</pre></div>
+
+
+<h2>References</h2>
+<ol>
+<li><a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
+<li><a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
+<li><a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></li>
+</ol></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
       </h1>
     <p class="meta">
@@ -135,11 +288,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>We basically want <code>gf_vect_mul(size_t len, &lt;something representing the constant&gt;, unsigned char * src, unsigned char * dest)</code></p>
 <h3>Simple and slow approach</h3>
 <p>The simplest way is to do something like this:</p>
-<div class="highlight"><pre><span></span><span class="nv">void</span> <span class="nv">gf_vect_mul_simple</span><span class="ss">(</span><span class="nv">size_t</span> <span class="nv">len</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="nv">c</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">src</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">dest</span><span class="ss">)</span> {
+<div class="highlight"><pre><span></span>void gf_vect_mul_simple(size_t len, unsigned char c, unsigned char * src, unsigned char * dest) {
 
-    <span class="nv">size_t</span> <span class="nv">i</span><span class="c1">;</span>
-    <span class="k">for</span> <span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;len; i++) {</span>
-        <span class="nv">dest</span>[<span class="nv">i</span>] <span class="o">=</span> <span class="nv">gf_mul</span><span class="ss">(</span><span class="nv">c</span>, <span class="nv">src</span>[<span class="nv">i</span>]<span class="ss">)</span><span class="c1">;</span>
+    size_t i;
+    for (i=0; i&lt;len; i++) {
+        dest[i] = gf_mul(c, src[i]);
     }
 }
 </pre></div>
@@ -164,23 +317,23 @@ document.addEventListener('DOMContentLoaded', function() {
 </ul>
 <p>Generating the tables is reasonably straight-forward, in theory. Recall that the tables are <code>a</code> * {{00},{01},...,{0f}} and <code>a</code> * {{00},{10},..,{f0}} - a couple of loops in C will generate them without difficulty. ISA-L has a function to do this, as does gf-complete in split-table mode, so I won't repeat them here.</p>
 <p>So, let's recast our function to take the tables as an input rather than the constant <code>a</code>. Assume we're provided the two tables concatenated into one 32-byte chunk. That would give us:</p>
-<div class="highlight"><pre><span></span><span class="n">void</span> <span class="n">gf_vect_mul_v2</span><span class="p">(</span><span class="n">size_t</span> <span class="n">len</span><span class="p">,</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="k">table</span><span class="p">,</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="n">src</span><span class="p">,</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="n">dest</span><span class="p">)</span>
+<div class="highlight"><pre><span></span>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest)
 </pre></div>
 
 
 <p>Here's how you would do it in C:</p>
-<div class="highlight"><pre><span></span><span class="nv">void</span> <span class="nv">gf_vect_mul_v2</span><span class="ss">(</span><span class="nv">size_t</span> <span class="nv">len</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">table</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">src</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">dest</span><span class="ss">)</span> {
-        <span class="nv">vector</span> <span class="nv">unsigned</span> <span class="nv">char</span> <span class="nv">tbl1</span>, <span class="nv">tbl2</span>, <span class="nv">in</span>, <span class="nv">out</span><span class="c1">;</span>
-        <span class="nv">size_t</span> <span class="nv">i</span><span class="c1">;</span>
+<div class="highlight"><pre><span></span>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest) {
+        vector unsigned char tbl1, tbl2, in, out;
+        size_t i;
 
-        <span class="cm">/* Assume table, src, dest are aligned and len is a multiple of 16 */</span>
+        /* Assume table, src, dest are aligned and len is a multiple of 16 */
 
-        <span class="nv">tbl1</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">16</span>, <span class="nv">table</span><span class="ss">)</span><span class="c1">;</span>
-        <span class="nv">tbl2</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">0</span>, <span class="nv">table</span><span class="ss">)</span><span class="c1">;</span>
-        <span class="k">for</span> <span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;len; i+=16) {</span>
-            <span class="nv">in</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in</span><span class="ss">)</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out</span>, <span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
+        tbl1 = vec_ld(16, table);
+        tbl2 = vec_ld(0, table);
+        for (i=0; i&lt;len; i+=16) {
+            in = vec_ld(i, (unsigned char *)src);
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in)
+            vec_st(out, i, (unsigned char *)dest);
         }
 }
 </pre></div>
@@ -188,19 +341,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p>There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.</p>
 <p>We can go a bit faster by doing larger chunks at a time:</p>
-<div class="highlight"><pre><span></span>    <span class="k">for</span> <span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;vlen; i+=64) {</span>
-            <span class="nv">in1</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">in2</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">16</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">in3</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">32</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">in4</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">48</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out1</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in1</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out2</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in2</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out3</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in3</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out4</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in4</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out1</span>, <span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out2</span>, <span class="nv">i</span><span class="o">+</span><span class="mi">16</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out3</span>, <span class="nv">i</span><span class="o">+</span><span class="mi">32</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out4</span>, <span class="nv">i</span><span class="o">+</span><span class="mi">48</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
+<div class="highlight"><pre><span></span>    for (i=0; i&lt;vlen; i+=64) {
+            in1 = vec_ld(i, (unsigned char *)src);
+            in2 = vec_ld(i+16, (unsigned char *)src);
+            in3 = vec_ld(i+32, (unsigned char *)src);
+            in4 = vec_ld(i+48, (unsigned char *)src);
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out1) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in1));
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out2) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in2));
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out3) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in3));
+            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out4) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in4));
+            vec_st(out1, i, (unsigned char *)dest);
+            vec_st(out2, i+16, (unsigned char *)dest);
+            vec_st(out3, i+32, (unsigned char *)dest);
+            vec_st(out4, i+48, (unsigned char *)dest);
     }
 </pre></div>
 
@@ -247,17 +400,17 @@ document.addEventListener('DOMContentLoaded', function() {
 <span class="cm"> * ec_encode_data_simple(length of each data input, number of inputs,</span>
 <span class="cm"> *                       number of outputs, pre-generated GF(2^8) tables,</span>
 <span class="cm"> *                       input data pointers, output code pointers)</span>
-<span class="cm"> */</span>
-<span class="nv">void</span> <span class="nv">ec_encode_data_simple</span><span class="ss">(</span><span class="nv">int</span> <span class="nv">len</span>, <span class="nv">int</span> <span class="nv">k</span>, <span class="nv">int</span> <span class="nv">rows</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="nv">g_tbls</span>,
-                           <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">**</span><span class="nv">data</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">**</span><span class="nv">coding</span><span class="ss">)</span>
-{
-        <span class="k">while</span> <span class="ss">(</span><span class="nv">rows</span><span class="ss">)</span> {
-                <span class="nv">gf_vect_dot_prod</span><span class="ss">(</span><span class="nv">len</span>, <span class="nv">k</span>, <span class="nv">g_tbls</span>, <span class="nv">data</span>, <span class="o">*</span><span class="nv">coding</span><span class="ss">)</span><span class="c1">;</span>
-                <span class="nv">g_tbls</span> <span class="o">+=</span> <span class="nv">k</span> <span class="o">*</span> <span class="mi">32</span><span class="c1">;</span>
-                <span class="nv">coding</span><span class="o">++</span><span class="c1">;</span>
-                <span class="nv">rows</span><span class="o">--</span><span class="c1">;</span>
-        }
-}
+<span class="cm"> */</span><span class="w"></span>
+void<span class="w"> </span>ec_encode_data_simple<span class="o">(</span>int<span class="w"> </span>len<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>k<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>rows<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">*</span>g_tbls<span class="o">,</span><span class="w"></span>
+<span class="w">                           </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>data<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>coding<span class="o">)</span><span class="w"></span>
+<span class="err">{</span><span class="w"></span>
+<span class="w">        </span><span class="kr">while</span><span class="w"> </span><span class="o">(</span>rows<span class="o">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
+<span class="w">                </span>gf_vect_dot_prod<span class="o">(</span>len<span class="o">,</span><span class="w"> </span>k<span class="o">,</span><span class="w"> </span>g_tbls<span class="o">,</span><span class="w"> </span>data<span class="o">,</span><span class="w"> </span><span class="o">*</span>coding<span class="o">)</span><span class="err">;</span><span class="w"></span>
+<span class="w">                </span>g_tbls<span class="w"> </span><span class="o">+=</span><span class="w"> </span>k<span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">32</span><span class="err">;</span><span class="w"></span>
+<span class="w">                </span>coding<span class="o">++</span><span class="err">;</span><span class="w"></span>
+<span class="w">                </span>rows<span class="o">--</span><span class="err">;</span><span class="w"></span>
+<span class="w">        </span><span class="err">}</span><span class="w"></span>
+<span class="err">}</span><span class="w"></span>
 </pre></div>
 
 
@@ -269,9 +422,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <ul>
 <li>
 <p>Benchmarking is tricky. I do the following on a bare-metal, idle machine, with ASLR off and pinned to an arbitrary hardware thread. (Code is for the <a href="https://fishshell.com/">fish shell</a>)</p>
-<div class="highlight"><pre><span></span><span class="k">for</span> <span class="nv">x</span> <span class="nv">in</span> <span class="ss">(</span><span class="nv">seq</span> <span class="mi">1</span> <span class="mi">50</span><span class="ss">)</span>
-    <span class="nv">setarch</span> <span class="nv">ppc64le</span> <span class="o">-</span><span class="nv">R</span> <span class="nv">taskset</span> <span class="o">-</span><span class="nv">c</span> <span class="mi">24</span> <span class="nv">erasure_code</span><span class="o">/</span><span class="nv">gf_vect_mul_perf</span>
-<span class="k">end</span> <span class="o">|</span> <span class="nv">awk</span> <span class="s1">&#39;</span><span class="s">/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}</span><span class="s1">&#39;</span>
+<div class="highlight"><pre><span></span>for x in (seq 1 50)
+    setarch ppc64le -R taskset -c 24 erasure_code/gf_vect_mul_perf
+end | awk &#39;/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}&#39;
 </pre></div>
 
 
@@ -284,12 +437,12 @@ document.addEventListener('DOMContentLoaded', function() {
 </li>
 <li>
 <p>Related: GCC is moving towards assignment over vector intrinsics, at least on Power:</p>
-<div class="highlight"><pre><span></span><span class="n">vector</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="n">a</span><span class="p">;</span>
-<span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="k">data</span><span class="p">;</span>
-<span class="o">//</span> <span class="n">good</span><span class="p">,</span> <span class="n">also</span> <span class="n">handles</span> <span class="n">word</span><span class="o">-</span><span class="n">aligned</span> <span class="k">data</span> <span class="k">with</span> <span class="n">VSX</span>
-<span class="n">a</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">vector</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span><span class="p">)</span><span class="k">data</span><span class="p">;</span>
-<span class="o">//</span> <span class="n">bad</span><span class="p">,</span> <span class="n">requires</span> <span class="n">special</span> <span class="n">handling</span> <span class="k">of</span> <span class="n">non</span><span class="o">-</span><span class="mi">16</span><span class="o">-</span><span class="n">byte</span> <span class="n">aligned</span> <span class="k">data</span>
-<span class="n">a</span> <span class="o">=</span> <span class="n">vec_ld</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span><span class="p">)</span> <span class="k">data</span><span class="p">);</span>
+<div class="highlight"><pre><span></span>vector unsigned char a;
+unsigned char * data;
+// good, also handles word-aligned data with VSX
+a = *(vector unsigned char *)data;
+// bad, requires special handling of non-16-byte aligned data
+a = vec_ld(0, (unsigned char *) data);
 </pre></div>
 
 
@@ -339,8 +492,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>RAID 6 is the easiest way to get started on understanding erasure codes for a number of reasons. H Peter Anvin's paper on RAID 6 in the Linux kernel is an excellent start, but does dive in a bit quickly to the underlying mathematics. So before reading that, read on!</p>
 <h2>Rings and Fields</h2>
 <p>As programmers we're pretty comfortable with modular arithmetic - the idea that if you have:</p>
-<div class="highlight"><pre><span></span><span class="n">unsigned</span> <span class="nb">char</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">255</span><span class="p">;</span>
-<span class="n">a</span><span class="o">++</span><span class="p">;</span>
+<div class="highlight"><pre><span></span>unsigned char a = 255;
+a++;
 </pre></div>
 
 
@@ -409,48 +562,48 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>Remember how we said that integers modulo 256 weren't a field because they didn't have multiplicative inverses? I also just said that GF(2^8) also has 256 elements, but is a field - i.e., it does have inverses! How does that work?</p>
 <p>Consider an element in GF(2^8). There are 2 ways to look at an element in GF(2^8). The first is to consider it as an 8-bit number. So, for example, let's take 100. We can express that as as an 8 bit binary number: 0b01100100.</p>
 <p>We can write that more explicitly as a sum of powers of 2:</p>
-<div class="highlight"><pre><span></span><span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">2</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">1</span>
-<span class="o">=</span> <span class="mi">2</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="mi">2</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">2</span><span class="o">^</span><span class="mi">2</span>
+<div class="highlight"><pre><span></span>0 * 2^7 + 1 * 2^6 + 1 * 2^5 + 0 * 2^4 + 0 * 2^3 + 1 * 2^2 + 0 * 2 + 0 * 1
+= 2^6 + 2^5 + 2^2
 </pre></div>
 
 
 <p>Now the other way we can look at elements in GF(2^8) is to replace the '2's with 'x's, and consider them as polynomials. Each of our bits then represents the coefficient of a term of a polynomial, that is:</p>
-<div class="highlight"><pre><span></span><span class="mi">0</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="mi">1</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="mi">1</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">0</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="mi">0</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">0</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">*</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>0 x^7 + 1 x^6 + 1 x^5 + 0 x^4 + 0 x^3 + 1 x^2 + 0 x + 0 * 1
 </pre></div>
 
 
 <p>or more simply</p>
-<div class="highlight"><pre><span></span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+<div class="highlight"><pre><span></span>x^6 + x^5 + x^2
 </pre></div>
 
 
 <p>Now, and this is <strong>important</strong>: each of the coefficients are elements of the integers modulo 2: x + x = 2x = 0 as 2 mod 2 = 0. There is no concept of 'carrying' in this addition.</p>
 <p>Let's try: what's 100 + 79 in GF(2^8)?</p>
-<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span>       <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
- <span class="mi">79</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01001111</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span>       <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 +       x^2
+ 79 = 0b01001111 =&gt; x^6 +       x^3 + x^2 + x + 1
 
-<span class="mi">100</span> <span class="o">+</span> <span class="mi">79</span>         <span class="o">=&gt;</span>   <span class="mi">0</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span>   <span class="mi">0</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
-                 <span class="o">=</span>    <span class="mi">0</span><span class="n">b00101011</span> <span class="o">=</span> <span class="mi">43</span>
+100 + 79         =&gt;   0 + x^5 + x^3 +   0 + x + 1
+                 =    0b00101011 = 43
 </pre></div>
 
 
 <p>So, 100 + 79 = 43 in GF(2^8)</p>
 <p>You may notice we could have done that much more efficiently: we can add numbers in GF(2^8) by just XORing their binary representations together. Subtraction, amusingly, is the same as addition: 0 + x = x =  0 - x, as -1 is congruent to 1 modulo 2.</p>
 <p>So at this point you might be wanting to explore a few additions yourself. Fortuantely there's a lovely tool that will allow you to do that:</p>
-<div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">gf</span><span class="o">-</span><span class="n">complete</span><span class="o">-</span><span class="n">tools</span>
-<span class="n">gf_add</span> <span class="err">$</span><span class="n">A</span> <span class="err">$</span><span class="n">B</span> <span class="mi">8</span>
+<div class="highlight"><pre><span></span>sudo apt install gf-complete-tools
+gf_add $A $B 8
 </pre></div>
 
 
 <p>This will give you A + B in GF(2^8).</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_add</span> <span class="mi">100</span> <span class="mi">79</span> <span class="mi">8</span>
-<span class="mi">43</span>
+<div class="highlight"><pre><span></span>&gt; gf_add 100 79 8
+43
 </pre></div>
 
 
 <p>Excellent!</p>
 <p>So, hold on to your hats, as this is where things get really weird. In modular arithmetic example, we considered the elements of our ring to be numbers, and we performed our addition and multiplication modulo 256. In GF(2^8), we consider our elements as polynomials and we perform our addition and multiplication modulo a polynomial. There is one conventional polynomial used in applications:</p>
-<div class="highlight"><pre><span></span><span class="mi">0</span><span class="n">x11d</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="n">b1</span> <span class="mi">0001</span> <span class="mi">1101</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>0x11d =&gt; 0b1 0001 1101 =&gt; x^8 + x^4 + x^3 + x^2 + 1
 </pre></div>
 
 
@@ -458,11 +611,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>So when we multiply two numbers, we multiply their polynomial representations. Then, to find out what that is modulo 0x11d, we do polynomial long division by 0x11d, and take the remainder.</p>
 <p>Some examples will help.</p>
 <p>Let's multiply 100 by 3.</p>
-<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-  <span class="mi">3</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b00000011</span> <span class="o">=&gt;</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 + x^2
+  3 = 0b00000011 =&gt; x + 1
 
-<span class="p">(</span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span><span class="p">)(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-                         <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+(x^6 + x^5 + x^2)(x + 1) = x^7 + x^6 + x^3 + x^6 + x^5 + x^2
+                         = x^7 + x^5 + x^3 + x^2
 </pre></div>
 
 
@@ -470,74 +623,74 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>The degree (the largest power of a term) is 7. 7 is less than the degree of 0x11d, which is 8, so we don't need to do anything: the remainder modulo 0x11d is simply x^7 + x^5 + x^3 + x^2.</p>
 <p>In binary form, that is 0b10101100 = 172, so 100 * 3 = 172 in GF(2^8).</p>
 <p>Fortunately <code>gf-complete-tools</code> also allows us to check multiplications:</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_mult</span> <span class="mi">100</span> <span class="mi">3</span> <span class="mi">8</span>
-<span class="mi">172</span>
+<div class="highlight"><pre><span></span>&gt; gf_mult 100 3 8
+172
 </pre></div>
 
 
 <p>Excellent!</p>
 <p>Now let's see what happens if we multiply by a larger number. Let's multiply 100 by 5.</p>
-<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-  <span class="mi">5</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b00000101</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 + x^2
+  5 = 0b00000101 =&gt; x^2 + 1
 
-<span class="p">(</span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span><span class="p">)(</span><span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-                           <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+(x^6 + x^5 + x^2)(x^2 + 1) = x^8 + x^7 + x^4 + x^6 + x^5 + x^2
+                           = x^8 + x^7 + x^6 + x^5 + x^4 + x^2
 </pre></div>
 
 
 <p>Here we have an x^8 term, so we have a degree of 8. This means will get a different remainder when we divide by our polynomial. We do this with polynomial long division, which you will hopefully remember if you did some solid algebra in high school.</p>
-<div class="highlight"><pre><span></span>                              <span class="mi">1</span>
-                           <span class="c1">---------------------------------------------</span>
-<span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-                          <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
-                            <span class="c1">-------------------------------------------</span>
-                          <span class="o">=</span>       <span class="n">x</span><span class="o">^</span><span class="mi">7</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span>       <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>                              1
+                           ---------------------------------------------
+x^8 + x^4 + x^3 + x^2 + 1 | x^8 + x^7 + x^6 + x^5 + x^4       + x^2
+                          - x^8                   + x^4 + x^3 + x^2 + 1
+                            -------------------------------------------
+                          =       x^7 + x^6 + x^5       + x^3       + 1
 </pre></div>
 
 
 <p>So we have that our original polynomial (x^8 + x^4 + x^3 + x^2 + 1) is congruent to (x^7 + x^6 + x^5 + x^3 + 1) modulo the polynomial 0x11d.
 Looking at the binary representation of that new polynomial, we have 0b11101001 = 233.</p>
 <p>Sure enough:</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_mult</span> <span class="mi">100</span> <span class="mi">5</span> <span class="mi">8</span>
-<span class="mi">233</span>
+<div class="highlight"><pre><span></span>&gt; gf_mult 100 5 8
+233
 </pre></div>
 
 
 <p>Just to solidify the polynomial long division a bit, let's try a slightly larger example, 100 * 9:</p>
-<div class="highlight"><pre><span></span><span class="mi">100</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b01100100</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-  <span class="mi">9</span> <span class="o">=</span> <span class="mi">0</span><span class="n">b00001001</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>100 = 0b01100100 =&gt; x^6 + x^5 + x^2
+  9 = 0b00001001 =&gt; x^3 + 1
 
-<span class="p">(</span><span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span><span class="p">)(</span><span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-                           <span class="o">=</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
+(x^6 + x^5 + x^2)(x^3 + 1) = x^9 + x^8 + x^5 + x^6 + x^5 + x^2
+                           = x^9 + x^8 + x^6 + x^2
 </pre></div>
 
 
 <p>Doing long division to reduce our result:</p>
-<div class="highlight"><pre><span></span>                              <span class="n">x</span>
-                           <span class="c1">-----------------------------------</span>
-<span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-                          <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span>       <span class="o">+</span> <span class="n">x</span>
-                            <span class="c1">-------------------------------------------------</span>
-                          <span class="o">=</span>       <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span>
+<div class="highlight"><pre><span></span>                              x
+                           -----------------------------------
+x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
+                          - x^9                   + x^5 + x^4 + x^3       + x
+                            -------------------------------------------------
+                          =       x^8       + x^6 + x^5 + x^4 + x^3 + x^2 + x
 </pre></div>
 
 
 <p>We still have a polynomial of degree 8, so we can do another step:</p>
-<div class="highlight"><pre><span></span>                              <span class="n">x</span> <span class="o">+</span>   <span class="mi">1</span>
-                           <span class="c1">-----------------------------------</span>
-<span class="n">x</span><span class="o">^</span><span class="mi">8</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>
-                          <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">9</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span>       <span class="o">+</span> <span class="n">x</span>
-                            <span class="c1">-------------------------------------------------</span>
-                          <span class="o">=</span>       <span class="n">x</span><span class="o">^</span><span class="mi">8</span>       <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span>
-                          <span class="o">-</span>       <span class="n">x</span><span class="o">^</span><span class="mi">8</span>                   <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span>     <span class="o">+</span> <span class="mi">1</span>
-                                  <span class="c1">-----------------------------------------------</span>
-                          <span class="o">=</span>                   <span class="n">x</span><span class="o">^</span><span class="mi">6</span> <span class="o">+</span> <span class="n">x</span><span class="o">^</span><span class="mi">5</span>                   <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight"><pre><span></span>                              x +   1
+                           -----------------------------------
+x^8 + x^4 + x^3 + x^2 + 1 | x^9 + x^8       + x^6                   + x^2
+                          - x^9                   + x^5 + x^4 + x^3       + x
+                            -------------------------------------------------
+                          =       x^8       + x^6 + x^5 + x^4 + x^3 + x^2 + x
+                          -       x^8                   + x^4 + x^3 + x^2     + 1
+                                  -----------------------------------------------
+                          =                   x^6 + x^5                   + x + 1
 </pre></div>
 
 
 <p>We now have a polynomial of degree less than 8 that is congruent to our original polynomial modulo 0x11d, and the binary form is 0x01100011 = 99.</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">gf_mult</span> <span class="mi">100</span> <span class="mi">9</span> <span class="mi">8</span>
-<span class="mi">99</span>
+<div class="highlight"><pre><span></span>&gt; gf_mult 100 9 8
+99
 </pre></div>
 
 
@@ -549,8 +702,8 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <blockquote>
 <p>Multiplication by {02} for a single byte can be implemeted using the C code:</p>
 </blockquote>
-<div class="highlight"><pre><span></span><span class="n">uint8_t</span> <span class="k">c</span><span class="p">,</span> <span class="n">cc</span><span class="p">;</span>
-<span class="n">cc</span> <span class="o">=</span> <span class="p">(</span><span class="k">c</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="k">c</span> <span class="o">&amp;</span> <span class="mi">0</span><span class="n">x80</span><span class="p">)</span> <span class="o">?</span> <span class="mi">0</span><span class="n">x1d</span> <span class="p">:</span> <span class="mi">0</span><span class="p">);</span>
+<div class="highlight"><pre><span></span>uint8_t c, cc;
+cc = (c &lt;&lt; 1) ^ ((c &amp; 0x80) ? 0x1d : 0);
 </pre></div>
 
 
@@ -560,15 +713,15 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <p>If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.</p>
 <p>We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)</p>
 <p>So, back to the original statement:</p>
-<div class="highlight"><pre><span></span><span class="ss">(</span><span class="nv">c</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="ss">)</span> <span class="o">^</span> <span class="ss">((</span><span class="nv">c</span> <span class="o">&amp;</span> <span class="mi">0</span><span class="nv">x80</span><span class="ss">)</span> ? <span class="mi">0</span><span class="nv">x1d</span> : <span class="mi">0</span><span class="ss">)</span>
-    <span class="o">|</span>          <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
-    <span class="o">&gt;</span> <span class="nv">multiply</span> <span class="nv">by</span> <span class="mi">2</span>       <span class="o">|</span>     <span class="o">|</span>
-               <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
-               <span class="o">&gt;</span> <span class="nv">is</span> <span class="nv">the</span> <span class="nv">high</span> <span class="nv">bit</span> <span class="nv">set</span> <span class="o">-</span> <span class="nv">will</span> <span class="nv">the</span> <span class="nv">product</span> <span class="nv">have</span> <span class="nv">an</span> <span class="nv">x</span><span class="o">^</span><span class="mi">8</span> <span class="nv">term</span>?
-                          <span class="o">|</span>     <span class="o">|</span>
-                          <span class="o">&gt;</span> <span class="k">if</span> <span class="nv">so</span>, <span class="nv">reduce</span> <span class="nv">by</span> <span class="nv">the</span> <span class="nv">polynomial</span>
-                                <span class="o">|</span>
-                                <span class="o">&gt;</span> <span class="nv">otherwise</span>, <span class="nv">leave</span> <span class="nv">alone</span>
+<div class="highlight"><pre><span></span>(c &lt;&lt; 1) ^ ((c &amp; 0x80) ? 0x1d : 0)
+    |          |          |     |
+    &gt; multiply by 2       |     |
+               |          |     |
+               &gt; is the high bit set - will the product have an x^8 term?
+                          |     |
+                          &gt; if so, reduce by the polynomial
+                                |
+                                &gt; otherwise, leave alone
 </pre></div>
 
 
@@ -702,15 +855,15 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 </tbody>
 </table>
 <p>One final thing is that Power8 adds a vpermxor instruction, so we can reduce the entire 4 instruction sequence in the paper:</p>
-<div class="highlight"><pre><span></span><span class="n">vsrb</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">v14</span>
-<span class="n">vperm</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v12</span><span class="p">,</span> <span class="n">v12</span><span class="p">,</span> <span class="n">v0</span>
-<span class="n">vperm</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v1</span>
-<span class="n">vxor</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v1</span>
+<div class="highlight"><pre><span></span>vsrb v1, v0, v14
+vperm v2, v12, v12, v0
+vperm v1, v13, v13, v1
+vxor v1, v2, v1
 </pre></div>
 
 
 <p>to 1 vpermxor:</p>
-<div class="highlight"><pre><span></span><span class="n">vpermxor</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v12</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v0</span>
+<div class="highlight"><pre><span></span>vpermxor v1, v12, v13, v0
 </pre></div>
 
 
@@ -746,21 +899,21 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <h2>Setup quirks</h2>
 <p>We are told to edit <code>~/kernel/rpmbuild/SPEC/kernel.spec</code>. This doesn't exist because the directory is <code>SPECS</code> not <code>SPEC</code>: you need to edit <code>~/kernel/rpmbuild/SPECS/kernel.spec</code>.</p>
 <p>I also found there was an extra quote mark in the supplied patch script after <code>-lustre.patch</code>. I removed that and ran this instead:</p>
-<div class="highlight"><pre><span></span><span class="k">for</span> <span class="nv">patch</span> <span class="nv">in</span> $<span class="ss">(</span><span class="o">&lt;</span><span class="s2">&quot;</span><span class="s">3.10-rhel7.series</span><span class="s2">&quot;</span><span class="ss">)</span><span class="c1">; do \</span>
-      <span class="nv">patch_file</span><span class="o">=</span><span class="s2">&quot;</span><span class="s">$HOME/lustre-release/lustre/kernel_patches/patches/${patch}</span><span class="s2">&quot;</span> \
-      <span class="nv">cat</span> <span class="s2">&quot;</span><span class="s">${patch_file}</span><span class="s2">&quot;</span> <span class="o">&gt;&gt;</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">kernel</span><span class="o">-</span><span class="nv">x86_64</span><span class="o">-</span><span class="nv">lustre</span>.<span class="nv">patch</span> \
-<span class="nv">done</span>
+<div class="highlight"><pre><span></span>for patch in $(<span class="err">&lt;</span>&quot;3.10-rhel7.series&quot;); do \
+      patch_file=&quot;<span class="nv">$HOME</span>/lustre-release/lustre/kernel_patches/patches/<span class="cp">${</span><span class="n">patch</span><span class="cp">}</span>&quot; \
+      cat &quot;<span class="cp">${</span><span class="n">patch_file</span><span class="cp">}</span>&quot; &gt;&gt; <span class="nv">$HOME</span>/lustre-kernel-x86_64-lustre.patch \
+done
 </pre></div>
 
 
 <p>The fact that there is 'x86_64' in the patch name doesn't matter as you're about to copy it under a different name to a place where it will be included by the spec file.</p>
 <h2>Building for ppc64le</h2>
 <p>Building for ppc64le was reasonably straight-forward. I had one small issue:</p>
-<div class="highlight"><pre><span></span>[<span class="nv">build</span>@<span class="nv">dja</span><span class="o">-</span><span class="nv">centos</span><span class="o">-</span><span class="nv">guest</span> <span class="nv">rpmbuild</span>]$ <span class="nv">rpmbuild</span> <span class="o">-</span><span class="nv">bp</span> <span class="o">--</span><span class="nv">target</span><span class="o">=</span>`<span class="nv">uname</span> <span class="o">-</span><span class="nv">m</span>` .<span class="o">/</span><span class="nv">SPECS</span><span class="o">/</span><span class="nv">kernel</span>.<span class="nv">spec</span>
-<span class="nv">Building</span> <span class="nv">target</span> <span class="nv">platforms</span>: <span class="nv">ppc64le</span>
-<span class="nv">Building</span> <span class="k">for</span> <span class="nv">target</span> <span class="nv">ppc64le</span>
-<span class="nv">error</span>: <span class="nv">Failed</span> <span class="nv">build</span> <span class="nv">dependencies</span>:
-       <span class="nv">net</span><span class="o">-</span><span class="nv">tools</span> <span class="nv">is</span> <span class="nv">needed</span> <span class="nv">by</span> <span class="nv">kernel</span><span class="o">-</span><span class="mi">3</span>.<span class="mi">10</span>.<span class="mi">0</span><span class="o">-</span><span class="mi">327</span>.<span class="mi">36</span>.<span class="mi">3</span>.<span class="nv">el7</span>.<span class="nv">ppc64le</span>
+<div class="highlight"><pre><span></span>[build@dja-centos-guest rpmbuild]$ rpmbuild -bp --target=`uname -m` ./SPECS/kernel.spec
+Building target platforms: ppc64le
+Building for target ppc64le
+error: Failed build dependencies:
+       net-tools is needed by kernel-3.10.0-327.36.3.el7.ppc64le
 </pre></div>
 
 
@@ -786,8 +939,8 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <li><code>f_eofblocks</code>: This may need fixing for large page sizes, see <a href="https://jira.hpdd.intel.com/browse/LU-4677?focusedCommentId=78814&amp;page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-78814">this bug</a>.</li>
 </ul>
 <p>I disabled the tests by adding the following two lines to the spec file, just before <code>make %{?_smp_mflags} check</code>.</p>
-<div class="highlight"><pre><span></span><span class="n">rm</span> <span class="o">-</span><span class="n">rf</span> <span class="n">tests</span><span class="o">/</span><span class="n">f_pgsize_gt_blksize</span>
-<span class="n">rm</span> <span class="o">-</span><span class="n">rf</span> <span class="n">tests</span><span class="o">/</span><span class="n">f_eofblocks</span>
+<div class="highlight"><pre><span></span>rm -rf tests/f_pgsize_gt_blksize
+rm -rf tests/f_eofblocks
 </pre></div>
 
 
@@ -795,12 +948,12 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <p>Following that I went back to the <code>lustre-release</code> build products and was able to successfully run <code>yum localinstall *ppc64le.rpm</code>!</p>
 <h1>Testing the server</h1>
 <p>After disabling SELinux and rebooting, I ran the test script:</p>
-<div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib64</span><span class="o">/</span><span class="n">lustre</span><span class="o">/</span><span class="n">tests</span><span class="o">/</span><span class="n">llmount</span><span class="p">.</span><span class="n">sh</span>
+<div class="highlight"><pre><span></span>sudo /usr/lib64/lustre/tests/llmount.sh
 </pre></div>
 
 
 <p>This spat out one scary warning:</p>
-<div class="highlight"><pre><span></span><span class="n">mount</span><span class="p">.</span><span class="n">lustre</span> <span class="n">FATAL</span><span class="p">:</span> <span class="n">unhandled</span><span class="o">/</span><span class="n">unloaded</span> <span class="n">fs</span> <span class="k">type</span> <span class="mi">0</span> <span class="s1">&#39;ext3&#39;</span>
+<div class="highlight"><pre><span></span>mount.lustre FATAL: unhandled/unloaded fs type 0 &#39;ext3&#39;
 </pre></div>
 
 
@@ -811,22 +964,22 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <p>I tried with an existing Ubuntu 16.04 VM that I use for much of my day to day development.</p>
 <p>A quick google suggested that I could grab the <code>lustre-release</code> repository and run <code>make debs</code> to get Debian packages for my system.</p>
 <p>I needed the following dependencies:</p>
-<div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">module</span><span class="o">-</span><span class="n">assistant</span> <span class="n">debhelper</span> <span class="n">dpatch</span> <span class="n">libsnmp</span><span class="o">-</span><span class="n">dev</span> <span class="n">quilt</span>
+<div class="highlight"><pre><span></span>sudo apt install module-assistant debhelper dpatch libsnmp-dev quilt
 </pre></div>
 
 
 <p>With those the packages built successfully, and could be easily installed:</p>
-<div class="highlight"><pre><span></span><span class="n">dpkg</span> <span class="o">-</span><span class="n">i</span> <span class="n">lustre</span><span class="o">-</span><span class="n">client</span><span class="o">-</span><span class="n">modules</span><span class="o">-</span><span class="mi">4</span><span class="p">.</span><span class="mi">4</span><span class="p">.</span><span class="mi">0</span><span class="o">-</span><span class="mi">57</span><span class="o">-</span><span class="n">generic_2</span><span class="p">.</span><span class="mi">9</span><span class="p">.</span><span class="mi">52</span><span class="o">-</span><span class="mi">60</span><span class="o">-</span><span class="n">g1d2fbad</span><span class="o">-</span><span class="n">dirty</span><span class="o">-</span><span class="mi">1</span><span class="n">_ppc64el</span><span class="p">.</span><span class="n">deblustre</span><span class="o">-</span><span class="n">utils_2</span><span class="p">.</span><span class="mi">9</span><span class="p">.</span><span class="mi">52</span><span class="o">-</span><span class="mi">60</span><span class="o">-</span><span class="n">g1d2fbad</span><span class="o">-</span><span class="n">dirty</span><span class="o">-</span><span class="mi">1</span><span class="n">_ppc64el</span><span class="p">.</span><span class="n">deb</span>
+<div class="highlight"><pre><span></span>dpkg -i lustre-client-modules-4.4.0-57-generic_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deblustre-utils_2.9.52-60-g1d2fbad-dirty-1_ppc64el.deb
 </pre></div>
 
 
 <p>I tried to connect to the server:</p>
-<div class="highlight"><pre><span></span><span class="n">sudo</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">t</span><span class="w"> </span><span class="n">lustre</span><span class="w"> </span><span class="err">$</span><span class="n">SERVER_IP</span><span class="nv">@tcp</span><span class="err">:</span><span class="o">/</span><span class="n">lustre</span><span class="w"> </span><span class="o">/</span><span class="n">lustre</span><span class="o">/</span><span class="w"></span>
+<div class="highlight"><pre><span></span>sudo mount -t lustre $SERVER_IP@tcp:/lustre /lustre/
 </pre></div>
 
 
 <p>Initially I wasn't able to connect to the server at all. I remembered that (unlike Ubuntu), CentOS comes with quite an aggressive firewall by default. I ran the following on the server:</p>
-<div class="highlight"><pre><span></span><span class="n">systemctl</span> <span class="n">stop</span> <span class="n">firewalld</span>
+<div class="highlight"><pre><span></span>systemctl stop firewalld
 </pre></div>
 
 
@@ -834,22 +987,22 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <h1>Testing with an x86_64 client</h1>
 <p>I then tried to run <code>make debs</code> on my Ubuntu 16.10 x86_64 laptop.</p>
 <p>This did not go well - I got the following error:</p>
-<div class="highlight"><pre><span></span><span class="n">liblustreapi</span><span class="p">.</span><span class="k">c</span><span class="p">:</span> <span class="k">In</span> <span class="k">function</span> <span class="err">‘</span><span class="n">llapi_get_poollist</span><span class="err">’</span><span class="p">:</span>
-<span class="n">liblustreapi</span><span class="p">.</span><span class="k">c</span><span class="p">:</span><span class="mi">1201</span><span class="p">:</span><span class="mi">3</span><span class="p">:</span> <span class="n">error</span><span class="p">:</span> <span class="err">‘</span><span class="n">readdir_r</span><span class="err">’</span> <span class="k">is</span> <span class="n">deprecated</span> <span class="p">[</span><span class="o">-</span><span class="n">Werror</span><span class="o">=</span><span class="n">deprecated</span><span class="o">-</span><span class="n">declarations</span><span class="p">]</span>
+<div class="highlight"><pre><span></span>liblustreapi.c: In function ‘llapi_get_poollist’:
+liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-declarations]
 </pre></div>
 
 
 <p>This looks like one of the new errors introduced in recent GCC versions, and is <a href="https://jira.hpdd.intel.com/browse/LU-8724?focusedCommentId=175244&amp;page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-175244">a known bug</a>. To work around it, I found the following stanza in a <code>lustre/autoconf/lustre-core.m4</code>, and removed the <code>-Werror</code>:</p>
-<div class="highlight"><pre><span></span><span class="n">AS_IF</span><span class="p">([</span><span class="n">test</span> <span class="err">$</span><span class="n">target_cpu</span> <span class="o">==</span> <span class="ss">&quot;i686&quot;</span> <span class="o">-</span><span class="n">o</span> <span class="err">$</span><span class="n">target_cpu</span> <span class="o">==</span> <span class="ss">&quot;x86_64&quot;</span><span class="p">],</span>
-        <span class="p">[</span><span class="n">CFLAGS</span><span class="o">=</span><span class="ss">&quot;$CFLAGS -Wall -Werror&quot;</span><span class="p">])</span>
+<div class="highlight"><pre><span></span>AS_IF([test $target_cpu == &quot;i686&quot; -o $target_cpu == &quot;x86_64&quot;],
+        [CFLAGS=&quot;$CFLAGS -Wall -Werror&quot;])
 </pre></div>
 
 
 <p>Even this wasn't enough: I got the following errors:</p>
-<div class="highlight"><pre><span></span><span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">error</span>: <span class="nv">initialization</span> <span class="nv">from</span> <span class="nv">incompatible</span> <span class="nv">pointer</span> <span class="nv">type</span> [<span class="o">-</span><span class="nv">Werror</span><span class="o">=</span><span class="nv">incompatible</span><span class="o">-</span><span class="nv">pointer</span><span class="o">-</span><span class="nv">types</span>]
-         .<span class="nv">d_compare</span> <span class="o">=</span> <span class="nv">ll_dcompare</span>,
-                  <span class="o">^~~~~~~~~~~</span>
-<span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">note</span>: <span class="ss">(</span><span class="nv">near</span> <span class="nv">initialization</span> <span class="k">for</span> ‘<span class="nv">ll_d_ops</span>.<span class="nv">d_compare</span>’<span class="ss">)</span>
+<div class="highlight"><pre><span></span>/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+         .d_compare = ll_dcompare,
+                  ^~~~~~~~~~~
+/home/dja/dev/lustre-release/debian/tmp/modules-deb/usr_src/modules/lustre/lustre/llite/dcache.c:387:22: note: (near initialization for ‘ll_d_ops.d_compare’)
 </pre></div>
 
 
@@ -893,13 +1046,13 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <h3>GPU Drivers and CUDA</h3>
 <p>Firstly, you'll need CUDA and the NVidia drivers.</p>
 <p>You can install CUDA by following the instructions on NVidia's <a href="https://developer.nvidia.com/cuda-downloads">CUDA Downloads</a> page.</p>
-<div class="highlight"><pre><span></span><span class="nv">yum</span> <span class="nv">install</span> <span class="nv">epel</span><span class="o">-</span><span class="nv">release</span>
-<span class="nv">yum</span> <span class="nv">install</span> <span class="nv">dkms</span>
-# <span class="nv">download</span> <span class="nv">the</span> <span class="nv">rpm</span> <span class="nv">from</span> <span class="nv">the</span> <span class="nv">NVidia</span> <span class="nv">website</span>
-<span class="nv">rpm</span> <span class="o">-</span><span class="nv">i</span> <span class="nv">cuda</span><span class="o">-</span><span class="nv">repo</span><span class="o">-</span><span class="nv">rhel7</span><span class="o">-</span><span class="mi">8</span><span class="o">-</span><span class="mi">0</span><span class="o">-</span><span class="nv">local</span><span class="o">-</span><span class="nv">ga2</span><span class="o">-</span><span class="mi">8</span>.<span class="mi">0</span>.<span class="mi">54</span><span class="o">-</span><span class="mi">1</span>.<span class="nv">ppc64le</span>.<span class="nv">rpm</span>
-<span class="nv">yum</span> <span class="nv">clean</span> <span class="nv">expire</span><span class="o">-</span><span class="nv">cache</span>
-<span class="nv">yum</span> <span class="nv">install</span> <span class="nv">cuda</span>
-# <span class="nv">this</span> <span class="nv">will</span> <span class="nv">take</span> <span class="nv">a</span> <span class="k">while</span>...
+<div class="highlight"><pre><span></span>yum install epel-release
+yum install dkms
+# download the rpm from the NVidia website
+rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
+yum clean expire-cache
+yum install cuda
+# this will take a while...
 </pre></div>
 
 
@@ -913,16 +1066,16 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 
 
 <p>Now, open a new terminal session and check to see if it works:</p>
-<div class="highlight"><pre><span></span><span class="n">cuda</span><span class="o">-</span><span class="n">install</span><span class="o">-</span><span class="n">samples</span><span class="o">-</span><span class="mi">8</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="n">sh</span> <span class="o">~</span>
-<span class="n">cd</span> <span class="o">~/</span><span class="n">NVIDIA_CUDA</span><span class="o">-</span><span class="mi">8</span><span class="p">.</span><span class="mi">0</span><span class="n">_Samples</span><span class="o">/</span><span class="mi">1</span><span class="n">_Utilities</span><span class="o">/</span><span class="n">bandwidthTest</span>
-<span class="n">make</span> <span class="o">&amp;&amp;</span> <span class="p">.</span><span class="o">/</span><span class="n">bandwidthTest</span>
+<div class="highlight"><pre><span></span>cuda-install-samples-8.0.sh ~
+cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
+make &amp;&amp; ./bandwidthTest
 </pre></div>
 
 
 <p>If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.</p>
 <h3>Compilers</h3>
 <p>You need a c++ compiler:</p>
-<div class="highlight"><pre><span></span><span class="n">yum</span> <span class="n">install</span> <span class="n">gcc</span><span class="o">-</span><span class="k">c</span><span class="o">++</span>
+<div class="highlight"><pre><span></span>yum install gcc-c++
 </pre></div>
 
 
@@ -934,16 +1087,16 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <p>If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get <code>charm++ built successfully.</code> at the end, you should be OK.</p>
 <h2>Testing NAMD</h2>
 <p>We have been testing NAMD using the STMV files available from the <a href="http://www.ks.uiuc.edu/Research/namd/utilities/">NAMD website</a>:</p>
-<div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">NAMD_2</span><span class="p">.</span><span class="mi">12</span><span class="n">_Source</span><span class="o">/</span><span class="n">Linux</span><span class="o">-</span><span class="n">POWER</span><span class="o">-</span><span class="k">g</span><span class="o">++</span>
-<span class="n">wget</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="p">.</span><span class="n">ks</span><span class="p">.</span><span class="n">uiuc</span><span class="p">.</span><span class="n">edu</span><span class="o">/</span><span class="n">Research</span><span class="o">/</span><span class="n">namd</span><span class="o">/</span><span class="n">utilities</span><span class="o">/</span><span class="n">stmv</span><span class="p">.</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
-<span class="n">tar</span> <span class="o">-</span><span class="n">xf</span> <span class="n">stmv</span><span class="p">.</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
-<span class="n">sudo</span> <span class="p">.</span><span class="o">/</span><span class="n">charmrun</span> <span class="o">+</span><span class="n">p80</span> <span class="p">.</span><span class="o">/</span><span class="n">namd2</span> <span class="o">+</span><span class="n">pemap</span> <span class="mi">0</span><span class="o">-</span><span class="mi">159</span><span class="p">:</span><span class="mi">2</span> <span class="o">+</span><span class="n">idlepoll</span> <span class="o">+</span><span class="n">commthread</span> <span class="n">stmv</span><span class="o">/</span><span class="n">stmv</span><span class="p">.</span><span class="n">namd</span>
+<div class="highlight"><pre><span></span>cd NAMD_2.12_Source/Linux-POWER-g++
+wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
+tar -xf stmv.tar.gz
+sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 </pre></div>
 
 
 <p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
 <p>You should see messages about finding and using GPUs:</p>
-<div class="highlight"><pre><span></span><span class="n">Pe</span> <span class="mi">0</span> <span class="n">physical</span> <span class="n">rank</span> <span class="mi">0</span> <span class="n">binding</span> <span class="k">to</span> <span class="n">CUDA</span> <span class="n">device</span> <span class="mi">0</span> <span class="k">on</span> <span class="o">&lt;</span><span class="n">hostname</span><span class="o">&gt;</span><span class="p">:</span> <span class="s1">&#39;Graphics Device&#39;</span>  <span class="n">Mem</span><span class="p">:</span> <span class="mi">4042</span><span class="n">MB</span>  <span class="n">Rev</span><span class="p">:</span> <span class="mi">6</span><span class="p">.</span><span class="mi">0</span>
+<div class="highlight"><pre><span></span>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
 </pre></div>
 
 
@@ -956,77 +1109,14 @@ Looking at the binary representation of that new polynomial, we have 0b11101001 
 <h2>Other notes</h2>
 <p>Namd requires some libraries, some of which they supply as binary downloads on <a href="http://www.ks.uiuc.edu/Research/namd/libraries/">their website</a>.
 Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:</p>
-<div class="highlight"><pre><span></span><span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: <span class="nv">failed</span> <span class="nv">to</span> <span class="nv">merge</span> <span class="nv">target</span> <span class="nv">specific</span> <span class="nv">data</span> <span class="nv">of</span> <span class="nv">file</span> .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">regfree</span>.<span class="nv">o</span><span class="ss">)</span>
-<span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">regerror</span>.<span class="nv">o</span><span class="ss">)</span>: <span class="nv">compiled</span> <span class="k">for</span> <span class="nv">a</span> <span class="nv">big</span> <span class="nv">endian</span> <span class="nv">system</span> <span class="nv">and</span> <span class="nv">target</span> <span class="nv">is</span> <span class="nv">little</span> <span class="nv">endian</span>
-<span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: <span class="nv">failed</span> <span class="nv">to</span> <span class="nv">merge</span> <span class="nv">target</span> <span class="nv">specific</span> <span class="nv">data</span> <span class="nv">of</span> <span class="nv">file</span> .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">regerror</span>.<span class="nv">o</span><span class="ss">)</span>
-<span class="o">/</span><span class="nv">bin</span><span class="o">/</span><span class="nv">ld</span>: .<span class="nv">rootdir</span><span class="o">/</span><span class="nv">tcl</span><span class="o">/</span><span class="nv">lib</span><span class="o">/</span><span class="nv">libtcl8</span>.<span class="mi">5</span>.<span class="nv">a</span><span class="ss">(</span><span class="nv">tclAlloc</span>.<span class="nv">o</span><span class="ss">)</span>: <span class="nv">compiled</span> <span class="k">for</span> <span class="nv">a</span> <span class="nv">big</span> <span class="nv">endian</span> <span class="nv">system</span> <span class="nv">and</span> <span class="nv">target</span> <span class="nv">is</span> <span class="nv">little</span> <span class="nv">endian</span>
+<div class="highlight"><pre><span></span>/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
+/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
+/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
 </pre></div>
 
 
 <p>The script we supply should get these right automatically.</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-01-31T16:07:00+11:00" pubdate>Tue 31 January 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2017-01-31T16:07:00+11:00" pubdate>Tue 31 January 2017</time></div>
-
-  <div class="entry-content"><p>I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.</p>
-<p>I received some really interesting feedback so I've taken the opportunity to write some of it down to complement the talk videos and slides that are online. (And to remind me to follow up on it!)</p>
-<h2>Miniconf talk: Sparse Warnings</h2>
-<p>My kernel miniconf talk was on sparse warnings (<a href="https://github.com/daxtens/sparse-warnings-talk/blob/master/talk.pdf">pdf slides</a>, <a href="https://www.youtube.com/watch?v=hmCukzpevUc">23m video</a>).</p>
-<p>The abstract read (in part):</p>
-<blockquote>
-<p>sparse is a semantic parser for C, and is one of the static analysis tools available to kernel devs.</p>
-<p>Sparse is a powerful tool with good integration into the kernel build system. However, we suffer from warning overload - there are too many sparse warnings to spot the serious issues amongst the trivial. This makes it difficult to use, both for developers and maintainers.</p>
-</blockquote>
-<p>Happily, I received some feedback that suggests it's not all doom and gloom like I had thought!</p>
-<ul>
-<li>
-<p>Dave Chinner told me that the xfs team uses sparse regularly to make sure that the file system is endian-safe. This is good news - we really would like that to be endian-safe!</p>
-</li>
-<li>
-<p>Paul McKenney let me know that the 0day bot does do some sparse checking - it would just seem that it's not done on PowerPC.</p>
-</li>
-</ul>
-<h2>Main talk: 400,000 Ephemeral Containers</h2>
-<p>My main talk was entitled "400,000 Ephemeral Containers: testing entire ecosystems with Docker". You can read the <a href="https://linux.conf.au/schedule/presentation/81/">abstract</a> for full details, but it boils down to:</p>
-<blockquote>
-<p>What if you want to test how <em>all</em> the packages in a given ecosystem work in a given situation?</p>
-</blockquote>
-<p>My main example was testing how many of the Ruby packages successfully install on Power, but I also talk about other languages and other cool tests you could run.</p>
-<p>The <a href="https://www.youtube.com/watch?v=v7wSqOQeGhA">44m video</a> is online. I haven't put the slides up yet but they should be available <a href="https://github.com/daxtens/400000-ephemeral-containers">on GitHub</a> soonish.</p>
-<p>Unlike with the kernel talk, I didn't catch the names of most of the people with feedback.</p>
-<h3>Docker memory issues</h3>
-<p>One of the questions I received during the talk was about running into memory issues in Docker. I attempted to answer that during the Q&amp;A. The person who asked the question then had a chat with me afterwards, and it turns out I had completely misunderstood the question. I thought it was about memory usage of running containers in parallel. It was actually about memory usage in the docker daemon when running lots of containers in serial. Apparently the docker daemon doesn't free memory during the life of the process, and the question was whether or not I had observed that during my runs.</p>
-<p>I didn't have a good answer for this at the time other than "it worked for me", so I have gone back and looked at the docker daemon memory usage.</p>
-<p>After a full Ruby run, the daemon is using about 13.9G of virtual memory, and 1.975G of resident memory. If I restart it, the memory usage drops to 1.6G of virtual and 43M of resident memory. So it would appear that the person asking the question was right, and I'm just not seeing it have an effect.</p>
-<h3>Other interesting feedback</h3>
-<ul>
-<li>
-<p>Someone was quite interested in testing on Sparc, once they got their Go runtime nailed down.</p>
-</li>
-<li>
-<p>A Rackspacer was quite interested in Python testing for OpenStack - this has some intricacies around Py2/Py3, but we had an interesting discussion around just testing to see if packages that claim Py3 support provide Py3 support.</p>
-</li>
-<li>
-<p>A large jobs site mentioned using this technique to help them migrate their dependencies between versions of Go.</p>
-</li>
-<li>
-<p>I was 'gently encouraged' to try to do better with how long the process takes to run - if for no other reason than to avoid burning more coal. This is a fair point. I did not explain very well what I meant with diminishing returns in the talk: there's <em>lots</em> you could do to make the process faster, it's just comes at the cost of the simplicity that I really wanted when I first started the project. I am working (on and off) on better ways to deal with this by considering the dependency graph.</p>
-</li>
-</ul></div>
   		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index5.html">&larr; Older</a>
@@ -1039,6 +1129,9 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
       </li>
       <li class="post">
@@ -1049,9 +1142,6 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/04/02/article-review-curing-the-vulnerable-parser/">Article Review: Curing the Vulnerable Parser</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">What Do You Mean "No"?</a>
       </li>
     </ul>
   </section>
@@ -1072,7 +1162,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>

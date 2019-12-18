@@ -1,5 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Andrew Donnellan</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 21 Nov 2018 18:20:00 +1100</lastBuildDate><item><title>OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</title><link>https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/</link><description>&lt;p&gt;Last month, I was in Amsterdam at &lt;a href="https://openpowerfoundation.org/summit-2018-10-eu/"&gt;OpenPOWER Summit Europe&lt;/a&gt;. It was great to see so much interest in OpenPOWER, with a particularly strong contingent of researchers sharing how they're exploiting the unique advantages of OpenPOWER platforms, and a number of OpenPOWER hardware partners announcing products.&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Andrew Donnellan</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 18 Dec 2019 17:30:00 +1100</lastBuildDate><item><title>rfid and hrfid</title><link>https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/</link><description>&lt;p&gt;I was staring at some assembly recently, and for not the first time encountered &lt;em&gt;rfid&lt;/em&gt; and &lt;em&gt;hrfid&lt;/em&gt;, two instructions that we use when doing things like returning to userspace, returning from OPAL to the kernel, or from a host kernel into a guest.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;rfid&lt;/em&gt; copies various bits from the register SRR1 (Machine Status Save/Restore Register 1) into the MSR (Machine State Register), and then jumps to an address given in SRR0 (Machine Status Save/Restore Register 0). &lt;em&gt;hrfid&lt;/em&gt; does something similar, using HSRR0 and HSRR1 (Hypervisor Machine Status Save/Restore Registers 0/1), and slightly different handling of MSR bits.&lt;/p&gt;
+&lt;p&gt;The various Save/Restore Registers are used to preserve the state of the CPU before jumping to an interrupt handler, entering the kernel, etc, and are set up as part of instructions like &lt;em&gt;sc&lt;/em&gt; (System Call), by the interrupt mechanism, or manually (using instructions like &lt;em&gt;mtsrr1&lt;/em&gt;).&lt;/p&gt;
+&lt;p&gt;Anyway, the way in which &lt;em&gt;rfid&lt;/em&gt; and &lt;em&gt;hrfid&lt;/em&gt; restores MSR bits is documented somewhat obtusely in the ISA (if you don't believe me, look it up), and I was annoyed by this, so here, have a more useful definition. Leave a comment if I got something wrong.&lt;/p&gt;
+&lt;h1&gt;rfid - Return From Interrupt Doubleword&lt;/h1&gt;
+&lt;h2&gt;Machine State Register&lt;/h2&gt;
+&lt;p&gt;Copy all bits (except some reserved bits) from SRR1 into the MSR, with the following exceptions:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_3 (HV, Hypervisor State) = MSR_3 &amp;amp; SRR1_3&lt;br&gt;
+[We won't put the thread into hypervisor state if we're not already in hypervisor state]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;If MSR_29:31 != 0b010 [Transaction State Suspended, TM not available], or SRR1_29:31 != 0b000 [Transaction State Non-transactional, TM not available] then:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;MSR_29:30 (TS, Transaction State) = SRR1_29:30&lt;/li&gt;
+&lt;li&gt;MSR_31 (TM, Transactional Memory Available) = SRR1_31&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;[See the ISA description for explanation on how rfid interacts with TM and resulting interrupts]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_48 (EE, External Interrupt Enable) = SRR1_48 | SRR1_49 (PR, Problem State)&lt;br&gt;
+[If going into problem state, external interrupts will be enabled]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_51 (ME, Machine Check Interrupt Enable) = (MSR_3 (HV, Hypervisor State) &amp;amp; SRR1_51) | ((! MSR_3) &amp;amp; MSR_51)&lt;br&gt;
+[If we're not already in hypervisor state, we won't alter ME]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_58 (IR, Instruction Relocate) = SRR1_58 | SRR1_49 (PR, Problem State)&lt;br&gt;
+[If going into problem state, relocation will be enabled]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_59 (DR, Data Relocate) = SRR1_59 | SRR1_49 (PR, Problem State)&lt;br&gt;
+[If going into problem state, relocation will be enabled]&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Next Instruction Address&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;NIA = SRR0_0:61 || 0b00&lt;br&gt;
+[Jump to SRR0, set last 2 bits to zero to ensure address is aligned to 4 bytes]&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1&gt;hrfid - Hypervisor Return From Interrupt Doubleword&lt;/h1&gt;
+&lt;h2&gt;Machine State Register&lt;/h2&gt;
+&lt;p&gt;Copy all bits (except some reserved bits) from HSRR1 into the MSR, with the following exceptions:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;If MSR_29:31 != 0b010 [Transaction State Suspended, TM not available], or HSRR1_29:31 != 0b000 [Transaction State Non-transactional, TM not available] then:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;MSR_29:30 (TS, Transaction State) = HSRR1_29:30&lt;/li&gt;
+&lt;li&gt;MSR_31 (TM, Transactional Memory Available) = HSRR1_31&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;[See the ISA description for explanation on how rfid interacts with TM and resulting interrupts]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_48 (EE, External Interrupt Enable) = HSRR1_48 | HSRR1_49 (PR, Problem State)&lt;br&gt;
+[If going into problem state, external interrupts will be enabled]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_58 (IR, Instruction Relocate) = HSRR1_58 | HSRR1_49 (PR, Problem State)&lt;br&gt;
+[If going into problem state, relocation will be enabled]&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;MSR_59 (DR, Data Relocate) = HSRR1_59 | HSRR1_49 (PR, Problem State)&lt;br&gt;
+[If going into problem state, relocation will be enabled]&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Next Instruction Address&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;NIA = HSRR0_0:61 || 0b00&lt;br&gt;
+[Jump to HSRR0, set last 2 bits to zero to ensure address is aligned to 4 bytes]&lt;/li&gt;
+&lt;/ul&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Andrew Donnellan</dc:creator><pubDate>Wed, 18 Dec 2019 17:30:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2019-12-18:/blog/2019/12/18/rfid-and-hrfid/</guid><category>Instruction Set Architecture</category><category>openpower</category></item><item><title>OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</title><link>https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/</link><description>&lt;p&gt;Last month, I was in Amsterdam at &lt;a href="https://openpowerfoundation.org/summit-2018-10-eu/"&gt;OpenPOWER Summit Europe&lt;/a&gt;. It was great to see so much interest in OpenPOWER, with a particularly strong contingent of researchers sharing how they're exploiting the unique advantages of OpenPOWER platforms, and a number of OpenPOWER hardware partners announcing products.&lt;/p&gt;
 &lt;p&gt;(It was also my first time visiting Europe, so I had a lot of fun exploring Amsterdam, taking a few days off in Vienna, then meeting some of my IBM Linux Technology Centre colleagues in Toulouse. I also now appreciate just what ~50 hours on planes does to you!)&lt;/p&gt;
 &lt;p&gt;One particular area which got a lot of attention at the Summit was &lt;a href="https://opencapi.org"&gt;OpenCAPI&lt;/a&gt;, an open coherent high-performance bus interface designed for accelerators, which is supported on POWER9. We had plenty of talks about OpenCAPI and the interesting work that is already happening with OpenCAPI accelerators.&lt;/p&gt;
 &lt;p&gt;I was invited to present on the Linux Technology Centre's work on enabling OpenCAPI from the software side. In this talk, I outline the OpenCAPI software stack and how you can interface with an OpenCAPI device through the ocxl kernel driver and the &lt;a href="https://github.com/opencapi/libocxl"&gt;libocxl&lt;/a&gt; userspace library.&lt;/p&gt;
@@ -137,13 +208,13 @@
 &lt;h2&gt;Kconfig&lt;/h2&gt;
 &lt;p&gt;The final piece of the puzzle is building our new code into the kernel image.&lt;/p&gt;
 &lt;p&gt;To allow us to switch this important functionality on and off, I added a config option to &lt;code&gt;fs/Kconfig&lt;/code&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;config&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;
-        &lt;span class="nv"&gt;bool&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;Andrew&amp;#39;s dumb SSH key hack&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
-        &lt;span class="nv"&gt;default&lt;/span&gt; &lt;span class="nv"&gt;y&lt;/span&gt;
-        &lt;span class="nv"&gt;help&lt;/span&gt;
-          &lt;span class="nv"&gt;Hardcode&lt;/span&gt; &lt;span class="nv"&gt;an&lt;/span&gt; &lt;span class="nv"&gt;SSH&lt;/span&gt; &lt;span class="nv"&gt;key&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;config SSH_KEY
+        bool &amp;quot;Andrew&amp;#39;s dumb SSH key hack&amp;quot;
+        default y
+        help
+          Hardcode an SSH key for /root/.ssh/authorized_keys.
 
-          &lt;span class="nv"&gt;This&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;stupid&lt;/span&gt; &lt;span class="nv"&gt;idea&lt;/span&gt;. &lt;span class="k"&gt;If&lt;/span&gt; &lt;span class="nv"&gt;unsure&lt;/span&gt;, &lt;span class="nv"&gt;say&lt;/span&gt; &lt;span class="nv"&gt;N&lt;/span&gt;.
+          This is a stupid idea. If unsure, say N.
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -155,11 +226,11 @@
 
 &lt;p&gt;If &lt;code&gt;CONFIG_SSH_KEY&lt;/code&gt; is set to &lt;code&gt;y&lt;/code&gt;, &lt;code&gt;obj-$(CONFIG_SSH_KEY)&lt;/code&gt; evaluates to &lt;code&gt;obj-y&lt;/code&gt; and thus &lt;code&gt;ssh-key.o&lt;/code&gt; gets compiled. Conversely, &lt;code&gt;obj-n&lt;/code&gt; is completely ignored by the build system.&lt;/p&gt;
 &lt;p&gt;I thought I was all done... then &lt;a href="https://twitter.com/mramboar"&gt;Andrew&lt;/a&gt; suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;config&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY_VALUE&lt;/span&gt;
-        &lt;span class="nv"&gt;string&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;Value for SSH key&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
-        &lt;span class="nv"&gt;depends&lt;/span&gt; &lt;span class="nv"&gt;on&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;
-        &lt;span class="nv"&gt;help&lt;/span&gt;
-          &lt;span class="nv"&gt;Enter&lt;/span&gt; &lt;span class="nv"&gt;in&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;content&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;config SSH_KEY_VALUE
+        string &amp;quot;Value for SSH key&amp;quot;
+        depends on SSH_KEY
+        help
+          Enter in the content for /root/.ssh/authorized_keys.
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -188,19 +259,19 @@
 &lt;p&gt;Annoyingly, the &lt;code&gt;msglog&lt;/code&gt; file reports itself as size 0 (I'm not sure exactly why, but I &lt;em&gt;think&lt;/em&gt; it's due to limitations in sysfs), so if you try to copy the file with &lt;code&gt;cp&lt;/code&gt;, you end up with just a blank file. However, you can read it with &lt;code&gt;cat&lt;/code&gt; or &lt;code&gt;less&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;From &lt;code&gt;xmon&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;&lt;code&gt;xmon&lt;/code&gt; is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with &lt;code&gt;kgdb&lt;/code&gt;. On our development systems, we often configure &lt;code&gt;xmon&lt;/code&gt; to automatically begin debugging whenever we hit an oops or panic (using &lt;code&gt;xmon=on&lt;/code&gt; on the kernel command line, or the &lt;code&gt;XMON_DEFAULT&lt;/code&gt; Kconfig option). It can also be manually triggered:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;@&lt;span class="nv"&gt;p86&lt;/span&gt;:&lt;span class="o"&gt;~&lt;/span&gt;# &lt;span class="nv"&gt;echo&lt;/span&gt; &lt;span class="nv"&gt;x&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;proc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;sysrq&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;trigger&lt;/span&gt;
-&lt;span class="nv"&gt;sysrq&lt;/span&gt;: &lt;span class="nv"&gt;SysRq&lt;/span&gt; : &lt;span class="nv"&gt;Entering&lt;/span&gt; &lt;span class="nv"&gt;xmon&lt;/span&gt;
-&lt;span class="nv"&gt;cpu&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x7&lt;/span&gt;: &lt;span class="nv"&gt;Vector&lt;/span&gt;: &lt;span class="mi"&gt;0&lt;/span&gt;  &lt;span class="nv"&gt;at&lt;/span&gt; [&lt;span class="nv"&gt;c000000fcd717a80&lt;/span&gt;]
-&lt;span class="nv"&gt;pc&lt;/span&gt;: &lt;span class="nv"&gt;c000000000085ad8&lt;/span&gt;: &lt;span class="nv"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x80&lt;/span&gt;
-&lt;span class="nv"&gt;lr&lt;/span&gt;: &lt;span class="nv"&gt;c000000000085ad8&lt;/span&gt;: &lt;span class="nv"&gt;sysrq_handle_xmon&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x68&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x80&lt;/span&gt;
-&lt;span class="nv"&gt;sp&lt;/span&gt;: &lt;span class="nv"&gt;c000000fcd717be0&lt;/span&gt;
-&lt;span class="nv"&gt;msr&lt;/span&gt;: &lt;span class="mi"&gt;9000000000009033&lt;/span&gt;
-&lt;span class="nv"&gt;current&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xc000000fcd689200&lt;/span&gt;
-&lt;span class="nv"&gt;paca&lt;/span&gt;    &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;xc00000000fe01c00&lt;/span&gt;   &lt;span class="nv"&gt;softe&lt;/span&gt;: &lt;span class="mi"&gt;0&lt;/span&gt;        &lt;span class="nv"&gt;irq_happened&lt;/span&gt;: &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="nv"&gt;x01&lt;/span&gt;
-&lt;span class="nv"&gt;pid&lt;/span&gt;   &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;7127&lt;/span&gt;, &lt;span class="nv"&gt;comm&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;bash&lt;/span&gt;
-&lt;span class="nv"&gt;Linux&lt;/span&gt; &lt;span class="nv"&gt;version&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt;.&lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;ajd&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;11118&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nv"&gt;g968f3e3&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;ajd&lt;/span&gt;@&lt;span class="nv"&gt;ka1&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;gcc&lt;/span&gt; &lt;span class="nv"&gt;version&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt;.&lt;span class="mi"&gt;2&lt;/span&gt;.&lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="mi"&gt;20150930&lt;/span&gt; &lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;GCC&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="sc"&gt;#1&lt;/span&gt; &lt;span class="nv"&gt;SMP&lt;/span&gt; &lt;span class="nv"&gt;Tue&lt;/span&gt; &lt;span class="nv"&gt;Mar&lt;/span&gt; &lt;span class="mi"&gt;22&lt;/span&gt; &lt;span class="mi"&gt;17&lt;/span&gt;:&lt;span class="mi"&gt;01&lt;/span&gt;:&lt;span class="mi"&gt;58&lt;/span&gt; &lt;span class="nv"&gt;AEDT&lt;/span&gt; &lt;span class="mi"&gt;2016&lt;/span&gt;
-&lt;span class="nv"&gt;enter&lt;/span&gt; ? &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;help&lt;/span&gt;
-&lt;span class="mi"&gt;7&lt;/span&gt;:&lt;span class="nv"&gt;mon&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:~# echo x &amp;gt; /proc/sysrq-trigger
+sysrq: SysRq : Entering xmon
+cpu 0x7: Vector: 0  at [c000000fcd717a80]
+pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
+sp: c000000fcd717be0
+msr: 9000000000009033
+current = 0xc000000fcd689200
+paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
+pid   = 7127, comm = bash
+Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
+enter ? for help
+7:mon&amp;gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -234,21 +305,21 @@
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;code&gt;opal-dump-parse&lt;/code&gt; (also in the &lt;code&gt;ppc64-diag&lt;/code&gt; suite) can be used to extract the sections we care about from the dump:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;l&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="c1"&gt;---------------------------------------------------------|&lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="n"&gt;ID&lt;/span&gt;&lt;span class="w"&gt;              &lt;/span&gt;&lt;span class="k"&gt;SECTION&lt;/span&gt;&lt;span class="w"&gt;                              &lt;/span&gt;&lt;span class="k"&gt;SIZE&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="c1"&gt;---------------------------------------------------------|&lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="w"&gt;              &lt;/span&gt;&lt;span class="n"&gt;Opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt;                           &lt;/span&gt;&lt;span class="mi"&gt;1048576&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="w"&gt;              &lt;/span&gt;&lt;span class="n"&gt;HostBoot&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Runtime&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt;               &lt;/span&gt;&lt;span class="mi"&gt;1048576&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="mi"&gt;128&lt;/span&gt;&lt;span class="w"&gt;            &lt;/span&gt;&lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="w"&gt;                             &lt;/span&gt;&lt;span class="mi"&gt;1048576&lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="c1"&gt;---------------------------------------------------------|&lt;/span&gt;
-&lt;span class="n"&gt;List&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;completed&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
-&lt;span class="n"&gt;Captured&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;file&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
-&lt;span class="n"&gt;Captured&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;file&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;HostBoot&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Runtime&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@p86&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="k"&gt;dump&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;parse&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;128&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;SYSDUMP&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
-&lt;span class="n"&gt;Captured&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;log&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;to&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;file&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="mf"&gt;.842&lt;/span&gt;&lt;span class="n"&gt;EA8A&lt;/span&gt;&lt;span class="mf"&gt;.00000001.20160322063051&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
+|---------------------------------------------------------|
+|ID              SECTION                              SIZE|
+|---------------------------------------------------------|
+|1              Opal-log                           1048576|
+|2              HostBoot-Runtime-log               1048576|
+|128            printk                             1048576|
+|---------------------------------------------------------|
+List completed
+root@p86:/var/log/dump# opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file Opal-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file HostBoot-Runtime-log.842EA8A.00000001.20160322063051
+root@p86:/var/log/dump# opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 
+Captured log to file printk.842EA8A.00000001.20160322063051
 &lt;/pre&gt;&lt;/div&gt;
 
 
