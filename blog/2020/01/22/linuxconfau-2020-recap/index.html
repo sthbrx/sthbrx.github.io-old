@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>linux.conf.au 2020 recap &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">linux.conf.au 2020 recap</h1>
+    <p class="meta">
+<time datetime="2020-01-22T16:00:00+11:00" pubdate>Wed 22 January 2020</time>    </p>
+</header>
+
+  <div class="byline_index">
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2020-01-22T16:00:00+11:00" pubdate>Wed 22 January 2020</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/education.html'>Education</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/conferences.html">conferences</a>  </span>
+</p>  </div>
+  <div class="entry-content"><p>It's that time of year again. Most of OzLabs headed up to the Gold Coast for linux.conf.au 2020.</p>
+<p>linux.conf.au is one of the longest-running community-led Linux and Free Software events in the world, and attracts a crowd from Australia, New Zealand and much further afield. OzLabbers have been involved in LCA since the very beginning and this year was no exception with myself running the Kernel Miniconf and several others speaking.</p>
+<p>The list below contains some of our highlights that we think you should check out. This is just a few of the talks that we managed to make it to - there's plenty more worthwhile stuff on the <a href="https://www.youtube.com/user/linuxconfau2019/featured">linux.conf.au YouTube channel</a>.</p>
+<p>We'll see you all at LCA2021 right here in Canberra...</p>
+<h1>Keynotes</h1>
+<p>A couple of the keynotes really stood out:</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=Yv4tI6939q0">Sean Brady - Drop Your Tools - Does Expertise have a Dark Side?</a></li>
+</ul>
+<p>Sean is a forensic structural engineer who shows us a variety of examples, from structural collapses and firefighting disasters, where trained professionals were blinded by their expertise and couldn't bring themselves to do things that were obvious.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=xfpy5c3thQo">Vanessa Teague - Who cares about Democracy?</a></li>
+</ul>
+<p>There's nothing quite like cryptography proofs presented to a keynote audience at 9:30 in the morning. Vanessa goes over the issues with electronic voting systems in Australia, and especially internet voting as used in NSW, including flaws in their implementation of cryptographic algorithms. There continues to be no good way to do internet voting, but with developments in methodologies like risk-limiting audits there may be reasonably safe ways to do in-person electronic voting.</p>
+<h1>OpenPOWER</h1>
+<p>There was an OpenISA miniconf, co-organised by none other than Hugh Blemings of the OpenPOWER Foundation.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=RU6RPYAqFzE">Michael Neuling / Anton Blanchard - Power OpenISA and Microwatt Introduction</a></li>
+</ul>
+<p>Anton (on Mikey's behalf) introduces the Power OpenISA and the Microwatt FPGA core which has been released to go with it.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=g3slH03MCmo">Anton Blanchard - Build your own Open Hardware CPU in 25 minutes or less</a></li>
+</ul>
+<p>Anton live demos Microwatt in simulation, and also tries to synthesise it for his FPGA but runs out of time...</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=JkDx_y0onSk">Paul Mackerras - Microwatt Microarchitecture</a></li>
+</ul>
+<p>Paul presents an in-depth overview of the design of the Microwatt core.</p>
+<h1>Kernel</h1>
+<p>There were quite a few kernel talks, both in the <a href="http://lca-kernel.ozlabs.org">Kernel Miniconf</a> and throughout the main conference. These are just some of them:</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=ggD-eb3yPVs">Aleksa Sarai - Designing Extensible Syscalls</a></li>
+</ul>
+<p>There's been many cases where we've introduced a syscall only to find out later on that we need to add some new parameters - how do we make our syscalls extensible so we can add new parameters later on without needing to define a whole new syscall, while maintaining both forward and backward compatibility? It turns out it's pretty simple but needs a few more kernel helpers.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=heib48KG-YQ">Russell Currey - Kernel hacking like it's 2020</a></li>
+</ul>
+<p>There are a bunch of tools out there which you can use to make your kernel hacking experience much more pleasant. You should use them.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=tGseJW_uBB8">Aleksa Sarai - Securing Container Runtimes - How Hard Can It Be?</a></li>
+</ul>
+<p>Among other security issues with container runtimes, using procfs to setup security controls during the startup of a container is fraught with hilarious problems, because procfs and the Linux filesystem API aren't really designed to do this safely, and also have a bunch of amusing bugs.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=0Bj6W7qrOOI">Kees Cook - Control Flow Integrity in the Linux Kernel</a></li>
+</ul>
+<p>Control Flow Integrity is a technique for restricting exploit techniques that hijack a program's control flow (e.g. by overwriting a return address on the stack (ROP), or overwriting a function pointer that's used in an indirect jump). Kees goes through the current state of CFI supporting features in hardware and what is currently available to enable CFI in the kernel.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=p5u-vbwu3Fs">Matthew Wilcox - Large Pages in Linux</a></li>
+</ul>
+<p>Linux has supported huge pages for many years, which has significantly improved CPU performance. However, the huge page mechanism was driven by hardware advancements and is somewhat inflexible, and it's just as important to consider software overhead. Matthew has been working on supporting more flexible "large pages" in the page cache to do just that.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=9Fzd6MapG3Y">Russell Currey - The magical fantasy land of Linux kernel testing</a></li>
+</ul>
+<p>Spoiler: the magical fantasy land is a trap.</p>
+<h1>Community</h1>
+<p>Lots of community and ethics discussion this year - one talk which stood out to me:</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=n55WClalwHo">Bradley M. Kuhn / Karen Sandler - Open Source Won, but Software Freedom Hasn't Yet: A Guide &amp; Commisseration Session for FOSS activists</a></li>
+</ul>
+<p>Bradley and Karen argue that while open source has "won", software freedom has regressed in recent years, and present their vision for what modern, pragmatic Free Software activism should look like.</p>
+<h1>Other</h1>
+<p>Among the variety of other technical talks at LCA...</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=L2P501Iy6J8">Matthew Treinish - Building a Compiler for Quantum Computers</a></li>
+</ul>
+<p>Quantum compilers are not really like regular classical compilers (indeed, they're really closer to FPGA synthesis tools). Matthew talks through how quantum compilers map a program on to IBM's quantum hardware and the types of optimisations they apply.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=Dk6ZuydQt9I">Fraser Tweedale - Clevis and Tang: securing your secrets at rest</a></li>
+</ul>
+<p>Clevis and Tang provide an implementation of "network bound encryption", allowing you to magically decrypt your secrets when you are on a secure network with access to the appropriate Tang servers. This talk outlines use cases and provides a demonstration.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=uBBaVtHkiOI">Christoph Lameter - How to capture 100G Ethernet traffic at wire speed to local disk</a></li>
+</ul>
+<p>Christoph discusses how to deal with the hardware and software limitations that make it difficult to capture traffic at wire speed on fast fibre networks.</p></div>
+    <footer>
+<div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+  <section>
+    <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
+    <ul id="authors_list">
+        <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
+        <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
+        <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
+        <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a></li>
+        <li><a href="https://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a></li>
+        <li><a href="https://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a></li>
+        <li><a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a></li>
+        <li><a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a></li>
+        <li><a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a></li>
+        <li><a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a></li>
+        <li><a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a></li>
+    </ul>
+  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2020  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2020/01/22/linuxconfau-2020-recap/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/';
+    var disqus_title = 'linux.conf.au 2020 recap';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
