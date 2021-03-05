@@ -102,6 +102,38 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2018/10/09/open-source-firmware-conference-2018/">Open Source Firmware Conference 2018</a>
+      </h1>
+    <p class="meta">
+<time datetime="2018-10-09T10:08:00+11:00" pubdate>Tue 09 October 2018</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2018-10-09T10:08:00+11:00" pubdate>Tue 09 October 2018</time></div>
+
+  <div class="entry-content"><p>I recently had the pleasure of attending the <a href="https://osfc.io">2018 Open Source Firmware Conference</a> in Erlangen, Germany. Compared to other more general conferences I've attended in the past, the laser focus of OSFC on firmware and especially firmware security was fascinating. Seeing developers from across the world coming together to discuss how they are improving their corner of the stack was great, and I've walked away with plenty of new knowledge and ideas (and several kilos of German food and drink..).</p>
+<hr>
+<p>What was especially exciting though is that I had the chance to talk about my work on <a href="https://github.com/open-power/petitboot">Petitboot</a> and what's happened from the POWER8 launch until now. If you're interested in that, or seeing how I talk after 36 hours of travel, check it out here:</p>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/8Z1vEinNU7I" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+
+<hr>
+<p>OSFC have made all the talks from the first two days available in a <a href="https://www.youtube.com/playlist?list=PLJ4u8GLmFVmoRCX_gFXV6fhWmsOQ5cmuj">playlist on Youtube</a><br>
+If you're after a few suggestions there was, in no particular order:</p>
+<p><a href="https://www.youtube.com/watch?v=ZjAu0VYRTno">Ryan O'Leary giving an update on Linuxboot</a> - also known as NERF, Google's approach to a Linux bootloader all written in Go.</p>
+<p><a href="https://www.youtube.com/watch?v=qUgo-AVsSC">Subrate Banik talking about porting Coreboot on top of Intel's FSP</a></p>
+<p><a href="https://www.youtube.com/watch?v=ukSh1n7wjSA">Ron Minnich describing his work with "rompayloads" on Coreboot</a></p>
+<p><a href="https://www.youtube.com/watch?v=gC-lbMNmIsg">Vadmin Bendebury describing Google's "Secure Microcontroller" Chip</a></p>
+<p><a href="https://www.youtube.com/watch?v=eKVSBESoKUc">Facebook presenting their use of Linuxboot and "systemboot"</a></p>
+<p>And heaps more, check out the full playlist!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/">Improving performance of Phoronix benchmarks on POWER9</a>
       </h1>
     <p class="meta">
@@ -844,194 +876,6 @@ significantly quicker.</p>
 for all power8 and onwards chips as this new version of the patch
 solves the performance regression for small compares.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/08/07/memcmp-for-power8/">memcmp() for POWER8</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-08-07T12:00:00+10:00" pubdate>Mon 07 August 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
-    </span>
-  </span>
-<time datetime="2017-08-07T12:00:00+10:00" pubdate>Mon 07 August 2017</time></div>
-
-  <div class="entry-content"><h2>Userspace</h2>
-<p>When writing C programs in userspace there is libc which does so much
-of the heavy lifting. One important thing libc provides is portability
-in performing syscalls, that is, you don't need to know the
-architectural details of performing a syscall on each architecture
-your program might be compiled for. Another important feature that
-libc provides for the average userspace programmer is highly optimised
-routines to do things that are usually performance critical. It would
-be extremely inefficient for each userspace programmer if they had to
-implement even the naive version of these functions let alone
-optimised versions. Let us take <code>memcmp()</code> for example, I could
-trivially implement this in C like:</p>
-<div class="highlight"><pre><span></span><span class="kt">int</span> <span class="nf">memcmp</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">*</span><span class="n">p1</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">p2</span><span class="p">,</span> <span class="kt">int</span> <span class="n">n</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
-
-    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">p2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">p2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="p">}</span>
-
-    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-</pre></div>
-
-
-<p>However, while it is incredibly portable it is simply not going to
-perform, which is why the nice people who write libc have highly
-optimised ones in assembly for each architecture.</p>
-<h2>Kernel</h2>
-<p>When writing code for the Linux kernel, there isn't the luxury of a
-fully featured libc since it expects (and needs) to be in userspace,
-therefore we need to implement the features we need ourselves. Linux
-doesn't need all the features but something like <code>memcmp()</code> is
-definitely a requirement.</p>
-<p>There have been some recent optimisations in <a href="https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=sysdeps/powerpc/powerpc64/power8/memcmp.S;h=46b9c0067ad7cd74a36c4800ebfe03eb1be0311e;hb=dec4a7105edcdbabdcac5f358f5bc5dca4f4ed1b" title="power8 optimised memcmp">glibc</a> from which the
-kernel could benefit too! The question to be asked is, does the glibc
-optimised <code>power8_memcmp()</code> actually go faster or is it all smoke and
-mirrors?</p>
-<h2>Benchmarking <code>memcmp()</code></h2>
-<p>With things like <code>memcmp()</code> it is actually quite easy to choose
-datasets which can make any implementation look good. For example; the
-new <code>power8_memcmp()</code> makes use of the vector unit of the power8
-processor, in order to do so in the kernel there must be a small
-amount of setup code so that the rest of the kernel knows that the
-vector unit has been used and it correctly saves and restores the
-userspace vector registers. This means that <code>power8_memcmp()</code> has a
-slightly larger overhead than the current one, so for small compares
-or compares which are different early on then the newer 'faster'
-<code>power8_memcmp()</code> might actually not perform as well. For any kind of
-large compare however, using the vector unit should outperform a CPU
-register load and compare loop. It is for this reason that I wanted to
-avoid using micro benchmarks and use a 'real world' test as much as
-possible.</p>
-<p>The biggest user of <code>memcmp()</code> in the kernel, at least on POWER is Kernel
-Samepage Merging (KSM). KSM provides code to inspect all the pages of
-a running system to determine if they're identical and deduplicate
-them if possible. This kind of feature allows for memory overcommit
-when used in a KVM host environment as guest kernels are likely to
-have a lot of similar, readonly pages which can be merged with no
-overhead afterwards. In order to determine if the pages are the same
-KSM must do a lot of page sized <code>memcmp()</code>.</p>
-<h2>Performance</h2>
-<p>Performing a lot of page sized <code>memcmp()</code> is the one flaw with this
-test, the sizes of the <code>memcmp()</code> don't vary, hopefully the data will be
-'random' enough that we can still observe differences in the two
-approaches.</p>
-<p>My approach for testing involved getting the delta of <code>ktime_get()</code>
-across calls to <code>memcmp()</code> in <code>memcmp_pages()</code> (mm/ksm.c). This actually
-generated massive amounts of data, so, for consistency the following
-analysis is performed on the first 400MB of deltas collected.</p>
-<p>The host was compiled with <code>powernv_defconfig</code> and run out of a
-ramdisk. For consistency the host was rebooted between each run so as
-to not have any previous tests affect the next. The host was rebooted
-a total of six times, the first three with my 'patched'
-<code>power8_memcmp()</code> kernel was booted the second three times with just
-my data collection patch applied, the 'vanilla' kernel. Both
-kernels are based off <code>4.13-rc3</code>.</p>
-<p>Each boot the following script was run and the resulting deltas file
-saved somewhere before reboot. The command line argument was always
-15.</p>
-<div class="highlight"><pre><span></span><span class="ch">#!/bin/sh</span>
-
-ppc64_cpu --smt<span class="o">=</span>off
-
-<span class="c1">#Host actually boots with ksm off but be sure</span>
-<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/kernel/mm/ksm/run
-
-<span class="c1">#Scan a lot of pages</span>
-<span class="nb">echo</span> <span class="m">999999</span> &gt; /sys/kernel/mm/ksm/pages_to_scan
-
-<span class="nb">echo</span> <span class="s2">&quot;Starting QEMUs&quot;</span>
-<span class="nv">i</span><span class="o">=</span><span class="m">0</span>
-<span class="k">while</span> <span class="o">[</span> <span class="s2">&quot;</span><span class="nv">$i</span><span class="s2">&quot;</span> -lt <span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span> <span class="o">]</span> <span class="p">;</span> <span class="k">do</span>
-    qemu-system-ppc64 -smp <span class="m">1</span> -m 1G -nographic -vga none <span class="se">\</span>
-        -machine pseries,accel<span class="o">=</span>kvm,kvm-type<span class="o">=</span>HV <span class="se">\</span>
-        -kernel guest.kernel  -initrd guest.initrd <span class="se">\</span>
-        -monitor pty -serial pty <span class="p">&amp;</span>
-    <span class="nv">i</span><span class="o">=</span><span class="k">$(</span>expr <span class="nv">$i</span> + <span class="m">1</span><span class="k">)</span><span class="p">;</span>
-<span class="k">done</span>
-
-<span class="nb">echo</span> <span class="s2">&quot;Letting all the VMs boot&quot;</span>
-sleep <span class="m">30</span>
-
-<span class="nb">echo</span> <span class="s2">&quot;Turning KSM om&quot;</span>
-<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/kernel/mm/ksm/run
-
-<span class="nb">echo</span> <span class="s2">&quot;Letting KSM do its thing&quot;</span>
-sleep 2m
-
-<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/kernel/mm/ksm/run
-
-dd <span class="k">if</span><span class="o">=</span>/sys/kernel/debug/ksm/memcmp_deltas <span class="nv">of</span><span class="o">=</span>deltas <span class="nv">bs</span><span class="o">=</span><span class="m">4096</span> <span class="nv">count</span><span class="o">=</span><span class="m">100</span>
-</pre></div>
-
-
-<p>The guest kernel was a <code>pseries_le_defconfig</code> <code>4.13-rc3</code> with the same
-ramdisk the host used. It booted to the login prompt and was left to
-idle.</p>
-<h2>Analysis</h2>
-<p>A variety of histograms were then generated in an attempt to see how
-the behaviour of <code>memcmp()</code> changed between the two implementations.
-It should be noted here that the y axis in the following graphs is a
-log scale as there were a lot of small deltas. The first observation
-is that the vanilla kernel had more smaller deltas, this is made
-particularly evident by the 'tally' points which are a running total
-of all deltas with less than the tally value.</p>
-<p><img alt="Sample 1 - Deltas below 200ns" src="/images/power8_memcmp/deltas1-200.png" title="Sample 1: Deltas below 200ns">
-Graph 1 depicting the vanilla kernel having a greater amount of small
-(sub 20ns) deltas than the patched kernel. The green points rise
-faster (left to right) and higher than the yellow points.</p>
-<p>Still looking at the tallies, <a href="/images/power8_memcmp/deltas1-200.png" title="Sample 1: Deltas below 200ns">graph 1</a> also shows that the tally
-of deltas is very close by the 100ns mark, which means that the
-overhead of <code>power8_memcmp()</code> is not too great.</p>
-<p>The problem with looking at only deltas under 200ns is that the
-performance results we want, that is, the difference between the
-algorithms is being masked by things like cache effects. To avoid this
-problem is may be wise to look at longer running (larger delta)
-<code>memcmp()</code> calls.</p>
-<p>The following graph plots all deltas below 5000ns - still relatively
-short calls to <code>memcmp()</code> but an interesting trend emerges:
-<img alt="Sample 1 - Deltas below 5000ns" src="/images/power8_memcmp/deltas1-5000.png" title="Sample 1: Deltas below 5000ns">
-Graph 2 shows that above 500ns the blue (patched kernel) points appear
-to have all shifted left with respect to the purple (vanilla kernel)
-points. This shows that for any <code>memcmp()</code> which will take more than
-500ns to get a result it is favourable to use <code>power8_memcmp()</code> and it
-is only detrimental to use  <code>power8_memcmp()</code> if the time will be
-under 50ns (a conservative estimate).</p>
-<p>It is worth noting that <a href="/images/power8_memcmp/deltas1-200.png" title="Sample 1: Deltas below 200ns">graph 1</a> and <a href="/images/power8_memcmp/deltas1-5000.png" title="Sample 1: Deltas below 5000ns">graph 2</a> are generated by
-combining the first run of data collected from the vanilla and patched
-kernels. All the deltas for both runs are can be viewed separately
-<a href="/images/power8_memcmp/vanilla_deltas1.png" title="All vanilla deltas">here for vanilla</a> and <a href="/images/power8_memcmp/patched_deltas1.png" title="All patched deltas">here for patched</a>. Finally, the results
-from the other four runs look very much identical and provide me with
-a fair amount of confidence that these results make sense.</p>
-<h2>Conclusions</h2>
-<p>It is important to separate possible KSM optimisations with generic
-<code>memcmp()</code> optimisations, for example, perhaps KSM shouldn't be
-calling <code>memcmp()</code> if it suspects the first byte will differ. On the
-other hand, things that <code>power8_memcmp()</code> could do (which it currently
-doesn't) is check the length parameter and perhaps avoid the overhead
-of enabling kernel vector if the compare is less than some small
-amount of bytes.</p>
-<p>It does seem like at least for the 'average case' glibcs
-<code>power8_memcmp()</code> is an improvement over what we have now.</p>
-<h2>Future work</h2>
-<p>A second round of data collection and plotting of delta vs position of
-first byte to differ should confirm these results, this would mean a
-more invasive patch to KSM.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
 
@@ -1043,6 +887,9 @@ more invasive patch to KSM.</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
       <li class="post">
@@ -1053,9 +900,6 @@ more invasive patch to KSM.</p></div>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
       </li>
     </ul>
   </section>
@@ -1076,7 +920,7 @@ more invasive patch to KSM.</p></div>
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
@@ -1123,7 +967,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2020  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2021  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
 </body>

@@ -258,7 +258,7 @@ done some great work!&lt;/p&gt;
 simply calls into the kernel because the kernel is the definitive
 reference for every syscall. On PowerPC something like this happens
 (sorry, our &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; is 100% asm):
-&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="err"&gt;/*&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;Exact&lt;/span&gt; &lt;span class="no"&gt;prototype&lt;/span&gt; &lt;span class="no"&gt;of&lt;/span&gt; &lt;span class="no"&gt;clock_gettime&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt;
@@ -294,7 +294,7 @@ kernel and branch to link register aka 'return'.  In this case the
 &lt;p&gt;Wait, having the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; calling into the kernel call gets us the wrong
 result? Or course it should, vdsotest is assuming a C ABI with return
 values and errno but the kernel doesn't do that, the kernel ABI is
-different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kr"&gt;inline&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;record_syscall_result&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;syscall_result&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;res&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
                      &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -342,10 +342,10 @@ libc&lt;/li&gt;
 &lt;hr&gt;
 &lt;ol&gt;
 &lt;li id="fn:1"&gt;
-&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:2"&gt;
-&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Cyril Bur</dc:creator><pubDate>Fri, 24 Jun 2016 16:30:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-06-24:/blog/2016/06/24/kernel-interfaces-and-vdso-test/</guid><category>kernel</category><category>asm</category><category>vdso</category></item><item><title>Evolving into a systems programmer</title><link>https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/</link><description>&lt;p&gt;In a previous life I tutored first year computing. The university I
