@@ -1,5 +1,197 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 22 Jan 2020 16:00:00 +1100</lastBuildDate><item><title>linux.conf.au 2020 recap</title><link>https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/</link><description>&lt;p&gt;It's that time of year again. Most of OzLabs headed up to the Gold Coast for linux.conf.au 2020.&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Thu, 04 Mar 2021 17:10:00 +1100</lastBuildDate><item><title>Fuzzing grub: part 1</title><link>https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/</link><description>&lt;p&gt;Recently a set of 8 vulnerabilities were disclosed for the &lt;a href="https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021"&gt;grubbootloader&lt;/a&gt;. I
+found 2 of them (CVE-2021-20225 and CVE-2021-20233), and contributed a number of
+other fixes for crashing bugs which we don't believe are exploitable. I found
+them by applying fuzz testing to grub. Here's how.&lt;/p&gt;
+&lt;p&gt;This is a multi-part series: I think it will end up being 4 posts. I'm hoping to
+cover:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Part 1 (this post): getting started with fuzzing grub&lt;/li&gt;
+&lt;li&gt;Part 2: going faster by doing lots more work&lt;/li&gt;
+&lt;li&gt;Part 3: fuzzing filesystems and more&lt;/li&gt;
+&lt;li&gt;Part 4: potential next steps and avenues for further work&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1&gt;Fuzz testing&lt;/h1&gt;
+&lt;p&gt;Let's begin with part one: getting started with fuzzing grub.&lt;/p&gt;
+&lt;p&gt;One of my all-time favourite techniques for testing programs, especially
+programs that handle untrusted input, and especially-especially programs written
+in C that parse untrusted input, is fuzz testing. Fuzz testing (or fuzzing) is
+the process of repeatedly throwing randomised data at your program under test
+and seeing what it does.&lt;/p&gt;
+&lt;p&gt;(For the secure boot threat model, untrusted input is anything not validated by
+a cryptographic signature - so config files are untrusted for our purposes, but
+grub modules can only be loaded if they are signed, so they are trusted.)&lt;/p&gt;
+&lt;p&gt;Fuzzing has a long history and has recently received a new lease on life with
+coverage-guided fuzzing tools like &lt;a href="https://lcamtuf.coredump.cx/afl/"&gt;AFL&lt;/a&gt; and
+more recently &lt;a href="https://aflplus.plus/"&gt;AFL++&lt;/a&gt;.&lt;/p&gt;
+&lt;h1&gt;Building grub for AFL++&lt;/h1&gt;
+&lt;p&gt;AFL++ is extremely easy to use ... if your program:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;is built as a single binary with a regular tool-chain&lt;/li&gt;
+&lt;li&gt;runs as a regular user-space program on Linux&lt;/li&gt;
+&lt;li&gt;reads a small input files from disk and then exits&lt;/li&gt;
+&lt;li&gt;doesn't do anything fancy with threads or signals&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Beyond that, it gets a bit more complex.&lt;/p&gt;
+&lt;p&gt;On the face of it, grub fails 3 of these 4 criteria:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;grub is a highly modular program: it loads almost all of its functionality as
+   modules which are linked as separate ELF relocatable files. (Not runnable
+   programs, but not shared libraries either.)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;grub usually runs as a bootloader, not as a regular app.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;grub reads all sorts of things, ranging in size from small files to full
+   disks. After loading most things, it returns to a command prompt rather than
+   exiting.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Fortunately, these problems are not insurmountable.&lt;/p&gt;
+&lt;p&gt;We'll start with the 'running as a bootloader' problem. Here, grub helps us out
+a bit, because it provides an 'emulator' target, which runs most of grub
+functionality as a userspace program. It doesn't support actually booting
+anything (unsurprisingly) but it does support most other modules, including
+things like the config file parser.&lt;/p&gt;
+&lt;p&gt;We can configure grub to build the emulator. We disable the graphical frontend
+for now.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;./bootstrap
+./configure --with-platform&lt;span class="o"&gt;=&lt;/span&gt;emu --disable-grub-emu-sdl
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;At this point in building a fuzzing target, we'd normally try to configure with
+&lt;code&gt;afl-cc&lt;/code&gt; to get the instrumentation that makes AFL(++) so powerful. However, the
+grub configure script is not a fan:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+...
+checking whether target compiler is working... no
+configure: error: cannot compile for the target
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;It also doesn't work with &lt;code&gt;afl-gcc&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Hmm, ok, so what if we just... lie a bit?&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;./configure --with-platform&lt;span class="o"&gt;=&lt;/span&gt;emu --disable-grub-emu-sdl
+make &lt;span class="nv"&gt;CC&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$AFL_PATH&lt;/span&gt;&lt;span class="s2"&gt;/afl-gcc&amp;quot;&lt;/span&gt; 
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;(Normally I'd use &lt;code&gt;CC=clang&lt;/code&gt; and &lt;code&gt;afl-cc&lt;/code&gt;, but clang support is slightly broken
+upstream at the moment.)&lt;/p&gt;
+&lt;p&gt;After a small fix for gcc-10 compatibility, we get the userspace tools
+(potentially handy!) but a bunch of link errors for &lt;code&gt;grub-emu&lt;/code&gt;:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&amp;#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&amp;#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&amp;#39;; kernel.exec:(.bss+0xe078): first defined here
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The problem is the module linkage that I talked about earlier: because there is
+a link stage of sorts for each module, some AFL support code gets linked in to
+both the grub kernel (&lt;code&gt;kernel.exec&lt;/code&gt;) and each module (here &lt;code&gt;disk.module&lt;/code&gt;,
+&lt;code&gt;regexp.module&lt;/code&gt;, ...). The linker doesn't like it being in both, which is fair
+enough.&lt;/p&gt;
+&lt;p&gt;To get started, let's instead take advantage of the smarts of AFL++ using Qemu
+mode instead. This builds a specially instrumented qemu user-mode emulator
+that's capable of doing coverage-guided fuzzing on uninstrumented binaries at
+the cost of a significant performance penalty.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;make clean
+make
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now we have a grub-emu binary. If you run it directly, you'll pick up your
+system boot configuration, but the &lt;code&gt;-d&lt;/code&gt; option can point it to a directory of
+your choosing. Let's set up one for fuzzing:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mkdir stage
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;echo Hello sthbrx readers&amp;quot;&lt;/span&gt; &amp;gt; stage/grub.cfg
+&lt;span class="nb"&gt;cd&lt;/span&gt; stage
+../grub-core/grub-emu -d .
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;You probably won't see the message because the screen gets blanked at the end of
+running the config file, but if you pipe it through &lt;code&gt;less&lt;/code&gt; or something you'll
+see it.&lt;/p&gt;
+&lt;h1&gt;Running the fuzzer&lt;/h1&gt;
+&lt;p&gt;So, that seems to work - let's create a test input and try fuzzing:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; ..
+mkdir in
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;echo hi&amp;quot;&lt;/span&gt; &amp;gt; in/echo-hi
+
+&lt;span class="nb"&gt;cd&lt;/span&gt; stage
+&lt;span class="c1"&gt;# -Q qemu mode&lt;/span&gt;
+&lt;span class="c1"&gt;# -M main fuzzer&lt;/span&gt;
+&lt;span class="c1"&gt;# -d don&amp;#39;t do deterministic steps (too slow for a text format)&lt;/span&gt;
+&lt;span class="c1"&gt;# -f create file grub.cfg&lt;/span&gt;
+&lt;span class="nv"&gt;$AFL_PATH&lt;/span&gt;/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Sadly:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;[-] The program took more than 1000 ms to process one of the initial test cases.
+    This is bad news; raising the limit with the -t option is possible, but
+    will probably make the fuzzing process extremely slow.
+
+    If this test case is just a fluke, the other option is to just avoid it
+    altogether, and find one that is less of a CPU hog.
+
+[-] PROGRAM ABORT : Test case &amp;#39;id:000000,time:0,orig:echo-hi&amp;#39; results in a timeout
+         Location : perform_dry_run(), src/afl-fuzz-init.c:866
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;What we're seeing here (and indeed what you can observe if you run &lt;code&gt;grub-emu&lt;/code&gt;
+directly) is that &lt;code&gt;grub-emu&lt;/code&gt; isn't exiting when it's done. It's waiting for more
+input, and will keep waiting for input until it's killed by &lt;code&gt;afl-fuzz&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;We need to patch grub to sort that out. It's on &lt;a href="https://github.com/daxtens/grub/commit/ad2e84224e674eb1f9dcd8efc3d8efe78ed62bec"&gt;my GitHub&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Apply that, rebuild with &lt;code&gt;FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&lt;/code&gt;, and voila:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; ..
+make &lt;span class="nv"&gt;CFLAGS&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&amp;quot;&lt;/span&gt;
+&lt;span class="nb"&gt;cd&lt;/span&gt; stage
+&lt;span class="nv"&gt;$AFL_PATH&lt;/span&gt;/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;And fuzzing is happening!&lt;/p&gt;
+&lt;p&gt;&lt;img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt1.png"&gt;&lt;/p&gt;
+&lt;p&gt;This is enough to find some of the (now-fixed) bugs in the grub config file
+parsing!&lt;/p&gt;
+&lt;h1&gt;Fuzzing beyond the config file&lt;/h1&gt;
+&lt;p&gt;You can also extend this to fuzzing other things that don't require the
+graphical UI, such as grub's transparent decompression support:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; ..
+rm -rf in out stage
+mkdir in stage
+&lt;span class="nb"&gt;echo&lt;/span&gt; hi &amp;gt; in/hi
+gzip in/hi
+&lt;span class="nb"&gt;cd&lt;/span&gt; stage
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;cat thefile&amp;quot;&lt;/span&gt; &amp;gt; grub.cfg
+&lt;span class="nv"&gt;$AFL_PATH&lt;/span&gt;/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;You should be able to find a hang pretty quickly with this, an as-yet-unfixed
+bug where grub will print output forever from a corrupt file: (your mileage may
+vary, as will the paths.)&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
+../grub-core/grub-emu -d . &lt;span class="p"&gt;|&lt;/span&gt; less &lt;span class="c1"&gt;# observe this going on forever&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;zcat&lt;/code&gt;, on the other hand, reports it as simply corrupt:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ zcat thefile
+
+gzip: thefile: invalid compressed data--format violated
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;(Feel free to fix that and send a patch to the list!)&lt;/p&gt;
+&lt;p&gt;That wraps up part 1. Eventually I'll be back with part 2, where I explain the
+hoops to jump through to go faster with the &lt;code&gt;afl-cc&lt;/code&gt; instrumentation.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Thu, 04 Mar 2021 17:10:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2021-03-04:/blog/2021/03/04/fuzzing-grub-part-1/</guid><category>testing</category></item><item><title>linux.conf.au 2020 recap</title><link>https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/</link><description>&lt;p&gt;It's that time of year again. Most of OzLabs headed up to the Gold Coast for linux.conf.au 2020.&lt;/p&gt;
 &lt;p&gt;linux.conf.au is one of the longest-running community-led Linux and Free Software events in the world, and attracts a crowd from Australia, New Zealand and much further afield. OzLabbers have been involved in LCA since the very beginning and this year was no exception with myself running the Kernel Miniconf and several others speaking.&lt;/p&gt;
 &lt;p&gt;The list below contains some of our highlights that we think you should check out. This is just a few of the talks that we managed to make it to - there's plenty more worthwhile stuff on the &lt;a href="https://www.youtube.com/user/linuxconfau2019/featured"&gt;linux.conf.au YouTube channel&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;We'll see you all at LCA2021 right here in Canberra...&lt;/p&gt;
@@ -2632,7 +2824,7 @@ pb-event sync@sda2
 read-only and merge the current snapshot differences back to disk. You can also
 run &lt;code&gt;pb-event sync@all&lt;/code&gt; to sync all existing snapshots if desired.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Samuel Mendoza-Jonas</dc:creator><pubDate>Wed, 17 Aug 2016 15:23:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-08-17:/blog/2016/08/17/getting-in-sync/</guid><category>skiroot</category><category>petitboot</category><category>goodposts</category><category>realcontent</category><category>devmapper</category><category>lvm</category><category>debug</category></item><item><title>Get off my lawn: separating Docker workloads using cgroups</title><link>https://sthbrx.github.io/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</link><description>&lt;p&gt;On my team, we do two different things in our Continuous Integration setup: build/functional tests, and performance tests. Build tests simply test whether a project builds, and, if the project provides a functional test suite, that the tests pass. We do a lot of MySQL/MariaDB testing this way. The other type of testing we do is performance tests: we build a project and then run a set of benchmarks against it. Python is a good example here.&lt;/p&gt;
 &lt;p&gt;Build tests want as much grunt as possible. Performance tests, on the other hand, want a stable, isolated environment. Initially, we set up Jenkins so that performance and build tests never ran at the same time. Builds would get the entire machine, and performance tests would never have to share with anyone.&lt;/p&gt;
-&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;This, while simple and effective, has some downsides. In POWER land, our machines are quite beefy. For example, one of the boxes I use - an S822L - has 4 sockets, each with 4 cores. At SMT-8 (an 8 way split of each core) that gives us 4 x 4 x 8 = 128 threads. It seems wasteful to lock this entire machine - all 128 threads - just so as to isolate a single-threaded test.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;So, &lt;strong&gt;can we partition our machine so that we can be running two different sorts of processes in a sufficiently isolated way?&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;What counts as 'sufficiently isolated'? Well, my performance tests are CPU bound, so I want CPU isolation. I also want memory, and in particular memory bandwith to be isolated. I don't particularly care about IO isolation as my tests aren't IO heavy. Lastly, I have a couple of tests that are very multithreaded, so I'd like to have enough of a machine for those test results to be interesting.&lt;/p&gt;
 &lt;p&gt;For CPU isolation we have CPU affinity. We can also do something similar with memory. On a POWER8 system, memory is connected to individual P8s, not to some central point. This is a 'Non-Uniform Memory Architecture' (NUMA) setup: the directly attached memory will be very fast for a processor to access, and memory attached to other processors will be slower to access. An accessible guide (with very helpful diagrams!) is &lt;a href="http://www.redbooks.ibm.com/redpapers/pdfs/redp5098.pdf"&gt;the relevant RedBook (PDF)&lt;/a&gt;, chapter 2.&lt;/p&gt;
@@ -2646,7 +2838,7 @@ NUMA node17 CPU(s):    64-95
 
 
 &lt;p&gt;Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or &lt;code&gt;cgroups&lt;/code&gt; for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called &lt;code&gt;cpuset&lt;/code&gt;, which can control CPU affinity, and restrict memory allocation to a NUMA node.&lt;/p&gt;
-&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
+&lt;p&gt;We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2"&gt;2&lt;/a&gt;&lt;/sup&gt; Docker containers are put in the &lt;code&gt;docker&lt;/code&gt; cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3"&gt;3&lt;/a&gt;&lt;/sup&gt; So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cgcreate -g cpuset:docker
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;32&lt;/span&gt;-127 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
 &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;,16-17 &amp;gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
@@ -2686,13 +2878,13 @@ root@b037049f94de:/# sysbench --test&lt;span class="o"&gt;=&lt;/span&gt;cpu --nu
 &lt;hr&gt;
 &lt;ol&gt;
 &lt;li id="fn:1"&gt;
-&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;It gets worse! Before the performance test starts, all the running build jobs must drain. If we have 8 Jenkins executors running on the box, and a performance test job is the next in the queue, we have to wait for 8 running jobs to clear. If they all started at different times and have different runtimes, we will inevitably spend a fair chunk of time with the machine at less than full utilisation while we're waiting.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:2"&gt;
-&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;At least, on Ubuntu 16.04. I haven't tested if this is true anywhere else.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:3"&gt;
-&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;I hear this is getting better. It is also why systemd hasn't done cpuset inheritance yet.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 27 Jul 2016 13:30:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-07-27:/blog/2016/07/27/get-off-my-lawn-separating-docker-workloads-using-cgroups/</guid><category>cgroups</category><category>numa</category><category>p8</category></item><item><title>Where to Get a POWER8 Development VM</title><link>https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/</link><description>&lt;p&gt;&lt;em&gt;POWER8 sounds great, but where the heck can I get a Power VM so I can test my code?&lt;/em&gt;&lt;/p&gt;
@@ -2785,7 +2977,7 @@ done some great work!&lt;/p&gt;
 simply calls into the kernel because the kernel is the definitive
 reference for every syscall. On PowerPC something like this happens
 (sorry, our &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; is 100% asm):
-&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="err"&gt;/*&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt; &lt;span class="nf"&gt;Exact&lt;/span&gt; &lt;span class="no"&gt;prototype&lt;/span&gt; &lt;span class="no"&gt;of&lt;/span&gt; &lt;span class="no"&gt;clock_gettime&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
  &lt;span class="err"&gt;*&lt;/span&gt;
@@ -2821,7 +3013,7 @@ kernel and branch to link register aka 'return'.  In this case the
 &lt;p&gt;Wait, having the &lt;abbr title="Virtual Dynamically linked Shared Objects"&gt;vDSO&lt;/abbr&gt; calling into the kernel call gets us the wrong
 result? Or course it should, vdsotest is assuming a C ABI with return
 values and errno but the kernel doesn't do that, the kernel ABI is
-different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+different. How does this even work on x86? Ohhhhh vdsotest does &lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2"&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kr"&gt;inline&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;record_syscall_result&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;syscall_result&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;res&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
                      &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_ret&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;sr_errno&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;span class="p"&gt;{&lt;/span&gt;
@@ -2869,10 +3061,10 @@ libc&lt;/li&gt;
 &lt;hr&gt;
 &lt;ol&gt;
 &lt;li id="fn:1"&gt;
-&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;arch/powerpc/kernel/vdso64/gettimeofday.S&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:2"&gt;
-&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;src/vdsotest.h&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Cyril Bur</dc:creator><pubDate>Fri, 24 Jun 2016 16:30:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2016-06-24:/blog/2016/06/24/kernel-interfaces-and-vdso-test/</guid><category>kernel</category><category>asm</category><category>vdso</category></item><item><title>Introducing snowpatch: continuous integration for patches</title><link>https://sthbrx.github.io/blog/2016/06/15/introducing-snowpatch-continuous-integration-for-patches/</link><description>&lt;p&gt;Continuous integration has changed the way we develop software.  The ability to make a code change and be notified quickly and automatically whether or not it works allows for faster iteration and higher quality.  These processes and technologies allow products to quickly and consistently release new versions, driving continuous improvement to their users.  For a web app, it's all pretty simple: write some tests, someone makes a pull request, you build it and run the tests.  Tools like GitHub, Travis CI and Jenkins have made this process simple and efficient.&lt;/p&gt;
@@ -3628,13 +3820,13 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;Docker seems to be the flavour of the month in IT. Most attention is focussed on using Docker for the deployment of production services. But that's not all Docker is good for. Let's explore Docker, and two ways I use it as a software developer.&lt;/p&gt;
 &lt;p&gt;Docker: what is it?&lt;/p&gt;
 &lt;p&gt;Docker is essentially a set of tools to deal with &lt;em&gt;containers&lt;/em&gt; and &lt;em&gt;images&lt;/em&gt;. &lt;/p&gt;
-&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1" rel="footnote"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
-&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2" rel="footnote"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
+&lt;p&gt;To make up an artificial example, say you are developing a web app. You first build an &lt;em&gt;image&lt;/em&gt;: a file system which contains the app, and some associated metadata. The app has to run on something, so you also install things like Python or Ruby and all the necessary libraries, usually by installing a minimal Ubuntu and any necessary packages.&lt;sup id="fnref:1"&gt;&lt;a class="footnote-ref" href="#fn:1"&gt;1&lt;/a&gt;&lt;/sup&gt; You then run the image inside an isolated environment called a &lt;em&gt;container&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;You can have multiple containers running the same image, (for example, your web app running across a fleet of servers) and the containers don't affect each other.  Why? Because Docker is designed around the concept of &lt;em&gt;immutability&lt;/em&gt;. Containers can write to the image they are running, but the changes are specific to that container, and aren't preserved beyond the life of the container.&lt;sup id="fnref:2"&gt;&lt;a class="footnote-ref" href="#fn:2"&gt;2&lt;/a&gt;&lt;/sup&gt; Indeed, once built, images can't be changed at all, only rebuilt from scratch.&lt;/p&gt;
 &lt;p&gt;However, as well as enabling you to easily run multiple copies, another upshot of immutability is that if your web app allows you to upload photos, and you restart the container, your photos will be gone. Your web app needs to be designed to store all of the data outside of the container, sending it to a dedicated database or object store of some sort.&lt;/p&gt;
 &lt;p&gt;Making your application Docker friendly is significantly more work than just spinning up a virtual machine and installing stuff. So what does all this extra work get you? Three main things: isolation, control and, as mentioned, immutability. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Isolation&lt;/em&gt; makes containers easy to migrate and deploy, and easy to update. Once an image is built, it can be copied to another system and launched. Isolation also makes it easy to update software your app depends on: you rebuild the image with software updates, and then just deploy it. You don't have to worry about service A relying on version X of a library while service B depends on version Y; it's all self contained. &lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Immutability&lt;/em&gt; also helps with upgrades, especially when deploying them across multiple servers. Normally, you would upgrade your app on each server, and have to make sure that every server gets all the same sets of updates. With Docker, you don't upgrade a running container. Instead, you rebuild your Docker image and re-deploy it, and you then know that the same version of everything is running everywhere. This immutability also guards against the situation where you have a number of different servers that are all special snowflakes with their own little tweaks, and you end up with a fractal of complexity.&lt;/p&gt;
-&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3" rel="footnote"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Finally, Docker offers a lot of &lt;em&gt;control&lt;/em&gt; over containers, and for a low performance penalty. Docker containers can have their CPU, memory and network controlled easily, without the overhead of a full virtual machine. This makes it an attractive solution for running untrusted executables.&lt;sup id="fnref:3"&gt;&lt;a class="footnote-ref" href="#fn:3"&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;As an aside: despite the hype, very little of this is actually particularly new. Isolation and control are not new problems. All Unixes, including Linux, support 'chroots'. The name comes from “change root”: the system call changes the processes idea of what the file system root is, making it impossible for it to access things outside of the new designated root directory.  FreeBSD has jails, which are more powerful, Solaris has Zones, and AIX has WPARs. Chroots are fast and low overhead. However, they offer much lower ability to control the use of system resources. At the other end of the scale, virtual machines (which have been around since ancient IBM mainframes) offer isolation much better than Docker, but with a greater performance hit.&lt;/p&gt;
 &lt;p&gt;Similarly, immutability isn't really new: Heroku and AWS Spot Instances are both built around the model that you get resources in a known, consistent state when you start, but in both cases your changes won't persist. In the development world, modern CI systems like Travis CI also have this immutable or disposable model – and this was originally built on VMs. Indeed, with a little bit of extra work, both chroots and VMs can give the same immutability properties that Docker gives.&lt;/p&gt;
 &lt;p&gt;The control properties that Docker provides are largely as a result of leveraging some Linux kernel concepts, most notably something called namespaces.&lt;/p&gt;
@@ -3651,14 +3843,14 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;li&gt;I could spin up a virtual machine on one of our development boxes and install the old version on that. That feels like overkill: why should I need to run an entire operating system? Why should I need to copy my source tree over the network to build it?&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Docker makes it easy to have a self-contained environment that has Bison 2 built from source, and to build my latest source tree in that environment. Why is Docker so much easier?&lt;/p&gt;
-&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4" rel="footnote"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
+&lt;p&gt;Firstly, Docker allows me to base my container on an existing container, and there's an online library of containers to build from.&lt;sup id="fnref:4"&gt;&lt;a class="footnote-ref" href="#fn:4"&gt;4&lt;/a&gt;&lt;/sup&gt; This means I don't have to roll a base image with &lt;code&gt;debootstrap&lt;/code&gt; or the RHEL/CentOS/Fedora equivalent.&lt;/p&gt;
 &lt;p&gt;Secondly, unlike a chroot build process, which ultimately is just copying files around, a docker build process includes the ability to both copy files from the host and &lt;em&gt;run commands&lt;/em&gt; in the context of the image. This is defined in a file called a &lt;code&gt;Dockerfile&lt;/code&gt;, and is kicked off by a single command: &lt;code&gt;docker build&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;So, my PHP 5 build container loads an Ubuntu Vivid base container, uses apt-get to install the compiler, tool-chain and headers required to build PHP 5, then installs old bison from source, copies in the PHP source tree, and builds it. The vast majority of this process – the installation of the compiler, headers and bison, can be cached, so they don't have to be downloaded each time. And once the container finishes building, I have a fully built PHP interpreter ready for me to interact with.&lt;/p&gt;
 &lt;p&gt;I do, at the moment, rebuild PHP 5 from scratch each time. This is a bit sub-optimal from a performance point of view. I could alleviate this with a Docker volume, which is a way of sharing data persistently between a host and a guest, but I haven't been sufficiently bothered by the speed yet. However, Docker volumes are also quite fiddly, leading to the development of tools like &lt;code&gt;docker compose&lt;/code&gt; to deal with them. They also are prone to subtle and difficult to debug permission issues.&lt;/p&gt;
 &lt;h3&gt;PHP 7 performance regression testing&lt;/h3&gt;
 &lt;p&gt;The second thing I use docker for takes advantage of the throwaway nature of docker environments to prevent cross-contamination.&lt;/p&gt;
 &lt;p&gt;PHP 7 is the next big version of PHP, slated to be released quite soon. I care about how that runs on POWER, and I preferably want to know if it suddenly deteriorates (or improves!). I use Docker to build a container with a daily build of PHP 7, and then I run a benchmark in it. This doesn't give me a particularly meaningful absolute number, but it allows me to track progress over time. Building it inside of Docker means that I can be sure that nothing from old runs persists into new runs, thus giving me more reliable data. However, because I do want the timing data I collect to persist, I send it out of the container over the network.&lt;/p&gt;
-&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5" rel="footnote"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;I've now been collecting this data for almost 4 months, and it's plotted below, along with a 5-point moving average. The most notable feature of the graph is a the drop in benchmark time at about the middle. Sure enough, if you look at the PHP repository, you will see that a set of changes to improve PHP performance were merged on July 29: changes submitted by our very own Anton Blanchard.&lt;sup id="fnref:5"&gt;&lt;a class="footnote-ref" href="#fn:5"&gt;5&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;p&gt;&lt;img alt="Graph of PHP 7 performance over time" src="/images/dja/php7-perf.png"&gt;&lt;/p&gt;
 &lt;h2&gt;Docker pain points&lt;/h2&gt;
 &lt;p&gt;Docker provides a vastly improved experience over previous solutions, but there are still a few pain points. For example:&lt;/p&gt;
@@ -3673,7 +3865,7 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;p&gt;Visibility into a Docker server is poor. You end up with lots of different, anonymous images and dead containers, and you end up needing scripts to clean them up. It's not clear what Docker puts on your file system, or where, or how to interact with it.&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6" rel="footnote"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;Docker is still using reasonably new technologies. This leads to occasional weird, obscure and difficult to debug issues.&lt;sup id="fnref:6"&gt;&lt;a class="footnote-ref" href="#fn:6"&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;h2&gt;Final words&lt;/h2&gt;
@@ -3682,22 +3874,22 @@ device mapper on a cloud VM, or reformat things as btrfs.&lt;/p&gt;
 &lt;hr&gt;
 &lt;ol&gt;
 &lt;li id="fn:1"&gt;
-&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" rev="footnote" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;There's some debate about how much stuff from the OS installation you should be using. You need to have key dynamic libraries available, but I would argue that you shouldn't be running long running processes other than your application. You shouldn't, for example, be running a SSH daemon in your container. (The one exception is that you must handle orphaned child processes appropriately: see &lt;a href="https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/"&gt;https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/&lt;/a&gt;) Considerations like debugging and monitoring the health of docker containers mean that this point of view is not universally shared.&amp;#160;&lt;a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:2"&gt;
-&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" rev="footnote" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Why not simply make them read only? You may be surprised at how many things break when running on a read-only file system. Things like logs and temporary files are common issues.&amp;#160;&lt;a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:3"&gt;
-&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" rev="footnote" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;It is, however, easier to escape a Docker container than a VM. In Docker, an untrusted executable only needs a kernel exploit to get to root on the host, whereas in a VM you need a guest-to-host vulnerability, which are much rarer.&amp;#160;&lt;a class="footnote-backref" href="#fnref:3" title="Jump back to footnote 3 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:4"&gt;
-&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" rev="footnote" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Anyone can upload an image, so this does require running untrusted code from the Internet. Sadly, this is a distinctly retrograde step when compared to the process of installing binary packages in distros, which are all signed by a distro's private key.&amp;#160;&lt;a class="footnote-backref" href="#fnref:4" title="Jump back to footnote 4 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:5"&gt;
-&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" rev="footnote" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;See &lt;a href="https://github.com/php/php-src/pull/1326"&gt;https://github.com/php/php-src/pull/1326&lt;/a&gt;&amp;#160;&lt;a class="footnote-backref" href="#fnref:5" title="Jump back to footnote 5 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;li id="fn:6"&gt;
-&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" rev="footnote" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;I hit this last week: &lt;a href="https://github.com/docker/docker/issues/16256"&gt;https://github.com/docker/docker/issues/16256&lt;/a&gt;, although maybe that's my fault for running systemd on my laptop.&amp;#160;&lt;a class="footnote-backref" href="#fnref:6" title="Jump back to footnote 6 in the text"&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/div&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Mon, 12 Oct 2015 14:14:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2015-10-12:/blog/2015/10/12/a-tale-of-two-dockers/</guid><category>php</category><category>performance</category></item><item><title>Running ppc64le_hello on real hardware</title><link>https://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/</link><description>&lt;p&gt;So today I saw &lt;a href="https://github.com/andreiw/ppc64le_hello"&gt;Freestanding “Hello World” for OpenPower&lt;/a&gt; on &lt;a href="https://news.ycombinator.com/item?id=9649490"&gt;Hacker News&lt;/a&gt;. Sadly Andrei hadn't been able to test it on real hardware, so I set out to get it running on a real OpenPOWER box. Here's what I did.&lt;/p&gt;

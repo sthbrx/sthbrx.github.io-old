@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>Fuzzing grub: part 1 &mdash; Store Half Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Half Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Half Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Fuzzing grub: part 1</h1>
+    <p class="meta">
+<time datetime="2021-03-04T17:10:00+11:00" pubdate>Thu 04 March 2021</time>    </p>
+</header>
+
+  <div class="byline_index">
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2021-03-04T17:10:00+11:00" pubdate>Thu 04 March 2021</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/testing.html">testing</a>  </span>
+</p>  </div>
+  <div class="entry-content"><p>Recently a set of 8 vulnerabilities were disclosed for the <a href="https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021">grubbootloader</a>. I
+found 2 of them (CVE-2021-20225 and CVE-2021-20233), and contributed a number of
+other fixes for crashing bugs which we don't believe are exploitable. I found
+them by applying fuzz testing to grub. Here's how.</p>
+<p>This is a multi-part series: I think it will end up being 4 posts. I'm hoping to
+cover:</p>
+<ul>
+<li>Part 1 (this post): getting started with fuzzing grub</li>
+<li>Part 2: going faster by doing lots more work</li>
+<li>Part 3: fuzzing filesystems and more</li>
+<li>Part 4: potential next steps and avenues for further work</li>
+</ul>
+<h1>Fuzz testing</h1>
+<p>Let's begin with part one: getting started with fuzzing grub.</p>
+<p>One of my all-time favourite techniques for testing programs, especially
+programs that handle untrusted input, and especially-especially programs written
+in C that parse untrusted input, is fuzz testing. Fuzz testing (or fuzzing) is
+the process of repeatedly throwing randomised data at your program under test
+and seeing what it does.</p>
+<p>(For the secure boot threat model, untrusted input is anything not validated by
+a cryptographic signature - so config files are untrusted for our purposes, but
+grub modules can only be loaded if they are signed, so they are trusted.)</p>
+<p>Fuzzing has a long history and has recently received a new lease on life with
+coverage-guided fuzzing tools like <a href="https://lcamtuf.coredump.cx/afl/">AFL</a> and
+more recently <a href="https://aflplus.plus/">AFL++</a>.</p>
+<h1>Building grub for AFL++</h1>
+<p>AFL++ is extremely easy to use ... if your program:</p>
+<ol>
+<li>is built as a single binary with a regular tool-chain</li>
+<li>runs as a regular user-space program on Linux</li>
+<li>reads a small input files from disk and then exits</li>
+<li>doesn't do anything fancy with threads or signals</li>
+</ol>
+<p>Beyond that, it gets a bit more complex.</p>
+<p>On the face of it, grub fails 3 of these 4 criteria:</p>
+<ul>
+<li>
+<p>grub is a highly modular program: it loads almost all of its functionality as
+   modules which are linked as separate ELF relocatable files. (Not runnable
+   programs, but not shared libraries either.)</p>
+</li>
+<li>
+<p>grub usually runs as a bootloader, not as a regular app.</p>
+</li>
+<li>
+<p>grub reads all sorts of things, ranging in size from small files to full
+   disks. After loading most things, it returns to a command prompt rather than
+   exiting.</p>
+</li>
+</ul>
+<p>Fortunately, these problems are not insurmountable.</p>
+<p>We'll start with the 'running as a bootloader' problem. Here, grub helps us out
+a bit, because it provides an 'emulator' target, which runs most of grub
+functionality as a userspace program. It doesn't support actually booting
+anything (unsurprisingly) but it does support most other modules, including
+things like the config file parser.</p>
+<p>We can configure grub to build the emulator. We disable the graphical frontend
+for now.</p>
+<div class="highlight"><pre><span></span>./bootstrap
+./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+</pre></div>
+
+
+<p>At this point in building a fuzzing target, we'd normally try to configure with
+<code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
+grub configure script is not a fan:</p>
+<div class="highlight"><pre><span></span>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+...
+checking whether target compiler is working... no
+configure: error: cannot compile for the target
+</pre></div>
+
+
+<p>It also doesn't work with <code>afl-gcc</code>.</p>
+<p>Hmm, ok, so what if we just... lie a bit?</p>
+<div class="highlight"><pre><span></span>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+make <span class="nv">CC</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AFL_PATH</span><span class="s2">/afl-gcc&quot;</span> 
+</pre></div>
+
+
+<p>(Normally I'd use <code>CC=clang</code> and <code>afl-cc</code>, but clang support is slightly broken
+upstream at the moment.)</p>
+<p>After a small fix for gcc-10 compatibility, we get the userspace tools
+(potentially handy!) but a bunch of link errors for <code>grub-emu</code>:</p>
+<div class="highlight"><pre><span></span>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+</pre></div>
+
+
+<p>The problem is the module linkage that I talked about earlier: because there is
+a link stage of sorts for each module, some AFL support code gets linked in to
+both the grub kernel (<code>kernel.exec</code>) and each module (here <code>disk.module</code>,
+<code>regexp.module</code>, ...). The linker doesn't like it being in both, which is fair
+enough.</p>
+<p>To get started, let's instead take advantage of the smarts of AFL++ using Qemu
+mode instead. This builds a specially instrumented qemu user-mode emulator
+that's capable of doing coverage-guided fuzzing on uninstrumented binaries at
+the cost of a significant performance penalty.</p>
+<div class="highlight"><pre><span></span>make clean
+make
+</pre></div>
+
+
+<p>Now we have a grub-emu binary. If you run it directly, you'll pick up your
+system boot configuration, but the <code>-d</code> option can point it to a directory of
+your choosing. Let's set up one for fuzzing:</p>
+<div class="highlight"><pre><span></span>mkdir stage
+<span class="nb">echo</span> <span class="s2">&quot;echo Hello sthbrx readers&quot;</span> &gt; stage/grub.cfg
+<span class="nb">cd</span> stage
+../grub-core/grub-emu -d .
+</pre></div>
+
+
+<p>You probably won't see the message because the screen gets blanked at the end of
+running the config file, but if you pipe it through <code>less</code> or something you'll
+see it.</p>
+<h1>Running the fuzzer</h1>
+<p>So, that seems to work - let's create a test input and try fuzzing:</p>
+<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+mkdir in
+<span class="nb">echo</span> <span class="s2">&quot;echo hi&quot;</span> &gt; in/echo-hi
+
+<span class="nb">cd</span> stage
+<span class="c1"># -Q qemu mode</span>
+<span class="c1"># -M main fuzzer</span>
+<span class="c1"># -d don&#39;t do deterministic steps (too slow for a text format)</span>
+<span class="c1"># -f create file grub.cfg</span>
+<span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .
+</pre></div>
+
+
+<p>Sadly:</p>
+<div class="highlight"><pre><span></span>[-] The program took more than 1000 ms to process one of the initial test cases.
+    This is bad news; raising the limit with the -t option is possible, but
+    will probably make the fuzzing process extremely slow.
+
+    If this test case is just a fluke, the other option is to just avoid it
+    altogether, and find one that is less of a CPU hog.
+
+[-] PROGRAM ABORT : Test case &#39;id:000000,time:0,orig:echo-hi&#39; results in a timeout
+         Location : perform_dry_run(), src/afl-fuzz-init.c:866
+</pre></div>
+
+
+<p>What we're seeing here (and indeed what you can observe if you run <code>grub-emu</code>
+directly) is that <code>grub-emu</code> isn't exiting when it's done. It's waiting for more
+input, and will keep waiting for input until it's killed by <code>afl-fuzz</code>.</p>
+<p>We need to patch grub to sort that out. It's on <a href="https://github.com/daxtens/grub/commit/ad2e84224e674eb1f9dcd8efc3d8efe78ed62bec">my GitHub</a>.</p>
+<p>Apply that, rebuild with <code>FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION</code>, and voila:</p>
+<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+make <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&quot;</span>
+<span class="nb">cd</span> stage
+<span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
+</pre></div>
+
+
+<p>And fuzzing is happening!</p>
+<p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt1.png"></p>
+<p>This is enough to find some of the (now-fixed) bugs in the grub config file
+parsing!</p>
+<h1>Fuzzing beyond the config file</h1>
+<p>You can also extend this to fuzzing other things that don't require the
+graphical UI, such as grub's transparent decompression support:</p>
+<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+rm -rf in out stage
+mkdir in stage
+<span class="nb">echo</span> hi &gt; in/hi
+gzip in/hi
+<span class="nb">cd</span> stage
+<span class="nb">echo</span> <span class="s2">&quot;cat thefile&quot;</span> &gt; grub.cfg
+<span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
+</pre></div>
+
+
+<p>You should be able to find a hang pretty quickly with this, an as-yet-unfixed
+bug where grub will print output forever from a corrupt file: (your mileage may
+vary, as will the paths.)</p>
+<div class="highlight"><pre><span></span>cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
+../grub-core/grub-emu -d . <span class="p">|</span> less <span class="c1"># observe this going on forever</span>
+</pre></div>
+
+
+<p><code>zcat</code>, on the other hand, reports it as simply corrupt:</p>
+<div class="highlight"><pre><span></span>$ zcat thefile
+
+gzip: thefile: invalid compressed data--format violated
+</pre></div>
+
+
+<p>(Feel free to fix that and send a patch to the list!)</p>
+<p>That wraps up part 1. Eventually I'll be back with part 2, where I explain the
+hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.</p></div>
+    <footer>
+<div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+  <section>
+    <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
+    <ul id="authors_list">
+        <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
+        <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
+        <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
+        <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a></li>
+        <li><a href="https://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a></li>
+        <li><a href="https://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a></li>
+        <li><a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a></li>
+        <li><a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a></li>
+        <li><a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a></li>
+        <li><a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a></li>
+        <li><a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a></li>
+    </ul>
+  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2021  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2021/03/04/fuzzing-grub-part-1/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/';
+    var disqus_title = 'Fuzzing grub: part 1';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
