@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Suraj Jitindar Singh</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 30 Jan 2017 16:47:00 +1100</lastBuildDate><item><title>Extracting Early Boot Messages in QEMU</title><link>https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/</link><description>&lt;p&gt;Be me, you're a kernel hacker, you make some changes to your kernel, you boot
+<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed - Suraj Jitindar Singh</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Mon, 30 Jan 2017 16:47:00 +1100</lastBuildDate><item><title>Extracting Early Boot Messages in QEMU</title><link>https://sthbrx.github.io/blog/2017/01/30/extracting-early-boot-messages-in-qemu/</link><description>&lt;p&gt;Be me, you're a kernel hacker, you make some changes to your kernel, you boot
 test it in QEMU, and it fails to boot. Even worse is the fact that it just hangs
 without any failure message, no stack trace, no nothing. "Now what?" you think
 to yourself.&lt;/p&gt;

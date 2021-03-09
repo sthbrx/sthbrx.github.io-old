@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Anton Blanchard</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 15 Aug 2018 14:22:00 +1000</lastBuildDate><item><title>Improving performance of Phoronix benchmarks on POWER9</title><link>https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/</link><description>&lt;p&gt;Recently Phoronix ran a range of
+<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed - Anton Blanchard</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 15 Aug 2018 14:22:00 +1000</lastBuildDate><item><title>Improving performance of Phoronix benchmarks on POWER9</title><link>https://sthbrx.github.io/blog/2018/08/15/improving-performance-of-phoronix-benchmarks-on-power9/</link><description>&lt;p&gt;Recently Phoronix ran a range of
 &lt;a href="https://www.phoronix.com/scan.php?page=article&amp;amp;item=power9-talos-2&amp;amp;num=1"&gt;benchmarks&lt;/a&gt;
 comparing the performance of our POWER9 processor against the Intel Xeon and AMD
 EPYC processors. &lt;/p&gt;

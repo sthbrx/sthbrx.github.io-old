@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Half Byte-Reverse Indexed - Alastair D'Silva</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
+<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed - Alastair D'Silva</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 29 Mar 2017 00:00:00 +1100</lastBuildDate><item><title>Evaluating CephFS on Power</title><link>https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/</link><description>&lt;h2&gt;Methodology&lt;/h2&gt;
 &lt;p&gt;To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
 space to compile the software, as well as 3 sparse 1TB disks to create the
 object store.&lt;/p&gt;
