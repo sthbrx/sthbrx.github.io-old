@@ -129,7 +129,7 @@ them by applying fuzz testing to grub. Here's how.</p>
 cover:</p>
 <ul>
 <li>Part 1 (this post): getting started with fuzzing grub</li>
-<li>Part 2: going faster by doing lots more work</li>
+<li>Part 2: <a href="/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">going faster by doing lots more work</a></li>
 <li>Part 3: fuzzing filesystems and more</li>
 <li>Part 4: potential next steps and avenues for further work</li>
 </ul>
@@ -179,37 +179,33 @@ anything (unsurprisingly) but it does support most other modules, including
 things like the config file parser.</p>
 <p>We can configure grub to build the emulator. We disable the graphical frontend
 for now.</p>
-<div class="highlight"><pre><span></span>./bootstrap
+<div class="highlight"><pre><span></span><code>./bootstrap
 ./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
-</pre></div>
-
+</code></pre></div>
 
 <p>At this point in building a fuzzing target, we'd normally try to configure with
 <code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
 grub configure script is not a fan:</p>
-<div class="highlight"><pre><span></span>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+<div class="highlight"><pre><span></span><code>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
 ...
 checking whether target compiler is working... no
 configure: error: cannot compile for the target
-</pre></div>
-
+</code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
 <p>Hmm, ok, so what if we just... lie a bit?</p>
-<div class="highlight"><pre><span></span>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
 make <span class="nv">CC</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AFL_PATH</span><span class="s2">/afl-gcc&quot;</span> 
-</pre></div>
-
+</code></pre></div>
 
 <p>(Normally I'd use <code>CC=clang</code> and <code>afl-cc</code>, but clang support is slightly broken
 upstream at the moment.)</p>
 <p>After a small fix for gcc-10 compatibility, we get the userspace tools
 (potentially handy!) but a bunch of link errors for <code>grub-emu</code>:</p>
-<div class="highlight"><pre><span></span>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+<div class="highlight"><pre><span></span><code>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
 /usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
 /usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
-</pre></div>
-
+</code></pre></div>
 
 <p>The problem is the module linkage that I talked about earlier: because there is
 a link stage of sorts for each module, some AFL support code gets linked in to
@@ -220,27 +216,25 @@ enough.</p>
 mode instead. This builds a specially instrumented qemu user-mode emulator
 that's capable of doing coverage-guided fuzzing on uninstrumented binaries at
 the cost of a significant performance penalty.</p>
-<div class="highlight"><pre><span></span>make clean
+<div class="highlight"><pre><span></span><code>make clean
 make
-</pre></div>
-
+</code></pre></div>
 
 <p>Now we have a grub-emu binary. If you run it directly, you'll pick up your
 system boot configuration, but the <code>-d</code> option can point it to a directory of
 your choosing. Let's set up one for fuzzing:</p>
-<div class="highlight"><pre><span></span>mkdir stage
+<div class="highlight"><pre><span></span><code>mkdir stage
 <span class="nb">echo</span> <span class="s2">&quot;echo Hello sthbrx readers&quot;</span> &gt; stage/grub.cfg
 <span class="nb">cd</span> stage
 ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>You probably won't see the message because the screen gets blanked at the end of
 running the config file, but if you pipe it through <code>less</code> or something you'll
 see it.</p>
 <h1>Running the fuzzer</h1>
 <p>So, that seems to work - let's create a test input and try fuzzing:</p>
-<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
 mkdir in
 <span class="nb">echo</span> <span class="s2">&quot;echo hi&quot;</span> &gt; in/echo-hi
 
@@ -250,11 +244,10 @@ mkdir in
 <span class="c1"># -d don&#39;t do deterministic steps (too slow for a text format)</span>
 <span class="c1"># -f create file grub.cfg</span>
 <span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>Sadly:</p>
-<div class="highlight"><pre><span></span>[-] The program took more than 1000 ms to process one of the initial test cases.
+<div class="highlight"><pre><span></span><code>[-] The program took more than 1000 ms to process one of the initial test cases.
     This is bad news; raising the limit with the -t option is possible, but
     will probably make the fuzzing process extremely slow.
 
@@ -263,20 +256,18 @@ mkdir in
 
 [-] PROGRAM ABORT : Test case &#39;id:000000,time:0,orig:echo-hi&#39; results in a timeout
          Location : perform_dry_run(), src/afl-fuzz-init.c:866
-</pre></div>
-
+</code></pre></div>
 
 <p>What we're seeing here (and indeed what you can observe if you run <code>grub-emu</code>
 directly) is that <code>grub-emu</code> isn't exiting when it's done. It's waiting for more
 input, and will keep waiting for input until it's killed by <code>afl-fuzz</code>.</p>
 <p>We need to patch grub to sort that out. It's on <a href="https://github.com/daxtens/grub/commit/ad2e84224e674eb1f9dcd8efc3d8efe78ed62bec">my GitHub</a>.</p>
 <p>Apply that, rebuild with <code>FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION</code>, and voila:</p>
-<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
 make <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&quot;</span>
 <span class="nb">cd</span> stage
 <span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>And fuzzing is happening!</p>
 <p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt1.png"></p>
@@ -285,7 +276,7 @@ parsing!</p>
 <h1>Fuzzing beyond the config file</h1>
 <p>You can also extend this to fuzzing other things that don't require the
 graphical UI, such as grub's transparent decompression support:</p>
-<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
 rm -rf in out stage
 mkdir in stage
 <span class="nb">echo</span> hi &gt; in/hi
@@ -293,23 +284,20 @@ gzip in/hi
 <span class="nb">cd</span> stage
 <span class="nb">echo</span> <span class="s2">&quot;cat thefile&quot;</span> &gt; grub.cfg
 <span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>You should be able to find a hang pretty quickly with this, an as-yet-unfixed
 bug where grub will print output forever from a corrupt file: (your mileage may
 vary, as will the paths.)</p>
-<div class="highlight"><pre><span></span>cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
+<div class="highlight"><pre><span></span><code>cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
 ../grub-core/grub-emu -d . <span class="p">|</span> less <span class="c1"># observe this going on forever</span>
-</pre></div>
-
+</code></pre></div>
 
 <p><code>zcat</code>, on the other hand, reports it as simply corrupt:</p>
-<div class="highlight"><pre><span></span>$ zcat thefile
+<div class="highlight"><pre><span></span><code>$ zcat thefile
 
 gzip: thefile: invalid compressed data--format violated
-</pre></div>
-
+</code></pre></div>
 
 <p>(Feel free to fix that and send a patch to the list!)</p>
 <p>That wraps up part 1. Eventually I'll be back with part 2, where I explain the
@@ -329,6 +317,9 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -339,9 +330,6 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

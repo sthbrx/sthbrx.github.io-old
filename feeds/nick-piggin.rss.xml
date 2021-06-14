@@ -179,9 +179,8 @@ improvement in this benchmark.&lt;/p&gt;
 &lt;h3&gt;OpenSSL&lt;/h3&gt;
 &lt;p&gt;&lt;a href="https://www.openssl.org/"&gt;OpenSSL&lt;/a&gt; is among other things a cryptographic library. The Phoronix benchmark
 measures the number of RSA 4096 signs per second:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ openssl speed -multi &lt;span class="k"&gt;$(&lt;/span&gt;nproc&lt;span class="k"&gt;)&lt;/span&gt; rsa4096
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;$ openssl speed -multi &lt;span class="k"&gt;$(&lt;/span&gt;nproc&lt;span class="k"&gt;)&lt;/span&gt; rsa4096
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
 Mainline OpenSSL has some powerpc multiplication and squaring assembly code which seems
@@ -277,11 +276,10 @@ but not great for CPUs. The image size (1280x720) to tile size ratio limits the
 number of jobs created and therefore the number threads used.&lt;/p&gt;
 &lt;p&gt;To obtain a realistic CPU measurement with more that 15 threads you can force
 the use of the CPU file by overwriting the GPU file with the CPU one:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ cp
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;$ cp
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;As you can see in the image below, now all of the cores are being utilised!
 &lt;img alt="Blender with CPU Blend file" src="/images/phoronix/blender-88threads.png" title="Blender with CPU Blend file"&gt;&lt;/p&gt;

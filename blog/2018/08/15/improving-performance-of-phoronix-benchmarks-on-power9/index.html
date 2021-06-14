@@ -305,9 +305,8 @@ improvement in this benchmark.</p>
 <h3>OpenSSL</h3>
 <p><a href="https://www.openssl.org/">OpenSSL</a> is among other things a cryptographic library. The Phoronix benchmark
 measures the number of RSA 4096 signs per second:</p>
-<div class="highlight"><pre><span></span>$ openssl speed -multi <span class="k">$(</span>nproc<span class="k">)</span> rsa4096
-</pre></div>
-
+<div class="highlight"><pre><span></span><code>$ openssl speed -multi <span class="k">$(</span>nproc<span class="k">)</span> rsa4096
+</code></pre></div>
 
 <p>Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
 Mainline OpenSSL has some powerpc multiplication and squaring assembly code which seems
@@ -403,11 +402,10 @@ but not great for CPUs. The image size (1280x720) to tile size ratio limits the
 number of jobs created and therefore the number threads used.</p>
 <p>To obtain a realistic CPU measurement with more that 15 threads you can force
 the use of the CPU file by overwriting the GPU file with the CPU one:</p>
-<div class="highlight"><pre><span></span>$ cp
+<div class="highlight"><pre><span></span><code>$ cp
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
-</pre></div>
-
+</code></pre></div>
 
 <p>As you can see in the image below, now all of the cores are being utilised!
 <img alt="Blender with CPU Blend file" src="/images/phoronix/blender-88threads.png" title="Blender with CPU Blend file"></p>
@@ -511,6 +509,9 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -521,9 +522,6 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

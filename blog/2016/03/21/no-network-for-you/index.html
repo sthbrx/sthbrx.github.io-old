@@ -134,55 +134,51 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>Any of these options will cause any existing network configurations to be ignored.</p>
 <h2>Building the Request</h2>
 <p>Since this is an OEM-specific command, your average ipmitool package isn't going to have a nice way of making this request, such as 'chassis bootdev network'. Rather you need to do something like this:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H $yourbmc -U $user -P $pass raw 0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x06 0x04 0xf4 0x52 0x14 0xf3 0x01 0xdf 0x00 0x01 0x0a 0x3d 0xa1 0x42 0x10 0x0a 0x3d 0x2 0x1
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span> <span class="o">-</span><span class="n">I</span> <span class="n">lanplus</span> <span class="o">-</span><span class="n">H</span> <span class="o">$</span><span class="n">yourbmc</span> <span class="o">-</span><span class="n">U</span> <span class="o">$</span><span class="n">user</span> <span class="o">-</span><span class="n">P</span> <span class="o">$</span><span class="k">pass</span> <span class="n">raw</span> <span class="mh">0x00</span> <span class="mh">0x08</span> <span class="mh">0x61</span> <span class="mh">0x80</span> <span class="mh">0x21</span> <span class="mh">0x70</span> <span class="mh">0x62</span> <span class="mh">0x21</span> <span class="mh">0x00</span> <span class="mh">0x01</span> <span class="mh">0x06</span> <span class="mh">0x04</span> <span class="mh">0xf4</span> <span class="mh">0x52</span> <span class="mh">0x14</span> <span class="mh">0xf3</span> <span class="mh">0x01</span> <span class="mh">0xdf</span> <span class="mh">0x00</span> <span class="mh">0x01</span> <span class="mh">0x0a</span> <span class="mh">0x3d</span> <span class="mh">0xa1</span> <span class="mh">0x42</span> <span class="mh">0x10</span> <span class="mh">0x0a</span> <span class="mh">0x3d</span> <span class="mh">0x2</span> <span class="mh">0x1</span>
+</code></pre></div>
 
 <p>Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:</p>
-<div class="highlight"><pre><span></span>Specify the &quot;chassis bootdev&quot; command, field 96, data field 1:
-    0x00 0x08 0x61 0x80
+<div class="highlight"><pre><span></span><code><span class="n">Specify</span> <span class="n">the</span> <span class="ss">&quot;chassis bootdev&quot;</span> <span class="n">command</span><span class="p">,</span> <span class="n">field</span> <span class="mi">96</span><span class="p">,</span> <span class="k">data</span> <span class="n">field</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x08</span> <span class="mi">0</span><span class="n">x61</span> <span class="mi">0</span><span class="n">x80</span>
 
-Unique value that Petitboot recognises:
-    0x21 0x70 0x62 0x21
+<span class="k">Unique</span> <span class="n">value</span> <span class="n">that</span> <span class="n">Petitboot</span> <span class="n">recognises</span><span class="p">:</span>
+    <span class="mi">0</span><span class="n">x21</span> <span class="mi">0</span><span class="n">x70</span> <span class="mi">0</span><span class="n">x62</span> <span class="mi">0</span><span class="n">x21</span>
 
-Version field (1)
-    0x00 0x01 ..   ..
+<span class="k">Version</span> <span class="n">field</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x01</span> <span class="p">..</span>   <span class="p">..</span>
 
-Size of the hardware address (6):
-    ..   ..   0x06 ..
+<span class="k">Size</span> <span class="k">of</span> <span class="n">the</span> <span class="n">hardware</span> <span class="n">address</span> <span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+    <span class="p">..</span>   <span class="p">..</span>   <span class="mi">0</span><span class="n">x06</span> <span class="p">..</span>
 
-Size of the IP address (IPv4/IPv6):
-    ..   ..   ..   0x04
+<span class="k">Size</span> <span class="k">of</span> <span class="n">the</span> <span class="n">IP</span> <span class="n">address</span> <span class="p">(</span><span class="n">IPv4</span><span class="o">/</span><span class="n">IPv6</span><span class="p">):</span>
+    <span class="p">..</span>   <span class="p">..</span>   <span class="p">..</span>   <span class="mi">0</span><span class="n">x04</span>
 
-Hardware (MAC) address:
-    0xf4 0x52 0x14 0xf3
-    0x01 0xdf ..   ..
+<span class="n">Hardware</span> <span class="p">(</span><span class="n">MAC</span><span class="p">)</span> <span class="n">address</span><span class="p">:</span>
+    <span class="mi">0</span><span class="n">xf4</span> <span class="mi">0</span><span class="n">x52</span> <span class="mi">0</span><span class="n">x14</span> <span class="mi">0</span><span class="n">xf3</span>
+    <span class="mi">0</span><span class="n">x01</span> <span class="mi">0</span><span class="n">xdf</span> <span class="p">..</span>   <span class="p">..</span>
 
-&#39;Ignore flag&#39; and DHCP/Static flag (DHCP is 0)
-    ..   ..   0x00 0x01
+<span class="s1">&#39;Ignore flag&#39;</span> <span class="k">and</span> <span class="n">DHCP</span><span class="o">/</span><span class="k">Static</span> <span class="n">flag</span> <span class="p">(</span><span class="n">DHCP</span> <span class="k">is</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">..</span>   <span class="p">..</span>   <span class="mi">0</span><span class="n">x00</span> <span class="mi">0</span><span class="n">x01</span>
 
-(Below fields only required if setting a static IP)
+<span class="p">(</span><span class="n">Below</span> <span class="n">fields</span> <span class="k">only</span> <span class="n">required</span> <span class="k">if</span> <span class="n">setting</span> <span class="n">a</span> <span class="k">static</span> <span class="n">IP</span><span class="p">)</span>
 
-IP Address:
-    0x0a 0x3d 0xa1 0x42
+<span class="n">IP</span> <span class="n">Address</span><span class="p">:</span>
+    <span class="mi">0</span><span class="n">x0a</span> <span class="mi">0</span><span class="n">x3d</span> <span class="mi">0</span><span class="n">xa1</span> <span class="mi">0</span><span class="n">x42</span>
 
-Subnet Mask (eg, /16):
-    0x10 ..   ..   ..
-Gateway IP Address:
-    ..   0x0a 0x3d 0x02
-    0x01
-</pre></div>
-
+<span class="n">Subnet</span> <span class="n">Mask</span> <span class="p">(</span><span class="n">eg</span><span class="p">,</span> <span class="o">/</span><span class="mi">16</span><span class="p">):</span>
+    <span class="mi">0</span><span class="n">x10</span> <span class="p">..</span>   <span class="p">..</span>   <span class="p">..</span>
+<span class="n">Gateway</span> <span class="n">IP</span> <span class="n">Address</span><span class="p">:</span>
+    <span class="p">..</span>   <span class="mi">0</span><span class="n">x0a</span> <span class="mi">0</span><span class="n">x3d</span> <span class="mi">0</span><span class="n">x02</span>
+    <span class="mi">0</span><span class="n">x01</span>
+</code></pre></div>
 
 <p>Clearing a network override is as simple as making a request empty aside from the header:</p>
-<div class="highlight"><pre><span></span>0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">0x00 0x08 0x61 0x80 0x21 0x70 0x62 0x21 0x00 0x01 0x00 0x00</span>
+</code></pre></div>
 
 <p>You can also read back the request over IPMI with this request:</p>
-<div class="highlight"><pre><span></span>0x00 0x09 0x61 0x00 0x00
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">0x00 0x09 0x61 0x00 0x00</span>
+</code></pre></div>
 
 <p>That's it! Ideally this is something you would be scripting rather than bashing out on the keyboard - the main use case at the moment is as a way to force a machine to netboot against a known good source, rather than whatever may be available on its other interfaces.</p>
 <p>[1] The reason this is only available on OpenPOWER machines at the moment is that support for the IPMI command itself depends on the BMC firmware, and non-OpenPOWER machines use an FSP which is a different platform.</p></div>
@@ -201,6 +197,9 @@ Gateway IP Address:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -211,9 +210,6 @@ Gateway IP Address:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

@@ -102,6 +102,33 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
+      </h1>
+    <p class="meta">
+<time datetime="2019-05-29T16:47:00+10:00" pubdate>Wed 29 May 2019</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2019-05-29T16:47:00+10:00" pubdate>Wed 29 May 2019</time></div>
+
+  <div class="entry-content"><p><a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">Just recently</a> Petitboot added a method to ask the user for a password before allowing certain actions to proceed. Underneath the covers this is checking against the root password, but the UI "pop-up" asking for the password is relatively generic. Something else which has been on the to-do list for a while is support for mounting encrpyted partitions, but there wasn't a good way to retrieve the password for them - until now!</p>
+<p>With the password problem solved, there isn't too much else to do. If Petitboot sees an encrypted partition it makes a note of it and informs the UI via the <code>device_add</code> interface. Seeing this the UI shows this device in the UI even though there aren't any boot options associated with it yet:</p>
+<p><img alt="encrypted_hdr" src="/images/sammj/encrypted_hdr.png"></p>
+<p>Unlike normal devices in the menu these are selectable; once that happens the user is prompted for the password:</p>
+<p><img alt="encrypted_password" src="/images/sammj/encrypted_password.png"></p>
+<p>With password in hand pb-discover will then try to open the device with <code>cryptsetup</code>. If that succeeds the encrypted device is removed from the UI and replaced with the new un-encrypted device:</p>
+<p><img alt="unencrypted_hdr" src="/images/sammj/unencrypted_hdr.png"></p>
+<p>That's it! These devices can't be auto-booted from at the moment since the password needs to be manually entered. The UI also doesn't have a way yet to select specific options for <code>cryptsetup</code>, but if you find yourself needing to do so you can run <code>cryptsetup</code> manually from the shell and pb-discover will recognise the new unencrypted device automatically.</p>
+<p>This is in Petitboot as of v1.10.3 so go check it out! Just make sure your image includes the kernel and cryptsetup <a href="https://github.com/open-power/op-build/pull/2840">dependencies</a>.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
       </h1>
     <p class="meta">
@@ -271,60 +298,24 @@ However, for our current set of programs and use cases, this is probably not tra
 <p><strong>The Mailbox Format</strong></p>
 <p>Parameter 7 has two fields, 1 byte for the "set selector", and up to 16 bytes of "block data". The spec sets the minimum amount of data to support at 80 bytes, which means a BMC must support at least 5 of these 16-byte "blocks" which can be individually accessed via the set selector. Aside from the first 3 bytes which must be an IANA ID number, the rest of the data is defined by us.</p>
 <p>So if we want to set an alternate Petitboot boot order such as "network, usb, disk", the format of the mailbox would be:</p>
-<div class="highlight"><pre><span></span><span class="gh">Block # |       Block Data              |</span>
+<div class="highlight"><pre><span></span><code><span class="gh">Block # |       Block Data              |</span>
 <span class="gh">-----------------------------------------</span>
 0       |2|0|0|p|e|t|i|t|b|o|o|t|,|b|o|o|
 1       |t|d|e|v|s|=|n|e|t|w|o|r|k| |u|s|
 2       |b| |d|i|s|k| | | | | | | | | | |
 3       | | | | | | | | | | | | | | | | |
 4       | | | | | | | | | | | | | | | | |
-</pre></div>
-
+</code></pre></div>
 
 <p>Where the string is null-terminated, <code>2,0,0</code> is the IBM IANA ID, and the contents of any remaining data is not important. The <a href="https://github.com/open-power/petitboot/blob/master/utils/ipmi-mailbox-config.py">ipmi-mailbox-config.py</a> script constructs and sends the required IPMI commands from a given parameter string to make this easier, eg:</p>
-<div class="highlight"><pre><span></span>./utils/ipmi-mailbox-config.py -b bmc-ip -u user -p pass -m 5 \
-        -c &quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&quot;
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">./utils/ipmi-mailbox-config.py -b bmc-ip -u user -p pass -m 5 \</span>
+<span class="err">        -c &quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&quot;</span>
+</code></pre></div>
 
 <p><img alt="Active Mailbox Override" src="/images/sammj/ipmi-mailbox.png"></p>
 <hr>
 <p>That is basically all there is to it. Setting a boot order this way overrides the existing order from NVRAM if there is one. Parameter 7 doesn't have a 'persistent' flag so the contents need to either be manually cleared from the BMC or cleared via the "Clear" button in the System Configuration screen.</p>
 <p>From the machines I've been able to test on at least AMI BMCs support the mailbox, and hopefully <a href="https://lists.ozlabs.org/pipermail/openbmc/2018-December/014224.html">OpenBMC</a> will be able to add it to their IPMI implementation. This is supported in Petitboot as of v1.10.0 so go ahead and try it out!</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/">OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</a>
-      </h1>
-    <p class="meta">
-<time datetime="2018-11-21T18:20:00+11:00" pubdate>Wed 21 November 2018</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
-    </span>
-  </span>
-<time datetime="2018-11-21T18:20:00+11:00" pubdate>Wed 21 November 2018</time></div>
-
-  <div class="entry-content"><p>Last month, I was in Amsterdam at <a href="https://openpowerfoundation.org/summit-2018-10-eu/">OpenPOWER Summit Europe</a>. It was great to see so much interest in OpenPOWER, with a particularly strong contingent of researchers sharing how they're exploiting the unique advantages of OpenPOWER platforms, and a number of OpenPOWER hardware partners announcing products.</p>
-<p>(It was also my first time visiting Europe, so I had a lot of fun exploring Amsterdam, taking a few days off in Vienna, then meeting some of my IBM Linux Technology Centre colleagues in Toulouse. I also now appreciate just what ~50 hours on planes does to you!)</p>
-<p>One particular area which got a lot of attention at the Summit was <a href="https://opencapi.org">OpenCAPI</a>, an open coherent high-performance bus interface designed for accelerators, which is supported on POWER9. We had plenty of talks about OpenCAPI and the interesting work that is already happening with OpenCAPI accelerators.</p>
-<p>I was invited to present on the Linux Technology Centre's work on enabling OpenCAPI from the software side. In this talk, I outline the OpenCAPI software stack and how you can interface with an OpenCAPI device through the ocxl kernel driver and the <a href="https://github.com/opencapi/libocxl">libocxl</a> userspace library.</p>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/zCIMHbZDRS0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
-<p>My <a href="https://sthbrx.github.io/misc/OPFEU2018_OpenCAPI.pdf">slides</a> are available, though you'll want to watch the presentation for context.</p>
-<p>Apart from myself, the OzLabs team were well represented at the Summit:</p>
-<ul>
-<li><a href="https://github.com/grooverdan">Daniel Black</a> spoke on Power performance optimisation</li>
-<li><a href="https://www.flamingspork.com/">Stewart Smith</a> gave an overview of the Power boot process</li>
-<li><a href="https://shenki.github.io/">Joel Stanley</a> presented on recent developments in OpenBMC</li>
-<li><a href="http://jk.ozlabs.org/">Jeremy Kerr</a> talked about the various OpenPOWER firmware projects</li>
-</ul>
-<p>Unfortunately none of their videos are up yet, but they'll be there over the next few weeks. Keep an eye on the <a href="https://openpowerfoundation.org/summit-2018-10-eu/">Summit website</a> and the <a href="https://www.youtube.com/playlist?list=PLEqfbaomKgQo5CimgYbVxdtiVtyloWc9e">Summit YouTube playlist</a>, where you'll find all the rest of the Summit content.</p>
-<p>If you've got any questions about OpenCAPI feel free to leave a comment!</p></div>
   		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
@@ -337,6 +328,9 @@ However, for our current set of programs and use cases, this is probably not tra
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -347,9 +341,6 @@ However, for our current set of programs and use cases, this is probably not tra
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

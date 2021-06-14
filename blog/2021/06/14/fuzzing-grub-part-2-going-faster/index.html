@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  <title>SROP Mitigation &mdash; Store Halfword Byte-Reverse Indexed</title>
+  <title>Fuzzing grub, part 2: going faster &mdash; Store Halfword Byte-Reverse Indexed</title>
   <meta name="author" content="OzLabs">
 
   <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
@@ -103,99 +103,209 @@ document.addEventListener('DOMContentLoaded', function() {
 <div>
   <article class="hentry" role="article">
 <header>
-      <h1 class="entry-title">SROP Mitigation</h1>
+      <h1 class="entry-title">Fuzzing grub, part 2: going faster</h1>
     <p class="meta">
-<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time>    </p>
+<time datetime="2021-06-14T17:10:00+10:00" pubdate>Mon 14 June 2021</time>    </p>
 </header>
 
   <div class="byline_index">
 <p class="meta">
   <span class="byline author vcard">
     Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
     </span>
   </span>
-<time datetime="2016-05-13T22:22:00+10:00" pubdate>Fri 13 May 2016</time>  <span class="categories">
+<time datetime="2021-06-14T17:10:00+10:00" pubdate>Mon 14 June 2021</time>  <span class="categories">
     <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
   </span>
   <span class="categories">
-    <a class="category" href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a class="category" href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a class="category" href="https://sthbrx.github.io/tag/kernel.html">kernel</a>  </span>
+    <a class="category" href="https://sthbrx.github.io/tag/testing.html">testing</a>  </span>
 </p>  </div>
-  <div class="entry-content"><h2>What is SROP?</h2>
-<p>Sigreturn Oriented Programming - a general technique that can be used as an exploit, or as a backdoor to exploit another vulnerability.</p>
-<h2>Okay, but what is it?</h2>
-<p>Yeah... Let me take you through some relevant background info, where I skimp on the details and give you the general picture.</p>
-<p>In Linux, software interrupts are called signals. More about signals <a href="http://www.thegeekstuff.com/2012/03/linux-signals-fundamentals/">here</a>! Generally a signal will convey some information from the kernel and so most signals will have a specific signal handler (some code that deals with the signal) setup.</p>
-<p>Signals are asynchronous - ie they can be sent to a process/program at anytime. When a signal arrives for a process, the kernel suspends the process. The kernel then saves the 'context' of the process - all the general purpose registers (GPRs), the stack pointer, the next-instruction pointer etc - into a structure called a 'sigframe'. The sigframe is stored on the stack, and then the kernel runs the signal handler. At the very end of the signal handler, it calls a special system call called 'sigreturn' - indicating to the kernel that the signal has been dealt with. The kernel then grabs the sigframe from the stack, restores the process's context and resumes the execution of the process.</p>
-<p>This is the rough mental picture you should have:</p>
-<p><img alt="Double Format" src="/images/rashmica/picture.png"></p>
-<h2>Okay... but you still haven't explained what SROP is..?</h2>
-<p>Well, if you insist...</p>
-<p>The above process was designed so that the kernel does not need to keep track of what signals it has delivered. The kernel assumes that the sigframe it takes off the stack was legitimately put there by the kernel because of a signal. This is where we can trick the kernel!</p>
-<p>If we can construct a fake sigframe, put it on the stack, and call sigreturn, the kernel will assume that the sigframe is one it put there before and will load the contents of the fake context into the CPU's registers and 'resume' execution from where the fake sigframe tells it to. And that is what SROP is!</p>
-<h2>Well that sounds cool, show me!</h2>
-<p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
-<p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
-<p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
-<div class="highlight"><pre><span></span><code><span class="k">struct</span> <span class="nc">rt_sigframe</span> <span class="p">{</span>
-        <span class="k">struct</span> <span class="nc">ucontext</span> <span class="n">uc</span><span class="p">;</span>
-        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
-        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
-        <span class="k">struct</span> <span class="nc">siginfo</span> <span class="n">__user</span> <span class="o">*</span><span class="n">pinfo</span><span class="p">;</span>
-        <span class="kt">void</span> <span class="n">__user</span> <span class="o">*</span><span class="n">puc</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="nc">siginfo</span> <span class="n">info</span><span class="p">;</span>
-        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">user_cookie</span><span class="p">;</span>
-        <span class="cm">/* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */</span>
-        <span class="kt">char</span> <span class="n">abigap</span><span class="p">[</span><span class="n">USER_REDZONE_SIZE</span><span class="p">];</span>
-<span class="p">}</span> <span class="n">__attribute__</span> <span class="p">((</span><span class="n">aligned</span> <span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
-</code></pre></div>
-
-<p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
-<div class="highlight"><pre><span></span><code><span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r1</span> <span class="k">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
-<span class="k">register</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">r13</span> <span class="k">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
-<span class="k">struct</span> <span class="nc">ucontext</span> <span class="n">ctx</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
-
-<span class="cm">/* We need a system thread id so copy the one from this process */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R13</span><span class="p">]</span> <span class="o">=</span> <span class="n">r13</span><span class="p">;</span>
-
-<span class="cm">/*  Set the context&#39;s stack pointer to where the current stack pointer is pointing */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r1</span><span class="p">;</span>
-</code></pre></div>
-
-<p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">test_function</span><span class="p">;</span>
-</code></pre></div>
-
-<p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Set MSR bit if LE */</span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x01</span><span class="p">;</span>
-</code></pre></div>
-
-<p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
-<p><strong>Secondly</strong> we have to put it on the stack:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Set current stack pointer to our fake context */</span>
-<span class="n">r1</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
-</code></pre></div>
-
-<p><strong>Thirdly</strong>, we call sigreturn:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
-<span class="k">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-<span class="k">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-</code></pre></div>
-
-<p>When the kernel receives the sigreturn call, it looks at the userspace stack pointer for the ucontext and loads this in. As we have put valid values in the ucontext, the kernel assumes that this is a valid sigframe that it set up earlier and loads the contents of the ucontext in the CPU's registers "and resumes" execution of the process from the address we pointed the NIP to.</p>
-<p>Obviously, you need something worth executing at this address, but sadly that next part is not in my job description. This is a nice gateway into the kernel though and would pair nicely with another kernel vulnerability.  If you are interested in some more in depth examples, have a read of <a href="http://www.cs.vu.nl/~herbertb/papers/srop_sp14.pdf">this</a> paper.</p>
-<h2>So how can we mitigate this?</h2>
-<p>Well, I'm glad you asked. We need some way of distinguishing between sigframes that were put there legitimately by the kernel and 'fake' sigframes. The current idea that is being thrown around is cookies, and you can see the x86 discussion <a href="https://lkml.org/lkml/2016/3/29/788">here</a>.</p>
-<p>The proposed solution is to give every sighand struct a randomly generated value. When the kernel constructs a sigframe for a process, it stores a 'cookie' with the sigframe. The cookie is a hash of the cookie's location and the random value stored in the sighand struct for the process. When the kernel receives a sigreturn, it hashes the location where the cookie should be with the randomly generated number in sighand struct - if this matches the cookie, the cookie is zeroed,  the sigframe is valid and the kernel will restore this context.  If the cookies do not match, the sigframe is not restored.</p>
-<p>Potential issues:</p>
+  <div class="entry-content"><p>Recently a set of 8 vulnerabilities were disclosed for the <a href="https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021">grub bootloader</a>. I
+found 2 of them (CVE-2021-20225 and CVE-2021-20233), and contributed a number of
+other fixes for crashing bugs which we don't believe are exploitable. I found
+them by applying fuzz testing to grub. Here's how.</p>
+<p>This is a multi-part series: I think it will end up being 4 posts. I'm hoping to
+cover:</p>
 <ul>
-<li>Multithreading: Originally the random number was suggested to be stored in the task struct. However, this would break multi-threaded applications as every thread has its own task struct. As the sighand struct is shared by threads, this should not adversely affect multithreaded applications.</li>
-<li>Cookie location: At first I put the cookie on top of the sigframe. However some code in userspace assumed that all the space between the signal handler and the sigframe  was essentially up for grabs and would zero the cookie before I could read the cookie value. Putting the cookie below the sigframe was also a no-go due to the ABI-gap (a gap below the stack pointer that signal code cannot touch) being a part of the sigframe. Putting the cookie inside the sigframe, just above the ABI gap has been fine with all the tests I have run so far!</li>
-<li>Movement of sigframe: If you move the sigframe on the stack, the cookie value will no longer be valid... I don't think that this is something that you should be doing, and have not yet come across a scenario that does this. </li>
+<li><a href="/blog/2021/03/04/fuzzing-grub-part-1">Part 1: getting started with fuzzing grub</a></li>
+<li>Part 2 (this post): going faster by doing lots more work</li>
+<li>Part 3: fuzzing filesystems and more</li>
+<li>Part 4: potential next steps and avenues for further work</li>
 </ul>
-<p>For a more in-depth explanation of SROP, click <a href="https://lwn.net/Articles/676803/">here</a>.</p></div>
+<p>We've been looking at fuzzing <code>grub-emu</code>, which is basically most parts of grub
+built into a standard userspace program. This includes all the script parsing
+logic, fonts, graphics, partition tables, filesystems and so on - just not
+platform specific driver code or the ability to actually load and boot a kernel.</p>
+<p>Previously, we talked about some issues building grub with AFL++'s
+instrumentation:</p>
+<div class="highlight"><pre><span></span><code>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+...
+checking whether target compiler is working... no
+configure: error: cannot compile for the target
+</code></pre></div>
+
+<p>It also doesn't work with <code>afl-gcc</code>.</p>
+<p>We tried to trick configure:</p>
+<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl <span class="nv">CC</span><span class="o">=</span>clang <span class="nv">CXX</span><span class="o">=</span>clang++
+make <span class="nv">CC</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AFL_PATH</span><span class="s2">/afl-cc&quot;</span> 
+</code></pre></div>
+
+<p>Sadly, things still break:</p>
+<div class="highlight"><pre><span></span><code>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+</code></pre></div>
+
+<p>The problem is the module linkage that I talked about in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
+There is a link stage of sorts for the kernel (<code>kernel.exec</code>) and each module
+(e.g. <code>disk.module</code>), so some AFL support code gets linked into each of
+those. Then there's another link stage for <code>grub-emu</code> itself, which also tries
+to bring in the same support code. The linker doesn't like the symbols being in
+multiple places, which is fair enough.</p>
+<p>There are (at least) 3 ways you could solve this. I'm going to call them the hard way, and the ugly way and the easy way.</p>
+<h2>The hard way: messing with makefiles</h2>
+<p>We've been looking at fuzzing <code>grub-emu</code>. Building <code>grub-emu</code> links
+<code>kernel.exec</code> and almost every <code>.module</code> file that grub produces into the
+final binary. Maybe we could avoid our duplicate symbol problems entirely by
+changing how we build things?</p>
+<p>I didn't do this in my early work because, to be honest, I don't like working
+with build systems and I'm not especially good at it. grub's build system is
+based on autotools but is even more quirky than usual: rather than just having a
+<code>Makefile.am</code>, we have <code>Makefile.core.def</code> which is used along with other things
+to generate <code>Makefile.am</code>. It's a pretty cool system for making modules, but
+it's not my idea of fun to work with.</p>
+<p>But, for the sake of completeness, I tried again.</p>
+<p>It gets unpleasant quickly. The generated <code>grub-core/Makefile.core.am</code> adds each module to <code>platform_PROGRAMS</code>, and then each is built with <code>LDFLAGS_MODULE = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) -Wl,-r,-d</code>.</p>
+<p>Basically, in the makefile this ends up being (e.g.):</p>
+<div class="highlight"><pre><span></span><code><span class="nf">tar.module$(EXEEXT)</span><span class="o">:</span> <span class="k">$(</span><span class="nv">tar_module_OBJECTS</span><span class="k">)</span> <span class="k">$(</span><span class="nv">tar_module_DEPENDENCIES</span><span class="k">)</span> <span class="k">$(</span><span class="nv">EXTRA_tar_module_DEPENDENCIES</span><span class="k">)</span> 
+    @rm -f tar.module<span class="k">$(</span>EXEEXT<span class="k">)</span>
+    <span class="k">$(</span>AM_V_CCLD<span class="k">)$(</span>tar_module_LINK<span class="k">)</span> <span class="k">$(</span>tar_module_OBJECTS<span class="k">)</span> <span class="k">$(</span>tar_module_LDADD<span class="k">)</span> <span class="k">$(</span>LIBS<span class="k">)</span>
+</code></pre></div>
+
+<p>Ideally I don't want them to be linked at all; there's no benefit if
+they're just going to be linked again.</p>
+<p>You can't just collect the sources and build them into <code>grub-emu</code> - they all
+have to built with different <code>CFLAGS</code>! So instead I spent some hours messing
+around with the build system. Given some changes to the python script that
+converts the <code>Makefile.*.def</code> files into <code>Makefile.am</code> files, plus some other
+bits and pieces, we can build <code>grub-emu</code> by linking the object files rather than
+the more-processed modules.</p>
+<p>The build dies immediately after linking <code>grub-emu</code> in other components, and it
+requires a bit of manual intervention to get the right things built in the right
+order, but with all of those caveats, it's enough. It works, and you can turn on
+things like ASAN, but getting there was hard, unrewarding and unpleasant. Let's
+consider alternative ways to solve this problem.</p>
+<h2>The ugly way: patching AFL</h2>
+<p>What I did when finding the bugs was to observe that we only wanted AFL to link
+in its extra instrumentation at certain points of the build process. So I
+patched AFL to add an environment variable <code>AFL_DEFER_LIB</code> - which prevented AFL
+adding its own instrumentation library when being called as a linker. I combined
+this with the older CFG instrumentation, as the PCGUARD instrumentation brought
+in a bunch of symbols from LLVM which I didn't want to also figure out how to
+guard.</p>
+<p>I then wrapped this in a horrifying script that basically built bits and pieces
+of grub with the environment variable on or off, in order to at least get the
+userspace tools and <code>grub-emu</code> built. Basically it set <code>AFL_DEFER_LIB</code> when
+building all the modules and turned it off when building the userspace tools
+and <code>grub-emu</code>.</p>
+<p>This worked and it's what I used to find most of my bugs. But I'd probably not
+recommend it, and I'm not sharing the source: it's extremely fragile and
+brittle, the hard way is more generally applicable, and the easy way is nicer.</p>
+<h2>The easy way: adjusting linker flags</h2>
+<p>After posting part 1 of this series, I had a fascinating twitter DM conversation
+with <a href="https://twitter.com/hackerschoice">@hackerschoice</a>, who pointed me to some
+new work that had been done in AFL++ between when I started and when I published
+part 1.</p>
+<p>AFL++ now has the ability to dynamically detect some duplicate symbols, allowing
+it to support plugins and modules better. This isn't directly applicable because
+we link all the modules in at build time, but in the conversation I was pointed
+to a linker flag which instructs the linker to ignore the symbol duplication
+rather than error out. This provides a significantly simpler way to instrument
+<code>grub-emu</code>, avoiding all the issues I'd previously been fighting so hard to
+address.</p>
+<p>So, with a modern AFL++, and the patch from <a href="https://github.com/daxtens/grub/tree/fuzzing-pt2">part 1</a>,
+you can sort out this entire process like this:</p>
+<div class="highlight"><pre><span></span><code>./bootstrap
+./configure --with-platform<span class="o">=</span>emu <span class="nv">CC</span><span class="o">=</span>clang <span class="nv">CXX</span><span class="o">=</span>clang++ --disable-grub-emu-sdl
+make <span class="nv">CC</span><span class="o">=</span>/path/to/afl-clang-fast <span class="nv">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span>
+</code></pre></div>
+
+<p>Eventually it will error out, but <code>./grub-core/grub-emu</code> should be successfully
+built first.</p>
+<p>(Why not just build <code>grub-emu</code> directly? It gets built by <code>grub-core/Makefile</code>,
+but depends on a bunch of things made by the top-level makefile and doesn't
+express its dependencies well. So you can try to build all the things that you
+need separately and then <code>cd grub-core; make ...flags... grub-emu</code> if you want -
+but it's way more complicated to do it that way!)</p>
+<h1>Going extra fast: <code>__AFL_INIT</code></h1>
+<p>Now that we can compile with instrumentation, we can use <code>__AFL_INIT</code>. I'll
+leave the precise details of how this works to the AFL docs, but in short it
+allows us to do a bunch of early setup only once, and just fork the process
+after the setup is done.</p>
+<p>There's a patch that inserts a call to <code>__AFL_INIT</code> in the <code>grub-emu</code> start path
+in <a href="https://github.com/daxtens/grub/tree/fuzzing-pt2">my GitHub repo</a>.</p>
+<p>All up, this can lead to a 2x-3x speedup over the figures I saw in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
+In part 1 we saw around 244 executions per second at this point - now we're over
+500:</p>
+<p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt2.png"></p>
+<h1>Finding more bugs with sanitisers</h1>
+<p>A 'sanitizer' refers to a set of checks inserted by a compiler at build time to
+detect various runtime issues that might not cause a crash or otherwise be
+detected. A particularly common and useful sanitizer is ASAN, the
+<a href="https://clang.llvm.org/docs/AddressSanitizer.html">AddressSanitizer</a>, which
+detects out-of-bounds memory accesses, use-after-frees and other assorted memory
+bugs. Other sanitisers can check for
+<a href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html">undefined behaviour</a>,
+<a href="https://clang.llvm.org/docs/MemorySanitizer.html">uninitialised memory reads</a>
+or even breaches of
+<a href="https://releases.llvm.org/12.0.0/tools/clang/docs/ControlFlowIntegrity.html">control flow integrity</a>.</p>
+<p>ASAN is particularly popular for fuzzing. In theory, compiling with AFL++ and
+LLVM makes it really easy to compile with ASAN. Setting <code>AFL_USE_ASAN=1</code> should
+be sufficient.</p>
+<p>However, in practice, it's quite fragile for grub. I believe I had it all
+working, and then I upgraded my distro, LLVM and AFL++ versions, and everything
+stopped working. (It's possible that I hadn't sufficiently cleaned my source
+tree and I was still building based on the hard way? Who knows.)</p>
+<p>I spent quite a while fighting "truncated relocations". ASAN instrumentation was
+bloating the binaries, and the size of all the <code>*.module</code> files was over 512MB,
+which I suspect was causing the issues. (Without ASAN, it only comes to 35MB.)</p>
+<p>I tried <code>afl-clang-lto</code>: I installed <code>lld</code>, rebuilt AFL++, and managed to
+segfault the linker while building grub. So I wrote that off. Changing the
+instrumentation type to classic didn't help either.</p>
+<p><a href="https://www.technovelty.org/c/relocation-truncated-to-fit-wtf.html">Some googling</a>
+suggested GCC's <code>-mmodel</code>, which in Clang seems to be <code>-mcmodel</code>, but
+<code>CFLAGS="-mcmodel=large"</code> didn't get me any further either: it's already added
+in a few different links.</p>
+<p>My default llvm is llvm-12, so I tried building with llvm-9 and llvm-11 in case
+that helped. Both built a binary, but it would fail to start:</p>
+<div class="highlight"><pre><span></span><code>==375638==AddressSanitizer CHECK failed: /build/llvm-toolchain-9-8fovFY/llvm-toolchain-9-9.0.1/compiler-rt/lib/sanitizer_common/sanitizer_common_libcdep.cc:23 &quot;((SoftRssLimitExceededCallback)) == ((nullptr))&quot; (0x423660, 0x0)
+</code></pre></div>
+
+<p>The same happens if I build with llvm-12 and <code>afl-clang</code>, the old-style
+instrumentation.</p>
+<p>I spun up a Ubuntu 20.04 VM and build there with LLVM 10 and the latest stable
+AFL++. That didn't work either.</p>
+<p>I had much better luck using GCC's and GCC's ASAN implementation, either with
+the old-school <code>afl-gcc</code> or the newer GCC plugin-based <code>afl-gcc-fast</code>. (I have
+some hypotheses around shared library vs static library ASAN, but having spent
+way more work time on this than was reasonable, I was disinclined to debug it
+further.) Here's what worked for me:</p>
+<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+<span class="c1"># the ASAN option is required because one of the tools leaks memory and</span>
+<span class="c1"># that breaks the generation of documentation.</span>
+<span class="c1"># -Wno-nested-extern makes __AFL_INIT work on gcc</span>
+<span class="nv">ASAN_OPTIONS</span><span class="o">=</span><span class="nv">detect_leaks</span><span class="o">=</span><span class="m">0</span> <span class="nv">AFL_USE_ASAN</span><span class="o">=</span><span class="m">1</span> make <span class="nv">CC</span><span class="o">=</span>/path/to/afl-gcc-fast <span class="nv">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span> <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wno-nested-extern&quot;</span>
+</code></pre></div>
+
+<p>GCC doesn't support as many sanitisers as LLVM, but happily it does support
+ASAN. AFL++'s GCC plugin mode should get us most of the speed we would get from
+LLVM, and indeed the speed - even with ASAN - is quite acceptable.</p>
+<p>If you persist, you should be able to find some more bugs: for example there's a
+very boring global array out-of-bounds read when parsing config files.</p>
+<p>That's all for part 2. In part 3 we'll look at fuzzing filesystems and
+more. Hopefully there will be a quicker turnaround between part 2 and part 3
+than there was between part 1 and part 2!</p></div>
     <footer>
 <div class="sharing">
 </div>    </footer>
@@ -296,9 +406,9 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </p></footer>
   <script type="text/javascript">
     var disqus_shortname = 'sthbrx';
-    var disqus_identifier = '/blog/2016/05/13/srop-mitigation/';
-    var disqus_url = 'https://sthbrx.github.io/blog/2016/05/13/srop-mitigation/';
-    var disqus_title = 'SROP Mitigation';
+    var disqus_identifier = '/blog/2021/06/14/fuzzing-grub-part-2-going-faster/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/';
+    var disqus_title = 'Fuzzing grub, part 2: going faster';
     (function() {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
       dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';

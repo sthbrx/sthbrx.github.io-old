@@ -129,21 +129,20 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>Annoyingly, the <code>msglog</code> file reports itself as size 0 (I'm not sure exactly why, but I <em>think</em> it's due to limitations in sysfs), so if you try to copy the file with <code>cp</code>, you end up with just a blank file. However, you can read it with <code>cat</code> or <code>less</code>.</p>
 <h2>From <code>xmon</code></h2>
 <p><code>xmon</code> is a really handy in-kernel debugger for PowerPC that allows you to do basic debugging over the console without hooking up a second machine to use with <code>kgdb</code>. On our development systems, we often configure <code>xmon</code> to automatically begin debugging whenever we hit an oops or panic (using <code>xmon=on</code> on the kernel command line, or the <code>XMON_DEFAULT</code> Kconfig option). It can also be manually triggered:</p>
-<div class="highlight"><pre><span></span>root@p86:~# echo x &gt; /proc/sysrq-trigger
-sysrq: SysRq : Entering xmon
-cpu 0x7: Vector: 0  at [c000000fcd717a80]
-pc: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
-lr: c000000000085ad8: sysrq_handle_xmon+0x68/0x80
-sp: c000000fcd717be0
-msr: 9000000000009033
-current = 0xc000000fcd689200
-paca    = 0xc00000000fe01c00   softe: 0        irq_happened: 0x01
-pid   = 7127, comm = bash
-Linux version 4.5.0-ajd-11118-g968f3e3 (ajd@ka1) (gcc version 5.2.1 20150930 (GCC) ) #1 SMP Tue Mar 22 17:01:58 AEDT 2016
-enter ? for help
-7:mon&gt;
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">root</span><span class="nv">@p86</span><span class="err">:</span><span class="o">~</span><span class="err">#</span><span class="w"> </span><span class="n">echo</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="k">proc</span><span class="o">/</span><span class="n">sysrq</span><span class="o">-</span><span class="k">trigger</span><span class="w"></span>
+<span class="nl">sysrq</span><span class="p">:</span><span class="w"> </span><span class="n">SysRq</span><span class="w"> </span><span class="err">:</span><span class="w"> </span><span class="n">Entering</span><span class="w"> </span><span class="n">xmon</span><span class="w"></span>
+<span class="n">cpu</span><span class="w"> </span><span class="mh">0x7</span><span class="err">:</span><span class="w"> </span><span class="nl">Vector</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w">  </span><span class="k">at</span><span class="w"> </span><span class="o">[</span><span class="n">c000000fcd717a80</span><span class="o">]</span><span class="w"></span>
+<span class="nl">pc</span><span class="p">:</span><span class="w"> </span><span class="nl">c000000000085ad8</span><span class="p">:</span><span class="w"> </span><span class="n">sysrq_handle_xmon</span><span class="o">+</span><span class="mh">0x68</span><span class="o">/</span><span class="mh">0x80</span><span class="w"></span>
+<span class="nl">lr</span><span class="p">:</span><span class="w"> </span><span class="nl">c000000000085ad8</span><span class="p">:</span><span class="w"> </span><span class="n">sysrq_handle_xmon</span><span class="o">+</span><span class="mh">0x68</span><span class="o">/</span><span class="mh">0x80</span><span class="w"></span>
+<span class="nl">sp</span><span class="p">:</span><span class="w"> </span><span class="n">c000000fcd717be0</span><span class="w"></span>
+<span class="nl">msr</span><span class="p">:</span><span class="w"> </span><span class="mi">9000000000009033</span><span class="w"></span>
+<span class="k">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xc000000fcd689200</span><span class="w"></span>
+<span class="n">paca</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mh">0xc00000000fe01c00</span><span class="w">   </span><span class="nl">softe</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w">        </span><span class="nl">irq_happened</span><span class="p">:</span><span class="w"> </span><span class="mh">0x01</span><span class="w"></span>
+<span class="n">pid</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">7127</span><span class="p">,</span><span class="w"> </span><span class="n">comm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bash</span><span class="w"></span>
+<span class="n">Linux</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="mf">4.5.0</span><span class="o">-</span><span class="n">ajd</span><span class="o">-</span><span class="mi">11118</span><span class="o">-</span><span class="n">g968f3e3</span><span class="w"> </span><span class="p">(</span><span class="n">ajd</span><span class="nv">@ka1</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="n">gcc</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="mf">5.2.1</span><span class="w"> </span><span class="mi">20150930</span><span class="w"> </span><span class="p">(</span><span class="n">GCC</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">#1</span><span class="w"> </span><span class="n">SMP</span><span class="w"> </span><span class="n">Tue</span><span class="w"> </span><span class="n">Mar</span><span class="w"> </span><span class="mi">22</span><span class="w"> </span><span class="mi">17</span><span class="err">:</span><span class="mi">01</span><span class="err">:</span><span class="mi">58</span><span class="w"> </span><span class="n">AEDT</span><span class="w"> </span><span class="mi">2016</span><span class="w"></span>
+<span class="n">enter</span><span class="w"> </span><span class="vm">?</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">help</span><span class="w"></span>
+<span class="mi">7</span><span class="err">:</span><span class="n">mon</span><span class="o">&gt;</span><span class="w"></span>
+</code></pre></div>
 
 <p>From <code>xmon</code>, simply type <code>dl</code> to dump out the kernel log. If you'd like to page through the log rather than dump the entire thing at once, use <code>#&lt;n&gt;</code> to split it into groups of <code>n</code> lines.</p>
 <p>Until recently, it wasn't as easy to extract the OPAL log without knowing magic offsets. A couple of months ago, I was debugging a nasty CAPI issue and got rather frustrated by this, so one day when I had a couple of hours free I <a href="http://patchwork.ozlabs.org/patch/581775/">refactored</a> the existing sysfs interface and <a href="http://patchwork.ozlabs.org/patch/581774/">added</a> the <code>do</code> command to <code>xmon</code>. These patches will be included from kernel 4.6-rc1 onwards.</p>
@@ -152,7 +151,7 @@ enter ? for help
 <p>Sometimes, not even <code>xmon</code> will help you. In production environments, you're not generally going to start a debugger every time you have an incident. Additionally, a serious hardware error can cause a 'checkstop', which completely halts the system. (Thankfully, end users don't see this very often, but kernel developers, on the other hand...)</p>
 <p>This is where the Flexible Service Processor, or FSP, comes in. The FSP is an IBM-developed baseboard management controller used on most IBM-branded Power Systems machines, and is responsible for a whole range of things, including monitoring system health. Among its many capabilities, the FSP can automatically take "system dumps" when fatal errors occur, capturing designated regions of memory for later debugging. System dumps can be configured and triggered via the FSP's web interface, which is beyond the scope of this post but is <a href="https://www.ibm.com/support/knowledgecenter/POWER8/p8ha5/mainstoragedump.htm?cp=POWER8%2F1-3-14-2">documented</a> in IBM Power Systems user manuals.</p>
 <p>How does the FSP know what to capture? As it turns out, skiboot (the firmware which implements OPAL) maintains a <a href="https://github.com/open-power/skiboot/blob/master/hw/fsp/fsp-mdst-table.c">Memory Dump Source Table</a> which tells the FSP which memory regions to dump. MDST updates are recorded in the OPAL log:</p>
-<div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
+<div class="highlight"><pre><span></span><code><span class="p">[</span><span class="mi">2690088026</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Max</span> <span class="n">entries</span> <span class="k">in</span> <span class="n">MDST</span> <span class="nl">table</span> <span class="p">:</span> <span class="mi">256</span>
 <span class="p">[</span><span class="mi">2690090666</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31000000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2690093767</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x31100000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">2750378890</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
@@ -161,8 +160,7 @@ enter ? for help
 <span class="p">[</span><span class="mi">28031311971</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">28411709421</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Addr</span> <span class="o">=</span> <span class="mh">0x1fff830000</span> <span class="p">[</span><span class="nl">size</span> <span class="p">:</span> <span class="mh">0x100000</span> <span class="n">bytes</span><span class="p">]</span> <span class="n">added</span> <span class="n">to</span> <span class="n">MDST</span> <span class="n">table</span><span class="p">.</span>
 <span class="p">[</span><span class="mi">28417251110</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="nl">MDST</span><span class="p">:</span> <span class="n">Table</span> <span class="n">updated</span><span class="p">.</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>In the above log, we see four entries: the skiboot/OPAL log, the <a href="https://github.com/open-power/hostboot">hostboot</a> runtime log, the petitboot Linux kernel log (which doesn't make it into the final dump) and the real Linux kernel log. skiboot obviously adds the OPAL and hostboot logs to the MDST early in boot, but it also exposes the <a href="https://github.com/open-power/skiboot/blob/master/doc/opal-api/opal-register-dump-region-101.txt"><code>OPAL_REGISTER_DUMP_REGION</code></a> call which can be used by the operating system to register additional regions. Linux uses this to <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal.c#L608">register the kernel log buffer</a>. If you're a kernel developer, you could potentially use the OPAL call to register your own interesting bits of memory.</p>
 <p>So, the MDST is all set up, we go about doing our business, and suddenly we checkstop. The FSP does its sysdump magic and a few minutes later it reboots the system. What now?</p>
@@ -175,23 +173,22 @@ enter ? for help
 </li>
 <li>
 <p><code>opal-dump-parse</code> (also in the <code>ppc64-diag</code> suite) can be used to extract the sections we care about from the dump:</p>
-<div class="highlight"><pre><span></span>root@p86:/var/log/dump# opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 
-|---------------------------------------------------------|
-|ID              SECTION                              SIZE|
-|---------------------------------------------------------|
-|1              Opal-log                           1048576|
-|2              HostBoot-Runtime-log               1048576|
-|128            printk                             1048576|
-|---------------------------------------------------------|
-List completed
-root@p86:/var/log/dump# opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 
-Captured log to file Opal-log.842EA8A.00000001.20160322063051
-root@p86:/var/log/dump# opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 
-Captured log to file HostBoot-Runtime-log.842EA8A.00000001.20160322063051
-root@p86:/var/log/dump# opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 
-Captured log to file printk.842EA8A.00000001.20160322063051
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">root</span><span class="err">@</span><span class="n">p86</span><span class="p">:</span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="nb">log</span><span class="o">/</span><span class="n">dump</span><span class="c1"># opal-dump-parse -l SYSDUMP.842EA8A.00000001.20160322063051 </span>
+<span class="o">|---------------------------------------------------------|</span>
+<span class="o">|</span><span class="n">ID</span>              <span class="n">SECTION</span>                              <span class="n">SIZE</span><span class="o">|</span>
+<span class="o">|---------------------------------------------------------|</span>
+<span class="o">|</span><span class="mi">1</span>              <span class="n">Opal</span><span class="o">-</span><span class="nb">log</span>                           <span class="mi">1048576</span><span class="o">|</span>
+<span class="o">|</span><span class="mi">2</span>              <span class="n">HostBoot</span><span class="o">-</span><span class="n">Runtime</span><span class="o">-</span><span class="nb">log</span>               <span class="mi">1048576</span><span class="o">|</span>
+<span class="o">|</span><span class="mi">128</span>            <span class="n">printk</span>                             <span class="mi">1048576</span><span class="o">|</span>
+<span class="o">|---------------------------------------------------------|</span>
+<span class="n">List</span> <span class="n">completed</span>
+<span class="n">root</span><span class="err">@</span><span class="n">p86</span><span class="p">:</span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="nb">log</span><span class="o">/</span><span class="n">dump</span><span class="c1"># opal-dump-parse -s 1 SYSDUMP.842EA8A.00000001.20160322063051 </span>
+<span class="n">Captured</span> <span class="nb">log</span> <span class="n">to</span> <span class="n">file</span> <span class="n">Opal</span><span class="o">-</span><span class="nb">log</span><span class="o">.</span><span class="mi">842</span><span class="n">EA8A</span><span class="o">.</span><span class="mf">00000001.20160322063051</span>
+<span class="n">root</span><span class="err">@</span><span class="n">p86</span><span class="p">:</span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="nb">log</span><span class="o">/</span><span class="n">dump</span><span class="c1"># opal-dump-parse -s 2 SYSDUMP.842EA8A.00000001.20160322063051 </span>
+<span class="n">Captured</span> <span class="nb">log</span> <span class="n">to</span> <span class="n">file</span> <span class="n">HostBoot</span><span class="o">-</span><span class="n">Runtime</span><span class="o">-</span><span class="nb">log</span><span class="o">.</span><span class="mi">842</span><span class="n">EA8A</span><span class="o">.</span><span class="mf">00000001.20160322063051</span>
+<span class="n">root</span><span class="err">@</span><span class="n">p86</span><span class="p">:</span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="nb">log</span><span class="o">/</span><span class="n">dump</span><span class="c1"># opal-dump-parse -s 128 SYSDUMP.842EA8A.00000001.20160322063051 </span>
+<span class="n">Captured</span> <span class="nb">log</span> <span class="n">to</span> <span class="n">file</span> <span class="n">printk</span><span class="o">.</span><span class="mi">842</span><span class="n">EA8A</span><span class="o">.</span><span class="mf">00000001.20160322063051</span>
+</code></pre></div>
 
 </li>
 </ul>
@@ -213,6 +210,9 @@ Captured log to file printk.842EA8A.00000001.20160322063051
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -223,9 +223,6 @@ Captured log to file printk.842EA8A.00000001.20160322063051
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

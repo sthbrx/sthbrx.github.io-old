@@ -128,21 +128,19 @@ document.addEventListener('DOMContentLoaded', function() {
 <p><strong>The Mailbox Format</strong></p>
 <p>Parameter 7 has two fields, 1 byte for the "set selector", and up to 16 bytes of "block data". The spec sets the minimum amount of data to support at 80 bytes, which means a BMC must support at least 5 of these 16-byte "blocks" which can be individually accessed via the set selector. Aside from the first 3 bytes which must be an IANA ID number, the rest of the data is defined by us.</p>
 <p>So if we want to set an alternate Petitboot boot order such as "network, usb, disk", the format of the mailbox would be:</p>
-<div class="highlight"><pre><span></span><span class="gh">Block # |       Block Data              |</span>
+<div class="highlight"><pre><span></span><code><span class="gh">Block # |       Block Data              |</span>
 <span class="gh">-----------------------------------------</span>
 0       |2|0|0|p|e|t|i|t|b|o|o|t|,|b|o|o|
 1       |t|d|e|v|s|=|n|e|t|w|o|r|k| |u|s|
 2       |b| |d|i|s|k| | | | | | | | | | |
 3       | | | | | | | | | | | | | | | | |
 4       | | | | | | | | | | | | | | | | |
-</pre></div>
-
+</code></pre></div>
 
 <p>Where the string is null-terminated, <code>2,0,0</code> is the IBM IANA ID, and the contents of any remaining data is not important. The <a href="https://github.com/open-power/petitboot/blob/master/utils/ipmi-mailbox-config.py">ipmi-mailbox-config.py</a> script constructs and sends the required IPMI commands from a given parameter string to make this easier, eg:</p>
-<div class="highlight"><pre><span></span>./utils/ipmi-mailbox-config.py -b bmc-ip -u user -p pass -m 5 \
-        -c &quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&quot;
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">./utils/ipmi-mailbox-config.py -b bmc-ip -u user -p pass -m 5 \</span>
+<span class="err">        -c &quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&quot;</span>
+</code></pre></div>
 
 <p><img alt="Active Mailbox Override" src="/images/sammj/ipmi-mailbox.png"></p>
 <hr>
@@ -163,6 +161,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -173,9 +174,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

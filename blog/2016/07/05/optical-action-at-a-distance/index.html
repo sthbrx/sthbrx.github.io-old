@@ -132,26 +132,24 @@ method you prefer. (For example <code>bsdtar -xf /path/to/image.iso</code>).</p>
 <p>You'll get a bunch of files but for our purposes we only care about a few; the
 kernel, the initrd, and the bootloader configuration file. Using
 the Ubuntu 16.04 ppc64el ISO as an example, these are:</p>
-<div class="highlight"><pre><span></span>./install/vmlinux
-./install/initrd.gz.
-./boot/grub/grub.cfg
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">./install/vmlinux</span>
+<span class="err">./install/initrd.gz.</span>
+<span class="err">./boot/grub/grub.cfg</span>
+</code></pre></div>
 
 <p>In grub.cfg we can see that the boot arguments are actually quite simple:</p>
-<div class="highlight"><pre><span></span>set timeout=-1
+<div class="highlight"><pre><span></span><code><span class="k">set</span> <span class="n">timeout</span><span class="o">=-</span><span class="mi">1</span>
 
-menuentry &quot;Install&quot; {
-    linux   /install/vmlinux tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
-    initrd  /install/initrd.gz
-}
+<span class="n">menuentry</span> <span class="ss">&quot;Install&quot;</span> <span class="err">{</span>
+    <span class="n">linux</span>   <span class="o">/</span><span class="n">install</span><span class="o">/</span><span class="n">vmlinux</span> <span class="n">tasks</span><span class="o">=</span><span class="n">standard</span> <span class="n">pkgsel</span><span class="o">/</span><span class="k">language</span><span class="o">-</span><span class="n">pack</span><span class="o">-</span><span class="n">patterns</span><span class="o">=</span> <span class="n">pkgsel</span><span class="o">/</span><span class="n">install</span><span class="o">-</span><span class="k">language</span><span class="o">-</span><span class="n">support</span><span class="o">=</span><span class="k">false</span> <span class="c1">--- quiet</span>
+    <span class="n">initrd</span>  <span class="o">/</span><span class="n">install</span><span class="o">/</span><span class="n">initrd</span><span class="p">.</span><span class="n">gz</span>
+<span class="err">}</span>
 
-menuentry &quot;Rescue mode&quot; {
-    linux   /install/vmlinux rescue/enable=true --- quiet
-    initrd  /install/initrd.gz
-}
-</pre></div>
-
+<span class="n">menuentry</span> <span class="ss">&quot;Rescue mode&quot;</span> <span class="err">{</span>
+    <span class="n">linux</span>   <span class="o">/</span><span class="n">install</span><span class="o">/</span><span class="n">vmlinux</span> <span class="n">rescue</span><span class="o">/</span><span class="n">enable</span><span class="o">=</span><span class="k">true</span> <span class="c1">--- quiet</span>
+    <span class="n">initrd</span>  <span class="o">/</span><span class="n">install</span><span class="o">/</span><span class="n">initrd</span><span class="p">.</span><span class="n">gz</span>
+<span class="err">}</span>
+</code></pre></div>
 
 <p>So all we need to do is create a PXE config file that points Petitboot towards
 the correct files.</p>
@@ -160,12 +158,11 @@ server, but that does not mean we need to use PXE - if you just want a quick
 install you only need make these files accessible to Petitboot, and then we can
 use the 'Retrieve config from URL' option to download the files.</p>
 <p>Create a petitboot.conf file somewhere accessible that contains (for Ubuntu):</p>
-<div class="highlight"><pre><span></span>label Install Ubuntu 16.04 Xenial Xerus
-    kernel http://myaccesibleserver/path/to/vmlinux
-    initrd http://myaccesibleserver/path/to/initrd.gz
-    append tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">label Install Ubuntu 16.04 Xenial Xerus</span>
+<span class="err">    kernel http://myaccesibleserver/path/to/vmlinux</span>
+<span class="err">    initrd http://myaccesibleserver/path/to/initrd.gz</span>
+<span class="err">    append tasks=standard pkgsel/language-pack-patterns= pkgsel/install-language-support=false --- quiet</span>
+</code></pre></div>
 
 <p>Then in Petitboot, select 'Retrieve config from URL' and enter
 <code>http://myaccesibleserver/path/to/petitboot.conf</code>. In the main menu your new
@@ -185,6 +182,9 @@ option should appear - select it and away you go!</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -195,9 +195,6 @@ option should appear - select it and away you go!</p></div>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <a class="category" href="https://sthbrx.github.io/tag/education.html">education</a>,    <a class="category" href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a class="category" href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>  </span>
 </p>  </div>
   <div class="entry-content"><p>When I first started at IBM I knew how to alter Javascript and compile it. This is because of my many years playing Minecraft (yes I am a nerd). Now I have leveled up! I can understand and use Bash, Assembly, Python, Ruby and C! Writing full programs in any of these languages is a very difficult prospect but none the less achievable with what I know now. Whereas two weeks ago it would have been impossible. Working here even for a short time has been an amazing Learning experience for me, plus it looks great on a resume! Learning how to write C has been one of the most useful things I have learnt. I have already written programs for use both in and out of IBM. The first program I wrote was the standard newbie 'hello world' exercise. I have now expanded on that program so that it now says, "Hello world! This is Callum Scarvell". This is done using strings that recognise my name as a set character. Then I used a header file called conio.h or curses.h to recognise 'cal' as the short form of my name. This is so now I can abbreviate my name easier. Heres what the code looks like:</p>
-<div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
 <span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
 <span class="cp">#include</span> <span class="cpf">&lt;curses.h&gt;</span><span class="cp"></span>
 
@@ -157,8 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
  <span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">cal : </span><span class="se">\n\n</span><span class="s">%c&quot;</span><span class="p">,</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
  <span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">!=</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>The last two lines have been left out to make it a challenge to recreate. Feel free to test your own knowledge of C to finish the program! My ultimate goal for this program is to make it generate the text 'Hello World! This is Callum Scarvell's computer. Everybody else beware!'(which is easy) then import it into the Linux kernel to the profile login screen. Then I will have my own unique copy of the kernel. And I could call myself an LSD(Linux system developer). That's just a small pet project I have been working on in my time here. Another pet project of mine is my own very altered copy of the open source game NetHack. It's written in C as well and is very easy to tinker with. I have been able to do things like set my characters starting hit points to 40, give my character awesome starting gear and keep save files even after the death of a character. These are just a couple small projects that made learning C so much easier and a lot more fun. And the whole time I was learning C, Ruby, or Python I had some of the best system developers in the world showing me the ropes. This made things even easier, and much more comprehensive. So really its no surprise that in three short weeks I managed to learn almost four different languages and how to run a blog from the raw source code. The knowledge given to me by the OzLabs team is priceless and invaluable. I will forever remember all the new faces and what they taught me. And the <em>Linux Gods</em> will answer your prayers whether e-mail or in person because they walk among us! So if you ever get an opportunity to do work experience, internship or a graduate placement take the chance to do it because you will learn many things that are not taught in school.</p>
 <p>If you would like to reveiw the source code for the blog or my work in general you can find me at <a href="https://github.com/CallumScar">CallumScar.github.com</a> or find me on facebook, <a href="https://www.facebook.com/callum.scarvell/about">Callum Scarvell</a>. </p>
@@ -178,6 +177,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -188,9 +190,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

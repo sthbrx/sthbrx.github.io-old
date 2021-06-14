@@ -102,6 +102,209 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </h1>
+    <p class="meta">
+<time datetime="2021-06-14T17:10:00+10:00" pubdate>Mon 14 June 2021</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2021-06-14T17:10:00+10:00" pubdate>Mon 14 June 2021</time></div>
+
+  <div class="entry-content"><p>Recently a set of 8 vulnerabilities were disclosed for the <a href="https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021">grub bootloader</a>. I
+found 2 of them (CVE-2021-20225 and CVE-2021-20233), and contributed a number of
+other fixes for crashing bugs which we don't believe are exploitable. I found
+them by applying fuzz testing to grub. Here's how.</p>
+<p>This is a multi-part series: I think it will end up being 4 posts. I'm hoping to
+cover:</p>
+<ul>
+<li><a href="/blog/2021/03/04/fuzzing-grub-part-1">Part 1: getting started with fuzzing grub</a></li>
+<li>Part 2 (this post): going faster by doing lots more work</li>
+<li>Part 3: fuzzing filesystems and more</li>
+<li>Part 4: potential next steps and avenues for further work</li>
+</ul>
+<p>We've been looking at fuzzing <code>grub-emu</code>, which is basically most parts of grub
+built into a standard userspace program. This includes all the script parsing
+logic, fonts, graphics, partition tables, filesystems and so on - just not
+platform specific driver code or the ability to actually load and boot a kernel.</p>
+<p>Previously, we talked about some issues building grub with AFL++'s
+instrumentation:</p>
+<div class="highlight"><pre><span></span><code>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+...
+checking whether target compiler is working... no
+configure: error: cannot compile for the target
+</code></pre></div>
+
+<p>It also doesn't work with <code>afl-gcc</code>.</p>
+<p>We tried to trick configure:</p>
+<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl <span class="nv">CC</span><span class="o">=</span>clang <span class="nv">CXX</span><span class="o">=</span>clang++
+make <span class="nv">CC</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AFL_PATH</span><span class="s2">/afl-cc&quot;</span> 
+</code></pre></div>
+
+<p>Sadly, things still break:</p>
+<div class="highlight"><pre><span></span><code>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+/usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+</code></pre></div>
+
+<p>The problem is the module linkage that I talked about in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
+There is a link stage of sorts for the kernel (<code>kernel.exec</code>) and each module
+(e.g. <code>disk.module</code>), so some AFL support code gets linked into each of
+those. Then there's another link stage for <code>grub-emu</code> itself, which also tries
+to bring in the same support code. The linker doesn't like the symbols being in
+multiple places, which is fair enough.</p>
+<p>There are (at least) 3 ways you could solve this. I'm going to call them the hard way, and the ugly way and the easy way.</p>
+<h2>The hard way: messing with makefiles</h2>
+<p>We've been looking at fuzzing <code>grub-emu</code>. Building <code>grub-emu</code> links
+<code>kernel.exec</code> and almost every <code>.module</code> file that grub produces into the
+final binary. Maybe we could avoid our duplicate symbol problems entirely by
+changing how we build things?</p>
+<p>I didn't do this in my early work because, to be honest, I don't like working
+with build systems and I'm not especially good at it. grub's build system is
+based on autotools but is even more quirky than usual: rather than just having a
+<code>Makefile.am</code>, we have <code>Makefile.core.def</code> which is used along with other things
+to generate <code>Makefile.am</code>. It's a pretty cool system for making modules, but
+it's not my idea of fun to work with.</p>
+<p>But, for the sake of completeness, I tried again.</p>
+<p>It gets unpleasant quickly. The generated <code>grub-core/Makefile.core.am</code> adds each module to <code>platform_PROGRAMS</code>, and then each is built with <code>LDFLAGS_MODULE = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) -Wl,-r,-d</code>.</p>
+<p>Basically, in the makefile this ends up being (e.g.):</p>
+<div class="highlight"><pre><span></span><code><span class="nf">tar.module$(EXEEXT)</span><span class="o">:</span> <span class="k">$(</span><span class="nv">tar_module_OBJECTS</span><span class="k">)</span> <span class="k">$(</span><span class="nv">tar_module_DEPENDENCIES</span><span class="k">)</span> <span class="k">$(</span><span class="nv">EXTRA_tar_module_DEPENDENCIES</span><span class="k">)</span> 
+    @rm -f tar.module<span class="k">$(</span>EXEEXT<span class="k">)</span>
+    <span class="k">$(</span>AM_V_CCLD<span class="k">)$(</span>tar_module_LINK<span class="k">)</span> <span class="k">$(</span>tar_module_OBJECTS<span class="k">)</span> <span class="k">$(</span>tar_module_LDADD<span class="k">)</span> <span class="k">$(</span>LIBS<span class="k">)</span>
+</code></pre></div>
+
+<p>Ideally I don't want them to be linked at all; there's no benefit if
+they're just going to be linked again.</p>
+<p>You can't just collect the sources and build them into <code>grub-emu</code> - they all
+have to built with different <code>CFLAGS</code>! So instead I spent some hours messing
+around with the build system. Given some changes to the python script that
+converts the <code>Makefile.*.def</code> files into <code>Makefile.am</code> files, plus some other
+bits and pieces, we can build <code>grub-emu</code> by linking the object files rather than
+the more-processed modules.</p>
+<p>The build dies immediately after linking <code>grub-emu</code> in other components, and it
+requires a bit of manual intervention to get the right things built in the right
+order, but with all of those caveats, it's enough. It works, and you can turn on
+things like ASAN, but getting there was hard, unrewarding and unpleasant. Let's
+consider alternative ways to solve this problem.</p>
+<h2>The ugly way: patching AFL</h2>
+<p>What I did when finding the bugs was to observe that we only wanted AFL to link
+in its extra instrumentation at certain points of the build process. So I
+patched AFL to add an environment variable <code>AFL_DEFER_LIB</code> - which prevented AFL
+adding its own instrumentation library when being called as a linker. I combined
+this with the older CFG instrumentation, as the PCGUARD instrumentation brought
+in a bunch of symbols from LLVM which I didn't want to also figure out how to
+guard.</p>
+<p>I then wrapped this in a horrifying script that basically built bits and pieces
+of grub with the environment variable on or off, in order to at least get the
+userspace tools and <code>grub-emu</code> built. Basically it set <code>AFL_DEFER_LIB</code> when
+building all the modules and turned it off when building the userspace tools
+and <code>grub-emu</code>.</p>
+<p>This worked and it's what I used to find most of my bugs. But I'd probably not
+recommend it, and I'm not sharing the source: it's extremely fragile and
+brittle, the hard way is more generally applicable, and the easy way is nicer.</p>
+<h2>The easy way: adjusting linker flags</h2>
+<p>After posting part 1 of this series, I had a fascinating twitter DM conversation
+with <a href="https://twitter.com/hackerschoice">@hackerschoice</a>, who pointed me to some
+new work that had been done in AFL++ between when I started and when I published
+part 1.</p>
+<p>AFL++ now has the ability to dynamically detect some duplicate symbols, allowing
+it to support plugins and modules better. This isn't directly applicable because
+we link all the modules in at build time, but in the conversation I was pointed
+to a linker flag which instructs the linker to ignore the symbol duplication
+rather than error out. This provides a significantly simpler way to instrument
+<code>grub-emu</code>, avoiding all the issues I'd previously been fighting so hard to
+address.</p>
+<p>So, with a modern AFL++, and the patch from <a href="https://github.com/daxtens/grub/tree/fuzzing-pt2">part 1</a>,
+you can sort out this entire process like this:</p>
+<div class="highlight"><pre><span></span><code>./bootstrap
+./configure --with-platform<span class="o">=</span>emu <span class="nv">CC</span><span class="o">=</span>clang <span class="nv">CXX</span><span class="o">=</span>clang++ --disable-grub-emu-sdl
+make <span class="nv">CC</span><span class="o">=</span>/path/to/afl-clang-fast <span class="nv">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span>
+</code></pre></div>
+
+<p>Eventually it will error out, but <code>./grub-core/grub-emu</code> should be successfully
+built first.</p>
+<p>(Why not just build <code>grub-emu</code> directly? It gets built by <code>grub-core/Makefile</code>,
+but depends on a bunch of things made by the top-level makefile and doesn't
+express its dependencies well. So you can try to build all the things that you
+need separately and then <code>cd grub-core; make ...flags... grub-emu</code> if you want -
+but it's way more complicated to do it that way!)</p>
+<h1>Going extra fast: <code>__AFL_INIT</code></h1>
+<p>Now that we can compile with instrumentation, we can use <code>__AFL_INIT</code>. I'll
+leave the precise details of how this works to the AFL docs, but in short it
+allows us to do a bunch of early setup only once, and just fork the process
+after the setup is done.</p>
+<p>There's a patch that inserts a call to <code>__AFL_INIT</code> in the <code>grub-emu</code> start path
+in <a href="https://github.com/daxtens/grub/tree/fuzzing-pt2">my GitHub repo</a>.</p>
+<p>All up, this can lead to a 2x-3x speedup over the figures I saw in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
+In part 1 we saw around 244 executions per second at this point - now we're over
+500:</p>
+<p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt2.png"></p>
+<h1>Finding more bugs with sanitisers</h1>
+<p>A 'sanitizer' refers to a set of checks inserted by a compiler at build time to
+detect various runtime issues that might not cause a crash or otherwise be
+detected. A particularly common and useful sanitizer is ASAN, the
+<a href="https://clang.llvm.org/docs/AddressSanitizer.html">AddressSanitizer</a>, which
+detects out-of-bounds memory accesses, use-after-frees and other assorted memory
+bugs. Other sanitisers can check for
+<a href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html">undefined behaviour</a>,
+<a href="https://clang.llvm.org/docs/MemorySanitizer.html">uninitialised memory reads</a>
+or even breaches of
+<a href="https://releases.llvm.org/12.0.0/tools/clang/docs/ControlFlowIntegrity.html">control flow integrity</a>.</p>
+<p>ASAN is particularly popular for fuzzing. In theory, compiling with AFL++ and
+LLVM makes it really easy to compile with ASAN. Setting <code>AFL_USE_ASAN=1</code> should
+be sufficient.</p>
+<p>However, in practice, it's quite fragile for grub. I believe I had it all
+working, and then I upgraded my distro, LLVM and AFL++ versions, and everything
+stopped working. (It's possible that I hadn't sufficiently cleaned my source
+tree and I was still building based on the hard way? Who knows.)</p>
+<p>I spent quite a while fighting "truncated relocations". ASAN instrumentation was
+bloating the binaries, and the size of all the <code>*.module</code> files was over 512MB,
+which I suspect was causing the issues. (Without ASAN, it only comes to 35MB.)</p>
+<p>I tried <code>afl-clang-lto</code>: I installed <code>lld</code>, rebuilt AFL++, and managed to
+segfault the linker while building grub. So I wrote that off. Changing the
+instrumentation type to classic didn't help either.</p>
+<p><a href="https://www.technovelty.org/c/relocation-truncated-to-fit-wtf.html">Some googling</a>
+suggested GCC's <code>-mmodel</code>, which in Clang seems to be <code>-mcmodel</code>, but
+<code>CFLAGS="-mcmodel=large"</code> didn't get me any further either: it's already added
+in a few different links.</p>
+<p>My default llvm is llvm-12, so I tried building with llvm-9 and llvm-11 in case
+that helped. Both built a binary, but it would fail to start:</p>
+<div class="highlight"><pre><span></span><code>==375638==AddressSanitizer CHECK failed: /build/llvm-toolchain-9-8fovFY/llvm-toolchain-9-9.0.1/compiler-rt/lib/sanitizer_common/sanitizer_common_libcdep.cc:23 &quot;((SoftRssLimitExceededCallback)) == ((nullptr))&quot; (0x423660, 0x0)
+</code></pre></div>
+
+<p>The same happens if I build with llvm-12 and <code>afl-clang</code>, the old-style
+instrumentation.</p>
+<p>I spun up a Ubuntu 20.04 VM and build there with LLVM 10 and the latest stable
+AFL++. That didn't work either.</p>
+<p>I had much better luck using GCC's and GCC's ASAN implementation, either with
+the old-school <code>afl-gcc</code> or the newer GCC plugin-based <code>afl-gcc-fast</code>. (I have
+some hypotheses around shared library vs static library ASAN, but having spent
+way more work time on this than was reasonable, I was disinclined to debug it
+further.) Here's what worked for me:</p>
+<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+<span class="c1"># the ASAN option is required because one of the tools leaks memory and</span>
+<span class="c1"># that breaks the generation of documentation.</span>
+<span class="c1"># -Wno-nested-extern makes __AFL_INIT work on gcc</span>
+<span class="nv">ASAN_OPTIONS</span><span class="o">=</span><span class="nv">detect_leaks</span><span class="o">=</span><span class="m">0</span> <span class="nv">AFL_USE_ASAN</span><span class="o">=</span><span class="m">1</span> make <span class="nv">CC</span><span class="o">=</span>/path/to/afl-gcc-fast <span class="nv">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span> <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wno-nested-extern&quot;</span>
+</code></pre></div>
+
+<p>GCC doesn't support as many sanitisers as LLVM, but happily it does support
+ASAN. AFL++'s GCC plugin mode should get us most of the speed we would get from
+LLVM, and indeed the speed - even with ASAN - is quite acceptable.</p>
+<p>If you persist, you should be able to find some more bugs: for example there's a
+very boring global array out-of-bounds read when parsing config files.</p>
+<p>That's all for part 2. In part 3 we'll look at fuzzing filesystems and
+more. Hopefully there will be a quicker turnaround between part 2 and part 3
+than there was between part 1 and part 2!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </h1>
     <p class="meta">
@@ -124,7 +327,7 @@ them by applying fuzz testing to grub. Here's how.</p>
 cover:</p>
 <ul>
 <li>Part 1 (this post): getting started with fuzzing grub</li>
-<li>Part 2: going faster by doing lots more work</li>
+<li>Part 2: <a href="/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">going faster by doing lots more work</a></li>
 <li>Part 3: fuzzing filesystems and more</li>
 <li>Part 4: potential next steps and avenues for further work</li>
 </ul>
@@ -174,37 +377,33 @@ anything (unsurprisingly) but it does support most other modules, including
 things like the config file parser.</p>
 <p>We can configure grub to build the emulator. We disable the graphical frontend
 for now.</p>
-<div class="highlight"><pre><span></span>./bootstrap
+<div class="highlight"><pre><span></span><code>./bootstrap
 ./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
-</pre></div>
-
+</code></pre></div>
 
 <p>At this point in building a fuzzing target, we'd normally try to configure with
 <code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
 grub configure script is not a fan:</p>
-<div class="highlight"><pre><span></span>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+<div class="highlight"><pre><span></span><code>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
 ...
 checking whether target compiler is working... no
 configure: error: cannot compile for the target
-</pre></div>
-
+</code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
 <p>Hmm, ok, so what if we just... lie a bit?</p>
-<div class="highlight"><pre><span></span>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
 make <span class="nv">CC</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AFL_PATH</span><span class="s2">/afl-gcc&quot;</span> 
-</pre></div>
-
+</code></pre></div>
 
 <p>(Normally I'd use <code>CC=clang</code> and <code>afl-cc</code>, but clang support is slightly broken
 upstream at the moment.)</p>
 <p>After a small fix for gcc-10 compatibility, we get the userspace tools
 (potentially handy!) but a bunch of link errors for <code>grub-emu</code>:</p>
-<div class="highlight"><pre><span></span>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+<div class="highlight"><pre><span></span><code>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
 /usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
 /usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
-</pre></div>
-
+</code></pre></div>
 
 <p>The problem is the module linkage that I talked about earlier: because there is
 a link stage of sorts for each module, some AFL support code gets linked in to
@@ -215,27 +414,25 @@ enough.</p>
 mode instead. This builds a specially instrumented qemu user-mode emulator
 that's capable of doing coverage-guided fuzzing on uninstrumented binaries at
 the cost of a significant performance penalty.</p>
-<div class="highlight"><pre><span></span>make clean
+<div class="highlight"><pre><span></span><code>make clean
 make
-</pre></div>
-
+</code></pre></div>
 
 <p>Now we have a grub-emu binary. If you run it directly, you'll pick up your
 system boot configuration, but the <code>-d</code> option can point it to a directory of
 your choosing. Let's set up one for fuzzing:</p>
-<div class="highlight"><pre><span></span>mkdir stage
+<div class="highlight"><pre><span></span><code>mkdir stage
 <span class="nb">echo</span> <span class="s2">&quot;echo Hello sthbrx readers&quot;</span> &gt; stage/grub.cfg
 <span class="nb">cd</span> stage
 ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>You probably won't see the message because the screen gets blanked at the end of
 running the config file, but if you pipe it through <code>less</code> or something you'll
 see it.</p>
 <h1>Running the fuzzer</h1>
 <p>So, that seems to work - let's create a test input and try fuzzing:</p>
-<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
 mkdir in
 <span class="nb">echo</span> <span class="s2">&quot;echo hi&quot;</span> &gt; in/echo-hi
 
@@ -245,11 +442,10 @@ mkdir in
 <span class="c1"># -d don&#39;t do deterministic steps (too slow for a text format)</span>
 <span class="c1"># -f create file grub.cfg</span>
 <span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>Sadly:</p>
-<div class="highlight"><pre><span></span>[-] The program took more than 1000 ms to process one of the initial test cases.
+<div class="highlight"><pre><span></span><code>[-] The program took more than 1000 ms to process one of the initial test cases.
     This is bad news; raising the limit with the -t option is possible, but
     will probably make the fuzzing process extremely slow.
 
@@ -258,20 +454,18 @@ mkdir in
 
 [-] PROGRAM ABORT : Test case &#39;id:000000,time:0,orig:echo-hi&#39; results in a timeout
          Location : perform_dry_run(), src/afl-fuzz-init.c:866
-</pre></div>
-
+</code></pre></div>
 
 <p>What we're seeing here (and indeed what you can observe if you run <code>grub-emu</code>
 directly) is that <code>grub-emu</code> isn't exiting when it's done. It's waiting for more
 input, and will keep waiting for input until it's killed by <code>afl-fuzz</code>.</p>
 <p>We need to patch grub to sort that out. It's on <a href="https://github.com/daxtens/grub/commit/ad2e84224e674eb1f9dcd8efc3d8efe78ed62bec">my GitHub</a>.</p>
 <p>Apply that, rebuild with <code>FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION</code>, and voila:</p>
-<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
 make <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&quot;</span>
 <span class="nb">cd</span> stage
 <span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>And fuzzing is happening!</p>
 <p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt1.png"></p>
@@ -280,7 +474,7 @@ parsing!</p>
 <h1>Fuzzing beyond the config file</h1>
 <p>You can also extend this to fuzzing other things that don't require the
 graphical UI, such as grub's transparent decompression support:</p>
-<div class="highlight"><pre><span></span><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
 rm -rf in out stage
 mkdir in stage
 <span class="nb">echo</span> hi &gt; in/hi
@@ -288,23 +482,20 @@ gzip in/hi
 <span class="nb">cd</span> stage
 <span class="nb">echo</span> <span class="s2">&quot;cat thefile&quot;</span> &gt; grub.cfg
 <span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
-</pre></div>
-
+</code></pre></div>
 
 <p>You should be able to find a hang pretty quickly with this, an as-yet-unfixed
 bug where grub will print output forever from a corrupt file: (your mileage may
 vary, as will the paths.)</p>
-<div class="highlight"><pre><span></span>cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
+<div class="highlight"><pre><span></span><code>cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
 ../grub-core/grub-emu -d . <span class="p">|</span> less <span class="c1"># observe this going on forever</span>
-</pre></div>
-
+</code></pre></div>
 
 <p><code>zcat</code>, on the other hand, reports it as simply corrupt:</p>
-<div class="highlight"><pre><span></span>$ zcat thefile
+<div class="highlight"><pre><span></span><code>$ zcat thefile
 
 gzip: thefile: invalid compressed data--format violated
-</pre></div>
-
+</code></pre></div>
 
 <p>(Feel free to fix that and send a patch to the list!)</p>
 <p>That wraps up part 1. Eventually I'll be back with part 2, where I explain the
@@ -516,50 +707,45 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
 <p>Because the "powernv" type does more accurately model the physical system some extra care needs to be taken when setting it up. In particular at one point we noticed that the pretend CDROM and disk drive we attached to the model were.. not being attached. <a href="https://github.com/open-power/op-test-framework/commit/1a97bc92c6029cfda91f565face260b806c04d86">This commit</a> took care of that; the problem was that the <a href="https://github.com/legoater/qemu/wiki/PowerNV#complex-configuration">PCI topology</a> defined by the layout required us to be more exact about where PCI devices were to be added. By default only three spare PCI "slots" are available but as the commit says, "This can be expanded by adding bridges"...</p>
 <h2>More Slots!</h2>
 <p>Never one to stop at a just-enough solution, I wondered how easy it would be to add an extra PCI bridge or two to give the Qemu model more available slots for PCI devices. It turns out, easy enough once you know the correct invocation. For example, adding a PCI bridge in the first slot of the first default PHB is:</p>
-<div class="highlight"><pre><span></span>-device pcie-pci-bridge,id=pcie.3,bus=pcie.0,addr=0x0
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">-device pcie-pci-bridge,id=pcie.3,bus=pcie.0,addr=0x0</span>
+</code></pre></div>
 
 <p>And inserting a device in that bridge just requires us to specify the bus and slot:</p>
-<div class="highlight"><pre><span></span>-device virtio-blk-pci,drive=cdrom01,id=virtio02,bus=pcie.4,addr=3
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">-device virtio-blk-pci,drive=cdrom01,id=virtio02,bus=pcie.4,addr=3</span>
+</code></pre></div>
 
 <p>Great! Each bridge provides 31 slots, so now we have plenty of room for extra devices.</p>
 <h2>Why Stop There?</h2>
 <p>We have three free slots, and we don't have a strict requirement on where devices are plugged in, so lets just plug a bridge into each of those slots while we're here:</p>
-<div class="highlight"><pre><span></span>-device pcie-pci-bridge,id=pcie.3,bus=pcie.0,addr=0x0 \
--device pcie-pci-bridge,id=pcie.4,bus=pcie.1,addr=0x0 \
--device pcie-pci-bridge,id=pcie.5,bus=pcie.2,addr=0x0
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">-device pcie-pci-bridge,id=pcie.3,bus=pcie.0,addr=0x0 \</span>
+<span class="err">-device pcie-pci-bridge,id=pcie.4,bus=pcie.1,addr=0x0 \</span>
+<span class="err">-device pcie-pci-bridge,id=pcie.5,bus=pcie.2,addr=0x0</span>
+</code></pre></div>
 
 <p>What happens if we insert a new PCI bridge into another PCI bridge? Aside from stressing out our PCI developers, a bunch of extra slots! And then we could plug bridges into those bridges and then..</p>
 <iframe src="https://giphy.com/embed/VB5WwlZIt8eRy" width="480" height="199" frameBorder="0" class="giphy-embed" allowFullScreen></iframe>
-
 <p><br></p>
 <p>Thus was born <a href="https://github.com/open-power/op-test-framework/commit/6e78eea78a2f2cf37ebdd2cccbd5b18a7050c1eb">"OpTestQemu: Add PCI bridges to support more devices."</a> and the testcase <a href="https://github.com/open-power/op-test-framework/blob/master/testcases/Petitboot10000Disks.py">"Petitboot10000Disks"</a>.
 The changes to the Qemu model setup fill up each PCI bridge as long as we have devices to add, but reserve the first slot to add another bridge if we run out of room... and so on..</p>
 <p>Officially this is to support adding interesting disk topologies to test Pettiboot use cases, stress test device handling, and so on, but while we're here... what happens with 10,000 temporary disks?</p>
-<div class="highlight"><pre><span></span>======================================================================
-ERROR: testListDisks (testcases.Petitboot10000Disks.ConfigEditorTestCase)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File &quot;/home/sam/git/op-test-framework/testcases/Petitboot10000Disks.py&quot;, line 27, in setUp
-    self.system.goto_state(OpSystemState.PETITBOOT_SHELL)
-  File &quot;/home/sam/git/op-test-framework/common/OpTestSystem.py&quot;, line 366, in goto_state
-    self.state = self.stateHandlers[self.state](state)
-  File &quot;/home/sam/git/op-test-framework/common/OpTestSystem.py&quot;, line 695, in run_IPLing
-    raise my_exception
-UnknownStateTransition: Something happened system state=&quot;2&quot; and we transitioned to UNKNOWN state.  Review the following for more details
-Message=&quot;OpTestSystem in run_IPLing and the Exception=
-&quot;filedescriptor out of range in select()&quot;
- caused the system to go to UNKNOWN_BAD and the system will be stopping.&quot;
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">======================================================================</span>
+<span class="c">ERROR: testListDisks (testcases.Petitboot10000Disks.ConfigEditorTestCase)</span>
+<span class="err">----------------------------------------------------------------------</span>
+<span class="err">Traceback (most recent call last):</span>
+<span class="err">  File &quot;/home/sam/git/op-test-framework/testcases/Petitboot10000Disks.py&quot;, line 27, in setUp</span>
+<span class="err">    self.system.goto_state(OpSystemState.PETITBOOT_SHELL)</span>
+<span class="err">  File &quot;/home/sam/git/op-test-framework/common/OpTestSystem.py&quot;, line 366, in goto_state</span>
+<span class="err">    self.state = self.stateHandlers[self.state](state)</span>
+<span class="err">  File &quot;/home/sam/git/op-test-framework/common/OpTestSystem.py&quot;, line 695, in run_IPLing</span>
+<span class="err">    raise my_exception</span>
+<span class="c">UnknownStateTransition: Something happened system state=&quot;2&quot; and we transitioned to UNKNOWN state.  Review the following for more details</span>
+<span class="err">Message=&quot;OpTestSystem in run_IPLing and the Exception=</span>
+<span class="err">&quot;filedescriptor out of range in select()&quot;</span>
+<span class="err"> caused the system to go to UNKNOWN_BAD and the system will be stopping.&quot;</span>
+</code></pre></div>
 
 <p>Yeah that's probably to be expected without some more massaging. What about a more modest 512?</p>
-<div class="highlight"><pre><span></span><span class="n">I</span><span class="o">:</span> <span class="n">Resetting</span> <span class="n">PHBs</span> <span class="n">and</span> <span class="n">training</span> <span class="n">links</span><span class="o">...</span>
+<div class="highlight"><pre><span></span><code><span class="n">I</span><span class="o">:</span> <span class="n">Resetting</span> <span class="n">PHBs</span> <span class="n">and</span> <span class="n">training</span> <span class="n">links</span><span class="o">...</span>
 <span class="o">[</span>   <span class="mf">55.293343496</span><span class="o">,</span><span class="mi">5</span><span class="o">]</span> <span class="n">PCI</span><span class="o">:</span> <span class="n">Probing</span> <span class="n">slots</span><span class="o">...</span>
 <span class="o">[</span>   <span class="mf">56.364337089</span><span class="o">,</span><span class="mi">3</span><span class="o">]</span> <span class="n">PHB</span><span class="err">#</span><span class="mi">0000</span><span class="o">:</span><span class="mi">02</span><span class="o">:</span><span class="mf">01.0</span> <span class="n">pci_find_ecap</span> <span class="n">hit</span> <span class="n">a</span> <span class="n">loop</span> <span class="o">!</span>
 <span class="o">[</span>   <span class="mf">56.364973775</span><span class="o">,</span><span class="mi">3</span><span class="o">]</span> <span class="n">PHB</span><span class="err">#</span><span class="mi">0000</span><span class="o">:</span><span class="mi">02</span><span class="o">:</span><span class="mf">01.0</span> <span class="n">pci_find_ecap</span> <span class="n">hit</span> <span class="n">a</span> <span class="n">loop</span> <span class="o">!</span>
@@ -593,118 +779,88 @@ Message=&quot;OpTestSystem in run_IPLing and the Exception=
 <span class="o">[</span>   <span class="mf">65.181049905</span><span class="o">,</span><span class="mi">3</span><span class="o">]</span> <span class="n">PHB</span><span class="err">#</span><span class="mi">0002</span><span class="o">:</span><span class="mi">05</span><span class="o">:</span><span class="mf">01.0</span> <span class="n">pci_find_ecap</span> <span class="n">hit</span> <span class="n">a</span> <span class="n">loop</span> <span class="o">!</span>
 <span class="o">[</span>   <span class="mf">65.432105600</span><span class="o">,</span><span class="mi">3</span><span class="o">]</span> <span class="n">PHB</span><span class="err">#</span><span class="mi">0002</span><span class="o">:</span><span class="mi">06</span><span class="o">:</span><span class="mf">01.0</span> <span class="n">pci_find_ecap</span> <span class="n">hit</span> <span class="n">a</span> <span class="n">loop</span> <span class="o">!</span>
 <span class="o">[</span>   <span class="mf">65.432654326</span><span class="o">,</span><span class="mi">3</span><span class="o">]</span> <span class="n">PHB</span><span class="err">#</span><span class="mi">0002</span><span class="o">:</span><span class="mi">06</span><span class="o">:</span><span class="mf">01.0</span> <span class="n">pci_find_ecap</span> <span class="n">hit</span> <span class="n">a</span> <span class="n">loop</span> <span class="o">!</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>(That isn't good)</p>
-<div class="highlight"><pre><span></span>[   66.177240655,5] PCI Summary:
-[   66.177906083,5] PHB#0000:00:00.0 [ROOT] 1014 03dc R:00 C:060400 B:01..07 
-[   66.178760724,5] PHB#0000:01:00.0 [ETOX] 1b36 000e R:00 C:060400 B:02..07 
-[   66.179501494,5] PHB#0000:02:01.0 [ETOX] 1b36 000e R:00 C:060400 B:03..07 
-[   66.180227773,5] PHB#0000:03:01.0 [ETOX] 1b36 000e R:00 C:060400 B:04..07 
-[   66.180953149,5] PHB#0000:04:01.0 [ETOX] 1b36 000e R:00 C:060400 B:05..07 
-[   66.181673576,5] PHB#0000:05:01.0 [ETOX] 1b36 000e R:00 C:060400 B:06..07 
-[   66.182395253,5] PHB#0000:06:01.0 [ETOX] 1b36 000e R:00 C:060400 B:07..07 
-[   66.183207399,5] PHB#0000:07:02.0 [PCID] 1af4 1001 R:00 C:010000 (          scsi) 
-[   66.183969138,5] PHB#0000:07:03.0 [PCID] 1af4 1001 R:00 C:010000 (          scsi) 
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="o">[</span><span class="n">   66.177240655,5</span><span class="o">]</span><span class="w"> </span><span class="n">PCI</span><span class="w"> </span><span class="nl">Summary</span><span class="p">:</span><span class="w"></span>
+<span class="o">[</span><span class="n">   66.177906083,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">00</span><span class="err">:</span><span class="mf">00.0</span><span class="w"> </span><span class="o">[</span><span class="n">ROOT</span><span class="o">]</span><span class="w"> </span><span class="mi">1014</span><span class="w"> </span><span class="mi">03</span><span class="n">dc</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">01..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.178760724,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">01</span><span class="err">:</span><span class="mf">00.0</span><span class="w"> </span><span class="o">[</span><span class="n">ETOX</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">b36</span><span class="w"> </span><span class="mi">000</span><span class="n">e</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">02..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.179501494,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">02</span><span class="err">:</span><span class="mf">01.0</span><span class="w"> </span><span class="o">[</span><span class="n">ETOX</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">b36</span><span class="w"> </span><span class="mi">000</span><span class="n">e</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">03..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.180227773,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">03</span><span class="err">:</span><span class="mf">01.0</span><span class="w"> </span><span class="o">[</span><span class="n">ETOX</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">b36</span><span class="w"> </span><span class="mi">000</span><span class="n">e</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">04..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.180953149,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">04</span><span class="err">:</span><span class="mf">01.0</span><span class="w"> </span><span class="o">[</span><span class="n">ETOX</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">b36</span><span class="w"> </span><span class="mi">000</span><span class="n">e</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">05..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.181673576,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">05</span><span class="err">:</span><span class="mf">01.0</span><span class="w"> </span><span class="o">[</span><span class="n">ETOX</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">b36</span><span class="w"> </span><span class="mi">000</span><span class="n">e</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">06..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.182395253,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">06</span><span class="err">:</span><span class="mf">01.0</span><span class="w"> </span><span class="o">[</span><span class="n">ETOX</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">b36</span><span class="w"> </span><span class="mi">000</span><span class="n">e</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">060400</span><span class="w"> </span><span class="nl">B</span><span class="p">:</span><span class="mf">07..07</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.183207399,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">07</span><span class="err">:</span><span class="mf">02.0</span><span class="w"> </span><span class="o">[</span><span class="n">PCID</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">af4</span><span class="w"> </span><span class="mi">1001</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">010000</span><span class="w"> </span><span class="p">(</span><span class="w">          </span><span class="n">scsi</span><span class="p">)</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   66.183969138,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0000</span><span class="err">:</span><span class="mi">07</span><span class="err">:</span><span class="mf">03.0</span><span class="w"> </span><span class="o">[</span><span class="n">PCID</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">af4</span><span class="w"> </span><span class="mi">1001</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">010000</span><span class="w"> </span><span class="p">(</span><span class="w">          </span><span class="n">scsi</span><span class="p">)</span><span class="w"> </span>
+</code></pre></div>
 
 <p>(a lot more of this)</p>
-<div class="highlight"><pre><span></span><span class="n">[</span>   <span class="m">67.055196945</span><span class="p">,</span><span class="m">5</span><span class="n">]</span> <span class="n">PHB</span><span class="c1">#0002:02:1e.0 [PCID] 1af4 1001 R:00 C:010000 (          scsi) </span>
-<span class="n">[</span>   <span class="m">67.055926264</span><span class="p">,</span><span class="m">5</span><span class="n">]</span> <span class="n">PHB</span><span class="c1">#0002:02:1f.0 [PCID] 1af4 1001 R:00 C:010000 (          scsi) </span>
-<span class="n">[</span>   <span class="m">67.094591773</span><span class="p">,</span><span class="m">5</span><span class="n">]</span> <span class="n">INIT</span><span class="o">:</span> <span class="n">Waiting</span> <span class="n">for</span> <span class="n">kernel...</span>
-<span class="n">[</span>   <span class="m">67.095105901</span><span class="p">,</span><span class="m">5</span><span class="n">]</span> <span class="n">INIT</span><span class="o">:</span> <span class="m">64</span><span class="o">-</span><span class="n">bit</span> <span class="n">LE</span> <span class="n">kernel</span> <span class="n">discovered</span>
-<span class="n">[</span>   <span class="m">68.095749915</span><span class="p">,</span><span class="m">5</span><span class="n">]</span> <span class="n">INIT</span><span class="o">:</span> <span class="n">Starting</span> <span class="n">kernel</span> <span class="n">at</span> <span class="mh">0x20010000</span><span class="p">,</span> <span class="n">fdt</span> <span class="n">at</span> <span class="mh">0x3075d270</span> <span class="m">168365</span> <span class="n">bytes</span>
+<div class="highlight"><pre><span></span><code><span class="o">[</span><span class="n">   67.055196945,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0002</span><span class="err">:</span><span class="mi">02</span><span class="err">:</span><span class="mi">1</span><span class="n">e</span><span class="mf">.0</span><span class="w"> </span><span class="o">[</span><span class="n">PCID</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">af4</span><span class="w"> </span><span class="mi">1001</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">010000</span><span class="w"> </span><span class="p">(</span><span class="w">          </span><span class="n">scsi</span><span class="p">)</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   67.055926264,5</span><span class="o">]</span><span class="w"> </span><span class="n">PHB#0002</span><span class="err">:</span><span class="mi">02</span><span class="err">:</span><span class="mi">1</span><span class="n">f</span><span class="mf">.0</span><span class="w"> </span><span class="o">[</span><span class="n">PCID</span><span class="o">]</span><span class="w"> </span><span class="mi">1</span><span class="n">af4</span><span class="w"> </span><span class="mi">1001</span><span class="w"> </span><span class="nl">R</span><span class="p">:</span><span class="mi">00</span><span class="w"> </span><span class="nl">C</span><span class="p">:</span><span class="mi">010000</span><span class="w"> </span><span class="p">(</span><span class="w">          </span><span class="n">scsi</span><span class="p">)</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   67.094591773,5</span><span class="o">]</span><span class="w"> </span><span class="nl">INIT</span><span class="p">:</span><span class="w"> </span><span class="n">Waiting</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">kernel</span><span class="p">...</span><span class="w"></span>
+<span class="o">[</span><span class="n">   67.095105901,5</span><span class="o">]</span><span class="w"> </span><span class="nl">INIT</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="o">-</span><span class="nc">bit</span><span class="w"> </span><span class="n">LE</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="n">discovered</span><span class="w"></span>
+<span class="o">[</span><span class="n">   68.095749915,5</span><span class="o">]</span><span class="w"> </span><span class="nl">INIT</span><span class="p">:</span><span class="w"> </span><span class="n">Starting</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="k">at</span><span class="w"> </span><span class="mh">0x20010000</span><span class="p">,</span><span class="w"> </span><span class="n">fdt</span><span class="w"> </span><span class="k">at</span><span class="w"> </span><span class="mh">0x3075d270</span><span class="w"> </span><span class="mi">168365</span><span class="w"> </span><span class="n">bytes</span><span class="w"></span>
 
-<span class="n">zImage</span> <span class="n">starting</span><span class="o">:</span> <span class="n">loaded</span> <span class="n">at</span> <span class="mh">0x0000000020010000</span> <span class="p">(</span><span class="n">sp</span><span class="o">:</span> <span class="mh">0x0000000020d30ee8</span><span class="p">)</span>
-<span class="n">Allocating</span> <span class="mh">0x1dc5098</span> <span class="n">bytes</span> <span class="n">for</span> <span class="n">kernel...</span>
-<span class="nf">Decompressing </span><span class="p">(</span><span class="mh">0x0000000000000000</span> <span class="o">&lt;-</span> <span class="mh">0x000000002001f000</span><span class="o">:</span><span class="mh">0x0000000020d2e578</span><span class="p">)</span><span class="kc">...</span>
-<span class="n">Done</span><span class="o">!</span> <span class="n">Decompressed</span> <span class="mh">0x1c22900</span> <span class="n">bytes</span>
+<span class="n">zImage</span><span class="w"> </span><span class="nl">starting</span><span class="p">:</span><span class="w"> </span><span class="n">loaded</span><span class="w"> </span><span class="k">at</span><span class="w"> </span><span class="mh">0x0000000020010000</span><span class="w"> </span><span class="p">(</span><span class="nl">sp</span><span class="p">:</span><span class="w"> </span><span class="mh">0x0000000020d30ee8</span><span class="p">)</span><span class="w"></span>
+<span class="n">Allocating</span><span class="w"> </span><span class="mh">0x1dc5098</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">kernel</span><span class="p">...</span><span class="w"></span>
+<span class="n">Decompressing</span><span class="w"> </span><span class="p">(</span><span class="mh">0x0000000000000000</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="mh">0x000000002001f000</span><span class="err">:</span><span class="mh">0x0000000020d2e578</span><span class="p">)...</span><span class="w"></span>
+<span class="n">Done</span><span class="err">!</span><span class="w"> </span><span class="n">Decompressed</span><span class="w"> </span><span class="mh">0x1c22900</span><span class="w"> </span><span class="n">bytes</span><span class="w"></span>
 
-<span class="n">Linux</span><span class="o">/</span><span class="n">PowerPC</span> <span class="n">load</span><span class="o">:</span> 
-<span class="n">Finalizing</span> <span class="n">device</span> <span class="n">tree...</span> <span class="n">flat</span> <span class="n">tree</span> <span class="n">at</span> <span class="mh">0x20d320a0</span>
-<span class="n">[</span>   <span class="m">10.120562</span><span class="n">]</span> <span class="n">watchdog</span><span class="o">:</span> <span class="n">CPU</span> <span class="m">0</span> <span class="n">self</span><span class="o">-</span><span class="n">detected</span> <span class="n">hard</span> <span class="n">LOCKUP</span> <span class="o">@</span> <span class="n">pnv_pci_cfg_write</span><span class="m">+0</span><span class="n">x88</span><span class="o">/</span><span class="mh">0xa4</span>
-<span class="n">[</span>   <span class="m">10.120746</span><span class="n">]</span> <span class="n">watchdog</span><span class="o">:</span> <span class="n">CPU</span> <span class="m">0</span> <span class="n">TB</span><span class="o">:</span><span class="m">50402010473</span><span class="p">,</span> <span class="n">last</span> <span class="n">heartbeat</span> <span class="n">TB</span><span class="o">:</span><span class="m">45261673150</span> <span class="p">(</span><span class="m">10039</span><span class="n">ms</span> <span class="n">ago</span><span class="p">)</span>
-<span class="n">[</span>   <span class="m">10.120808</span><span class="n">]</span> <span class="n">Modules</span> <span class="n">linked</span> <span class="n">in</span><span class="o">:</span>
-<span class="n">[</span>   <span class="m">10.120906</span><span class="n">]</span> <span class="n">CPU</span><span class="o">:</span> <span class="m">0</span> <span class="n">PID</span><span class="o">:</span> <span class="m">1</span> <span class="n">Comm</span><span class="o">:</span> <span class="n">swapper</span><span class="o">/</span><span class="m">0</span> <span class="n">Not</span> <span class="n">tainted</span> <span class="m">5.0.5</span><span class="o">-</span><span class="n">openpower1</span> <span class="c1">#2</span>
-<span class="n">[</span>   <span class="m">10.120956</span><span class="n">]</span> <span class="n">NIP</span><span class="o">:</span>  <span class="n">c000000000058544</span> <span class="n">LR</span><span class="o">:</span> <span class="n">c00000000004d458</span> <span class="n">CTR</span><span class="o">:</span> <span class="m">0000000030052768</span>
-<span class="n">[</span>   <span class="m">10.121006</span><span class="n">]</span> <span class="n">REGS</span><span class="o">:</span> <span class="n">c0000000fff5bd70</span> <span class="n">TRAP</span><span class="o">:</span> <span class="m">0900</span>   <span class="n">Not</span> <span class="nf">tainted  </span><span class="p">(</span><span class="m">5.0.5</span><span class="o">-</span><span class="n">openpower1</span><span class="p">)</span>
-<span class="n">[</span>   <span class="m">10.121030</span><span class="n">]</span> <span class="n">MSR</span><span class="o">:</span>  <span class="m">9000000002009033</span> <span class="o">&lt;</span><span class="n">SF</span><span class="p">,</span><span class="n">HV</span><span class="p">,</span><span class="n">VEC</span><span class="p">,</span><span class="n">EE</span><span class="p">,</span><span class="n">ME</span><span class="p">,</span><span class="n">IR</span><span class="p">,</span><span class="n">DR</span><span class="p">,</span><span class="n">RI</span><span class="p">,</span><span class="n">LE</span><span class="o">&gt;</span>  <span class="n">CR</span><span class="o">:</span> <span class="m">48002482</span>  <span class="n">XER</span><span class="o">:</span> <span class="m">20000000</span>
-<span class="n">[</span>   <span class="m">10.121215</span><span class="n">]</span> <span class="n">CFAR</span><span class="o">:</span> <span class="n">c00000000004d454</span> <span class="n">IRQMASK</span><span class="o">:</span> <span class="m">1</span> 
-<span class="n">[</span>   <span class="m">10.121260</span><span class="n">]</span> <span class="n">GPR00</span><span class="o">:</span> <span class="m">00000000300051</span><span class="n">ec</span> <span class="n">c0000000fd7c3130</span> <span class="n">c000000001bcaf00</span> <span class="m">0000000000000000</span> 
-<span class="n">[</span>   <span class="m">10.121368</span><span class="n">]</span> <span class="n">GPR04</span><span class="o">:</span> <span class="m">0000000048002482</span> <span class="n">c000000000058544</span> <span class="m">9000000002009033</span> <span class="m">0000000031</span><span class="n">c40060</span> 
-<span class="n">[</span>   <span class="m">10.121476</span><span class="n">]</span> <span class="n">GPR08</span><span class="o">:</span> <span class="m">0000000000000000</span> <span class="m">0000000031</span><span class="n">c40060</span> <span class="n">c00000000004d46c</span> <span class="m">9000000002001003</span> 
-<span class="n">[</span>   <span class="m">10.121584</span><span class="n">]</span> <span class="n">GPR12</span><span class="o">:</span> <span class="m">0000000031</span><span class="n">c40000</span> <span class="n">c000000001dd0000</span> <span class="n">c00000000000f560</span> <span class="m">0000000000000000</span> 
-<span class="n">[</span>   <span class="m">10.121692</span><span class="n">]</span> <span class="n">GPR16</span><span class="o">:</span> <span class="m">0000000000000000</span> <span class="m">0000000000000000</span> <span class="m">0000000000000001</span> <span class="m">0000000000000000</span> 
-<span class="n">[</span>   <span class="m">10.121800</span><span class="n">]</span> <span class="n">GPR20</span><span class="o">:</span> <span class="m">0000000000000000</span> <span class="m">0000000000000000</span> <span class="m">0000000000000000</span> <span class="m">0000000000000000</span> 
-<span class="n">[</span>   <span class="m">10.121908</span><span class="n">]</span> <span class="n">GPR24</span><span class="o">:</span> <span class="m">0000000000000005</span> <span class="m">0000000000000000</span> <span class="m">0000000000000000</span> <span class="m">0000000000000104</span> 
-<span class="n">[</span>   <span class="m">10.122016</span><span class="n">]</span> <span class="n">GPR28</span><span class="o">:</span> <span class="m">0000000000000002</span> <span class="m">0000000000000004</span> <span class="m">0000000000000086</span> <span class="n">c0000000fd9fba00</span> 
-<span class="n">[</span>   <span class="m">10.122150</span><span class="n">]</span> <span class="n">NIP</span> <span class="n">[c000000000058544]</span> <span class="n">pnv_pci_cfg_write</span><span class="m">+0</span><span class="n">x88</span><span class="o">/</span><span class="mh">0xa4</span>
-<span class="n">[</span>   <span class="m">10.122187</span><span class="n">]</span> <span class="n">LR</span> <span class="n">[c00000000004d458]</span> <span class="n">opal_return</span><span class="m">+0</span><span class="n">x14</span><span class="o">/</span><span class="mh">0x48</span>
-<span class="n">[</span>   <span class="m">10.122204</span><span class="n">]</span> <span class="n">Call</span> <span class="n">Trace</span><span class="o">:</span>
-<span class="n">[</span>   <span class="m">10.122251</span><span class="n">]</span> <span class="n">[c0000000fd7c3130]</span> <span class="n">[c000000000058544]</span> <span class="n">pnv_pci_cfg_write</span><span class="m">+0</span><span class="n">x88</span><span class="o">/</span><span class="mh">0xa4</span> <span class="p">(</span><span class="n">unreliable</span><span class="p">)</span>
-<span class="n">[</span>   <span class="m">10.122332</span><span class="n">]</span> <span class="n">[c0000000fd7c3150]</span> <span class="n">[c0000000000585d0]</span> <span class="n">pnv_pci_write_config</span><span class="m">+0</span><span class="n">x70</span><span class="o">/</span><span class="mh">0x9c</span>
-<span class="n">[</span>   <span class="m">10.122398</span><span class="n">]</span> <span class="n">[c0000000fd7c31a0]</span> <span class="n">[c000000000234fec]</span> <span class="n">pci_bus_write_config_word</span><span class="m">+0</span><span class="n">x74</span><span class="o">/</span><span class="mh">0x98</span>
-<span class="n">[</span>   <span class="m">10.122458</span><span class="n">]</span> <span class="n">[c0000000fd7c31f0]</span> <span class="n">[c00000000023764c]</span> <span class="n">__pci_read_base</span><span class="m">+0</span><span class="n">x88</span><span class="o">/</span><span class="mh">0x3a4</span>
-<span class="n">[</span>   <span class="m">10.122518</span><span class="n">]</span> <span class="n">[c0000000fd7c32c0]</span> <span class="n">[c000000000237a18]</span> <span class="n">pci_read_bases</span><span class="m">+0</span><span class="n">xb0</span><span class="o">/</span><span class="mh">0xc8</span>
-<span class="n">[</span>   <span class="m">10.122605</span><span class="n">]</span> <span class="n">[c0000000fd7c3300]</span> <span class="n">[c0000000002384bc]</span> <span class="n">pci_setup_device</span><span class="m">+0</span><span class="n">x4f8</span><span class="o">/</span><span class="mh">0x5b0</span>
-<span class="n">[</span>   <span class="m">10.122670</span><span class="n">]</span> <span class="n">[c0000000fd7c33a0]</span> <span class="n">[c000000000238d9c]</span> <span class="n">pci_scan_single_device</span><span class="m">+0</span><span class="n">x9c</span><span class="o">/</span><span class="mh">0xd4</span>
-<span class="n">[</span>   <span class="m">10.122729</span><span class="n">]</span> <span class="n">[c0000000fd7c33f0]</span> <span class="n">[c000000000238e2c]</span> <span class="n">pci_scan_slot</span><span class="m">+0</span><span class="n">x58</span><span class="o">/</span><span class="mh">0xf4</span>
-<span class="n">[</span>   <span class="m">10.122796</span><span class="n">]</span> <span class="n">[c0000000fd7c3430]</span> <span class="n">[c000000000239eb8]</span> <span class="n">pci_scan_child_bus_extend</span><span class="m">+0</span><span class="n">x40</span><span class="o">/</span><span class="mh">0x2a8</span>
-<span class="n">[</span>   <span class="m">10.122861</span><span class="n">]</span> <span class="n">[c0000000fd7c34a0]</span> <span class="n">[c000000000239e34]</span> <span class="n">pci_scan_bridge_extend</span><span class="m">+0</span><span class="n">x4d4</span><span class="o">/</span><span class="mh">0x504</span>
-<span class="n">[</span>   <span class="m">10.122928</span><span class="n">]</span> <span class="n">[c0000000fd7c3580]</span> <span class="n">[c00000000023a0f8]</span> <span class="n">pci_scan_child_bus_extend</span><span class="m">+0</span><span class="n">x280</span><span class="o">/</span><span class="mh">0x2a8</span>
-<span class="n">[</span>   <span class="m">10.122993</span><span class="n">]</span> <span class="n">[c0000000fd7c35f0]</span> <span class="n">[c000000000239e34]</span> <span class="n">pci_scan_bridge_extend</span><span class="m">+0</span><span class="n">x4d4</span><span class="o">/</span><span class="mh">0x504</span>
-<span class="n">[</span>   <span class="m">10.123059</span><span class="n">]</span> <span class="n">[c0000000fd7c36d0]</span> <span class="n">[c00000000023a0f8]</span> <span class="n">pci_scan_child_bus_extend</span><span class="m">+0</span><span class="n">x280</span><span class="o">/</span><span class="mh">0x2a8</span>
-<span class="n">[</span>   <span class="m">10.123124</span><span class="n">]</span> <span class="n">[c0000000fd7c3740]</span> <span class="n">[c000000000239e34]</span> <span class="n">pci_scan_bridge_extend</span><span class="m">+0</span><span class="n">x4d4</span><span class="o">/</span><span class="mh">0x504</span>
-<span class="n">[</span>   <span class="m">10.123191</span><span class="n">]</span> <span class="n">[c0000000fd7c3820]</span> <span class="n">[c00000000023a0f8]</span> <span class="n">pci_scan_child_bus_extend</span><span class="m">+0</span><span class="n">x280</span><span class="o">/</span><span class="mh">0x2a8</span>
-<span class="n">[</span>   <span class="m">10.123256</span><span class="n">]</span> <span class="n">[c0000000fd7c3890]</span> <span class="n">[c000000000239b5c]</span> <span class="n">pci_scan_bridge_extend</span><span class="m">+0</span><span class="n">x1fc</span><span class="o">/</span><span class="mh">0x504</span>
-<span class="n">[</span>   <span class="m">10.123322</span><span class="n">]</span> <span class="n">[c0000000fd7c3970]</span> <span class="n">[c00000000023a064]</span> <span class="n">pci_scan_child_bus_extend</span><span class="m">+0</span><span class="n">x1ec</span><span class="o">/</span><span class="mh">0x2a8</span>
-<span class="n">[</span>   <span class="m">10.123388</span><span class="n">]</span> <span class="n">[c0000000fd7c39e0]</span> <span class="n">[c000000000239b5c]</span> <span class="n">pci_scan_bridge_extend</span><span class="m">+0</span><span class="n">x1fc</span><span class="o">/</span><span class="mh">0x504</span>
-<span class="n">[</span>   <span class="m">10.123454</span><span class="n">]</span> <span class="n">[c0000000fd7c3ac0]</span> <span class="n">[c00000000023a064]</span> <span class="n">pci_scan_child_bus_extend</span><span class="m">+0</span><span class="n">x1ec</span><span class="o">/</span><span class="mh">0x2a8</span>
-<span class="n">[</span>   <span class="m">10.123516</span><span class="n">]</span> <span class="n">[c0000000fd7c3b30]</span> <span class="n">[c000000000030dcc]</span> <span class="n">pcibios_scan_phb</span><span class="m">+0</span><span class="n">x134</span><span class="o">/</span><span class="mh">0x1f4</span>
-<span class="n">[</span>   <span class="m">10.123574</span><span class="n">]</span> <span class="n">[c0000000fd7c3bd0]</span> <span class="n">[c00000000100a800]</span> <span class="n">pcibios_init</span><span class="m">+0</span><span class="n">x9c</span><span class="o">/</span><span class="mh">0xbc</span>
-<span class="n">[</span>   <span class="m">10.123635</span><span class="n">]</span> <span class="n">[c0000000fd7c3c50]</span> <span class="n">[c00000000000f398]</span> <span class="n">do_one_initcall</span><span class="m">+0</span><span class="n">x80</span><span class="o">/</span><span class="mh">0x15c</span>
-<span class="n">[</span>   <span class="m">10.123698</span><span class="n">]</span> <span class="n">[c0000000fd7c3d10]</span> <span class="n">[c000000001000e94]</span> <span class="n">kernel_init_freeable</span><span class="m">+0</span><span class="n">x248</span><span class="o">/</span><span class="mh">0x24c</span>
-<span class="n">[</span>   <span class="m">10.123756</span><span class="n">]</span> <span class="n">[c0000000fd7c3db0]</span> <span class="n">[c00000000000f574]</span> <span class="n">kernel_init</span><span class="m">+0</span><span class="n">x1c</span><span class="o">/</span><span class="mh">0x150</span>
-<span class="n">[</span>   <span class="m">10.123820</span><span class="n">]</span> <span class="n">[c0000000fd7c3e20]</span> <span class="n">[c00000000000b72c]</span> <span class="n">ret_from_kernel_thread</span><span class="m">+0</span><span class="n">x5c</span><span class="o">/</span><span class="mh">0x70</span>
-<span class="n">[</span>   <span class="m">10.123854</span><span class="n">]</span> <span class="n">Instruction</span> <span class="n">dump</span><span class="o">:</span>
-<span class="n">[</span>   <span class="m">10.123885</span><span class="n">]</span> <span class="m">7</span><span class="n">d054378</span> <span class="m">4</span><span class="n">bff56f5</span> <span class="m">60000000</span> <span class="m">38600000</span> <span class="m">38210020</span> <span class="n">e8010010</span> <span class="m">7</span><span class="n">c0803a6</span> <span class="m">4e800020</span> 
-<span class="n">[</span>   <span class="m">10.124022</span><span class="n">]</span> <span class="n">e86a0018</span> <span class="m">54</span><span class="n">c6043e</span> <span class="m">7</span><span class="n">d054378</span> <span class="m">4</span><span class="n">bff5731</span> <span class="o">&lt;</span><span class="m">60000000</span><span class="o">&gt;</span> <span class="m">4</span><span class="n">bffffd8</span> <span class="n">e86a0018</span> <span class="m">7</span><span class="n">d054378</span> 
-<span class="n">[</span>   <span class="m">10.124180</span><span class="n">]</span> <span class="n">Kernel</span> <span class="n">panic</span> <span class="o">-</span> <span class="n">not</span> <span class="n">syncing</span><span class="o">:</span> <span class="n">Hard</span> <span class="n">LOCKUP</span>
-<span class="n">[</span>   <span class="m">10.124232</span><span class="n">]</span> <span class="n">CPU</span><span class="o">:</span> <span class="m">0</span> <span class="n">PID</span><span class="o">:</span> <span class="m">1</span> <span class="n">Comm</span><span class="o">:</span> <span class="n">swapper</span><span class="o">/</span><span class="m">0</span> <span class="n">Not</span> <span class="n">tainted</span> <span class="m">5.0.5</span><span class="o">-</span><span class="n">openpower1</span> <span class="c1">#2</span>
-<span class="n">[</span>   <span class="m">10.124251</span><span class="n">]</span> <span class="n">Call</span> <span class="n">Trace</span><span class="o">:</span>
-</pre></div>
-
+<span class="n">Linux</span><span class="o">/</span><span class="n">PowerPC</span><span class="w"> </span><span class="k">load</span><span class="err">:</span><span class="w"> </span>
+<span class="n">Finalizing</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="n">tree</span><span class="p">...</span><span class="w"> </span><span class="n">flat</span><span class="w"> </span><span class="n">tree</span><span class="w"> </span><span class="k">at</span><span class="w"> </span><span class="mh">0x20d320a0</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.120562</span><span class="o">]</span><span class="w"> </span><span class="nl">watchdog</span><span class="p">:</span><span class="w"> </span><span class="n">CPU</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">self</span><span class="o">-</span><span class="n">detected</span><span class="w"> </span><span class="n">hard</span><span class="w"> </span><span class="n">LOCKUP</span><span class="w"> </span><span class="err">@</span><span class="w"> </span><span class="n">pnv_pci_cfg_write</span><span class="o">+</span><span class="mh">0x88</span><span class="o">/</span><span class="mh">0xa4</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.120746</span><span class="o">]</span><span class="w"> </span><span class="nl">watchdog</span><span class="p">:</span><span class="w"> </span><span class="n">CPU</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="nl">TB</span><span class="p">:</span><span class="mi">50402010473</span><span class="p">,</span><span class="w"> </span><span class="k">last</span><span class="w"> </span><span class="n">heartbeat</span><span class="w"> </span><span class="nl">TB</span><span class="p">:</span><span class="mi">45261673150</span><span class="w"> </span><span class="p">(</span><span class="mi">10039</span><span class="n">ms</span><span class="w"> </span><span class="n">ago</span><span class="p">)</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.120808</span><span class="o">]</span><span class="w"> </span><span class="n">Modules</span><span class="w"> </span><span class="n">linked</span><span class="w"> </span><span class="ow">in</span><span class="err">:</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.120906</span><span class="o">]</span><span class="w"> </span><span class="nl">CPU</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="nl">PID</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="nl">Comm</span><span class="p">:</span><span class="w"> </span><span class="n">swapper</span><span class="o">/</span><span class="mi">0</span><span class="w"> </span><span class="ow">Not</span><span class="w"> </span><span class="n">tainted</span><span class="w"> </span><span class="mf">5.0.5</span><span class="o">-</span><span class="n">openpower1</span><span class="w"> </span><span class="n">#2</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.120956</span><span class="o">]</span><span class="w"> </span><span class="nl">NIP</span><span class="p">:</span><span class="w">  </span><span class="n">c000000000058544</span><span class="w"> </span><span class="nl">LR</span><span class="p">:</span><span class="w"> </span><span class="n">c00000000004d458</span><span class="w"> </span><span class="nl">CTR</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000030052768</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.121006</span><span class="o">]</span><span class="w"> </span><span class="nl">REGS</span><span class="p">:</span><span class="w"> </span><span class="n">c0000000fff5bd70</span><span class="w"> </span><span class="nl">TRAP</span><span class="p">:</span><span class="w"> </span><span class="mi">0900</span><span class="w">   </span><span class="ow">Not</span><span class="w"> </span><span class="n">tainted</span><span class="w">  </span><span class="p">(</span><span class="mf">5.0.5</span><span class="o">-</span><span class="n">openpower1</span><span class="p">)</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.121030</span><span class="o">]</span><span class="w"> </span><span class="nl">MSR</span><span class="p">:</span><span class="w">  </span><span class="mi">9000000002009033</span><span class="w"> </span><span class="o">&lt;</span><span class="n">SF</span><span class="p">,</span><span class="n">HV</span><span class="p">,</span><span class="n">VEC</span><span class="p">,</span><span class="n">EE</span><span class="p">,</span><span class="n">ME</span><span class="p">,</span><span class="n">IR</span><span class="p">,</span><span class="n">DR</span><span class="p">,</span><span class="n">RI</span><span class="p">,</span><span class="n">LE</span><span class="o">&gt;</span><span class="w">  </span><span class="nl">CR</span><span class="p">:</span><span class="w"> </span><span class="mi">48002482</span><span class="w">  </span><span class="nl">XER</span><span class="p">:</span><span class="w"> </span><span class="mi">20000000</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.121215</span><span class="o">]</span><span class="w"> </span><span class="nl">CFAR</span><span class="p">:</span><span class="w"> </span><span class="n">c00000000004d454</span><span class="w"> </span><span class="nl">IRQMASK</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121260</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR00</span><span class="p">:</span><span class="w"> </span><span class="mi">00000000300051</span><span class="n">ec</span><span class="w"> </span><span class="n">c0000000fd7c3130</span><span class="w"> </span><span class="n">c000000001bcaf00</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121368</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR04</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000048002482</span><span class="w"> </span><span class="n">c000000000058544</span><span class="w"> </span><span class="mi">9000000002009033</span><span class="w"> </span><span class="mi">0000000031</span><span class="n">c40060</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121476</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR08</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000031</span><span class="n">c40060</span><span class="w"> </span><span class="n">c00000000004d46c</span><span class="w"> </span><span class="mi">9000000002001003</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121584</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR12</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000031</span><span class="n">c40000</span><span class="w"> </span><span class="n">c000000001dd0000</span><span class="w"> </span><span class="n">c00000000000f560</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121692</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR16</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000001</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121800</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR20</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.121908</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR24</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000000000005</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000000</span><span class="w"> </span><span class="mi">0000000000000104</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.122016</span><span class="o">]</span><span class="w"> </span><span class="nl">GPR28</span><span class="p">:</span><span class="w"> </span><span class="mi">0000000000000002</span><span class="w"> </span><span class="mi">0000000000000004</span><span class="w"> </span><span class="mi">0000000000000086</span><span class="w"> </span><span class="n">c0000000fd9fba00</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.122150</span><span class="o">]</span><span class="w"> </span><span class="n">NIP</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000058544</span><span class="o">]</span><span class="w"> </span><span class="n">pnv_pci_cfg_write</span><span class="o">+</span><span class="mh">0x88</span><span class="o">/</span><span class="mh">0xa4</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122187</span><span class="o">]</span><span class="w"> </span><span class="n">LR</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000004d458</span><span class="o">]</span><span class="w"> </span><span class="n">opal_return</span><span class="o">+</span><span class="mh">0x14</span><span class="o">/</span><span class="mh">0x48</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122204</span><span class="o">]</span><span class="w"> </span><span class="k">Call</span><span class="w"> </span><span class="nl">Trace</span><span class="p">:</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122251</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3130</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000058544</span><span class="o">]</span><span class="w"> </span><span class="n">pnv_pci_cfg_write</span><span class="o">+</span><span class="mh">0x88</span><span class="o">/</span><span class="mh">0xa4</span><span class="w"> </span><span class="p">(</span><span class="n">unreliable</span><span class="p">)</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122332</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3150</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000000585d0</span><span class="o">]</span><span class="w"> </span><span class="n">pnv_pci_write_config</span><span class="o">+</span><span class="mh">0x70</span><span class="o">/</span><span class="mh">0x9c</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122398</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c31a0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000234fec</span><span class="o">]</span><span class="w"> </span><span class="n">pci_bus_write_config_word</span><span class="o">+</span><span class="mh">0x74</span><span class="o">/</span><span class="mh">0x98</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122458</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c31f0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000023764c</span><span class="o">]</span><span class="w"> </span><span class="n">__pci_read_base</span><span class="o">+</span><span class="mh">0x88</span><span class="o">/</span><span class="mh">0x3a4</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122518</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c32c0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000237a18</span><span class="o">]</span><span class="w"> </span><span class="n">pci_read_bases</span><span class="o">+</span><span class="mh">0xb0</span><span class="o">/</span><span class="mh">0xc8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122605</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3300</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000002384bc</span><span class="o">]</span><span class="w"> </span><span class="n">pci_setup_device</span><span class="o">+</span><span class="mh">0x4f8</span><span class="o">/</span><span class="mh">0x5b0</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122670</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c33a0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000238d9c</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_single_device</span><span class="o">+</span><span class="mh">0x9c</span><span class="o">/</span><span class="mh">0xd4</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122729</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c33f0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000238e2c</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_slot</span><span class="o">+</span><span class="mh">0x58</span><span class="o">/</span><span class="mh">0xf4</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122796</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3430</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000239eb8</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_child_bus_extend</span><span class="o">+</span><span class="mh">0x40</span><span class="o">/</span><span class="mh">0x2a8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122861</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c34a0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000239e34</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_bridge_extend</span><span class="o">+</span><span class="mh">0x4d4</span><span class="o">/</span><span class="mh">0x504</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122928</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3580</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000023a0f8</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_child_bus_extend</span><span class="o">+</span><span class="mh">0x280</span><span class="o">/</span><span class="mh">0x2a8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.122993</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c35f0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000239e34</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_bridge_extend</span><span class="o">+</span><span class="mh">0x4d4</span><span class="o">/</span><span class="mh">0x504</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123059</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c36d0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000023a0f8</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_child_bus_extend</span><span class="o">+</span><span class="mh">0x280</span><span class="o">/</span><span class="mh">0x2a8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123124</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3740</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000239e34</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_bridge_extend</span><span class="o">+</span><span class="mh">0x4d4</span><span class="o">/</span><span class="mh">0x504</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123191</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3820</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000023a0f8</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_child_bus_extend</span><span class="o">+</span><span class="mh">0x280</span><span class="o">/</span><span class="mh">0x2a8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123256</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3890</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000239b5c</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_bridge_extend</span><span class="o">+</span><span class="mh">0x1fc</span><span class="o">/</span><span class="mh">0x504</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123322</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3970</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000023a064</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_child_bus_extend</span><span class="o">+</span><span class="mh">0x1ec</span><span class="o">/</span><span class="mh">0x2a8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123388</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c39e0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000239b5c</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_bridge_extend</span><span class="o">+</span><span class="mh">0x1fc</span><span class="o">/</span><span class="mh">0x504</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123454</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3ac0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000023a064</span><span class="o">]</span><span class="w"> </span><span class="n">pci_scan_child_bus_extend</span><span class="o">+</span><span class="mh">0x1ec</span><span class="o">/</span><span class="mh">0x2a8</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123516</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3b30</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000000030dcc</span><span class="o">]</span><span class="w"> </span><span class="n">pcibios_scan_phb</span><span class="o">+</span><span class="mh">0x134</span><span class="o">/</span><span class="mh">0x1f4</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123574</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3bd0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000100a800</span><span class="o">]</span><span class="w"> </span><span class="n">pcibios_init</span><span class="o">+</span><span class="mh">0x9c</span><span class="o">/</span><span class="mh">0xbc</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123635</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3c50</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000000f398</span><span class="o">]</span><span class="w"> </span><span class="n">do_one_initcall</span><span class="o">+</span><span class="mh">0x80</span><span class="o">/</span><span class="mh">0x15c</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123698</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3d10</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c000000001000e94</span><span class="o">]</span><span class="w"> </span><span class="n">kernel_init_freeable</span><span class="o">+</span><span class="mh">0x248</span><span class="o">/</span><span class="mh">0x24c</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123756</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3db0</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000000f574</span><span class="o">]</span><span class="w"> </span><span class="n">kernel_init</span><span class="o">+</span><span class="mh">0x1c</span><span class="o">/</span><span class="mh">0x150</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123820</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c0000000fd7c3e20</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">c00000000000b72c</span><span class="o">]</span><span class="w"> </span><span class="n">ret_from_kernel_thread</span><span class="o">+</span><span class="mh">0x5c</span><span class="o">/</span><span class="mh">0x70</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123854</span><span class="o">]</span><span class="w"> </span><span class="n">Instruction</span><span class="w"> </span><span class="k">dump</span><span class="err">:</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.123885</span><span class="o">]</span><span class="w"> </span><span class="mi">7</span><span class="n">d054378</span><span class="w"> </span><span class="mi">4</span><span class="n">bff56f5</span><span class="w"> </span><span class="mi">60000000</span><span class="w"> </span><span class="mi">38600000</span><span class="w"> </span><span class="mi">38210020</span><span class="w"> </span><span class="n">e8010010</span><span class="w"> </span><span class="mi">7</span><span class="n">c0803a6</span><span class="w"> </span><span class="mf">4e800020</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.124022</span><span class="o">]</span><span class="w"> </span><span class="n">e86a0018</span><span class="w"> </span><span class="mi">54</span><span class="n">c6043e</span><span class="w"> </span><span class="mi">7</span><span class="n">d054378</span><span class="w"> </span><span class="mi">4</span><span class="n">bff5731</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">60000000</span><span class="o">&gt;</span><span class="w"> </span><span class="mi">4</span><span class="n">bffffd8</span><span class="w"> </span><span class="n">e86a0018</span><span class="w"> </span><span class="mi">7</span><span class="n">d054378</span><span class="w"> </span>
+<span class="o">[</span><span class="n">   10.124180</span><span class="o">]</span><span class="w"> </span><span class="n">Kernel</span><span class="w"> </span><span class="n">panic</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nl">syncing</span><span class="p">:</span><span class="w"> </span><span class="n">Hard</span><span class="w"> </span><span class="n">LOCKUP</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.124232</span><span class="o">]</span><span class="w"> </span><span class="nl">CPU</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="nl">PID</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="nl">Comm</span><span class="p">:</span><span class="w"> </span><span class="n">swapper</span><span class="o">/</span><span class="mi">0</span><span class="w"> </span><span class="ow">Not</span><span class="w"> </span><span class="n">tainted</span><span class="w"> </span><span class="mf">5.0.5</span><span class="o">-</span><span class="n">openpower1</span><span class="w"> </span><span class="n">#2</span><span class="w"></span>
+<span class="o">[</span><span class="n">   10.124251</span><span class="o">]</span><span class="w"> </span><span class="k">Call</span><span class="w"> </span><span class="nl">Trace</span><span class="p">:</span><span class="w"></span>
+</code></pre></div>
 
 <p>I wonder if I can submit that bug without someone throwing something at my desk.</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
-      </h1>
-    <p class="meta">
-<time datetime="2019-05-29T16:47:00+10:00" pubdate>Wed 29 May 2019</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2019-05-29T16:47:00+10:00" pubdate>Wed 29 May 2019</time></div>
-
-  <div class="entry-content"><p><a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">Just recently</a> Petitboot added a method to ask the user for a password before allowing certain actions to proceed. Underneath the covers this is checking against the root password, but the UI "pop-up" asking for the password is relatively generic. Something else which has been on the to-do list for a while is support for mounting encrpyted partitions, but there wasn't a good way to retrieve the password for them - until now!</p>
-<p>With the password problem solved, there isn't too much else to do. If Petitboot sees an encrypted partition it makes a note of it and informs the UI via the <code>device_add</code> interface. Seeing this the UI shows this device in the UI even though there aren't any boot options associated with it yet:</p>
-<p><img alt="encrypted_hdr" src="/images/sammj/encrypted_hdr.png"></p>
-<p>Unlike normal devices in the menu these are selectable; once that happens the user is prompted for the password:</p>
-<p><img alt="encrypted_password" src="/images/sammj/encrypted_password.png"></p>
-<p>With password in hand pb-discover will then try to open the device with <code>cryptsetup</code>. If that succeeds the encrypted device is removed from the UI and replaced with the new un-encrypted device:</p>
-<p><img alt="unencrypted_hdr" src="/images/sammj/unencrypted_hdr.png"></p>
-<p>That's it! These devices can't be auto-booted from at the moment since the password needs to be manually entered. The UI also doesn't have a way yet to select specific options for <code>cryptsetup</code>, but if you find yourself needing to do so you can run <code>cryptsetup</code> manually from the shell and pb-discover will recognise the new unencrypted device automatically.</p>
-<p>This is in Petitboot as of v1.10.3 so go check it out! Just make sure your image includes the kernel and cryptsetup <a href="https://github.com/open-power/op-build/pull/2840">dependencies</a>.</p></div>
   		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
@@ -716,6 +872,9 @@ Message=&quot;OpTestSystem in run_IPLing and the Exception=
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -726,9 +885,6 @@ Message=&quot;OpTestSystem in run_IPLing and the Exception=
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

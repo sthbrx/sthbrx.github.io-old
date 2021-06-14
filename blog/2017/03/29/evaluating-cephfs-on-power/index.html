@@ -145,89 +145,80 @@ upon which which this is based:
 <ul>
 <li>Enable ssh</li>
 </ul>
-<div class="highlight"><pre><span></span>    sudo apt install openssh-server
-    sudo apt update
-    sudo apt upgrade
-    sudo reboot
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    sudo apt install openssh-server</span>
+<span class="err">    sudo apt update</span>
+<span class="err">    sudo apt upgrade</span>
+<span class="err">    sudo reboot</span>
+</code></pre></div>
 
 <ul>
 <li>Install build tools</li>
 </ul>
-<div class="highlight"><pre><span></span>    sudo apt install git debhelper
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    sudo apt install git debhelper</span>
+</code></pre></div>
 
 <h3>Build Ceph</h3>
 <ul>
 <li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
 </ul>
-<div class="highlight"><pre><span></span>    mkdir $HOME/src
-    cd $HOME/src
-    git clone --recursive https://github.com/ceph/ceph.git  # This may take a while
-    cd ceph
-    git checkout master
-    git submodule update --force --init --recursive
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    mkdir $HOME/src</span>
+<span class="err">    cd $HOME/src</span>
+<span class="err">    git clone --recursive https://github.com/ceph/ceph.git  # This may take a while</span>
+<span class="err">    cd ceph</span>
+<span class="err">    git checkout master</span>
+<span class="err">    git submodule update --force --init --recursive</span>
+</code></pre></div>
 
 <ul>
 <li>Cherry-pick the Power performance patches:</li>
 </ul>
-<div class="highlight"><pre><span></span>    git remote add kestrels https://github.com/kestrels/ceph.git
-    git fetch --all
-    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    git remote add kestrels https://github.com/kestrels/ceph.git</span>
+<span class="err">    git fetch --all</span>
+<span class="err">    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11</span>
+</code></pre></div>
 
 <ul>
 <li>Install prerequisites</li>
 </ul>
-<div class="highlight"><pre><span></span>    ./install-deps.sh
-    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
-    sudo pip3 install ceph-deploy
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    ./install-deps.sh</span>
+<span class="err">    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework</span>
+<span class="err">    sudo pip3 install ceph-deploy</span>
+</code></pre></div>
 
 <ul>
 <li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
 </ul>
-<div class="highlight"><pre><span></span>    cd $HOME/src/ceph
-    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    cd $HOME/src/ceph</span>
+<span class="err">    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)</span>
+</code></pre></div>
 
 <ul>
 <li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
 </ul>
-<div class="highlight"><pre><span></span>    cd $HOME/src
-    sudo dpkg -i *.deb
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    cd $HOME/src</span>
+<span class="err">    sudo dpkg -i *.deb</span>
+</code></pre></div>
 
 <h3>Create the ceph-deploy user</h3>
-<div class="highlight"><pre><span></span>    sudo adduser ceph-deploy
-    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy
-    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    sudo adduser ceph-deploy</span>
+<span class="err">    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy</span>
+<span class="err">    sudo chmod 0440 /etc/sudoers.d/ceph-deploy</span>
+</code></pre></div>
 
 <h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span>    su - ceph-deploy
-    ssh-keygen
-    node=`hostname`
-    ssh-copy-id ceph-deploy@$node
-    mkdir $HOME/ceph-cluster
-    cd $HOME/ceph-cluster
-    ceph-deploy new $node # If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts
-    echo &#39;osd pool default size = 2&#39; &gt;&gt; ceph.conf
-    echo &#39;osd crush chooseleaf type = 0&#39; &gt;&gt; ceph.conf
-</pre></div>
-
+<div class="highlight"><pre><span></span><code>    <span class="n">su</span> <span class="o">-</span> <span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span>
+    <span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span>
+    <span class="n">node</span><span class="o">=</span><span class="n">`hostname`</span>
+    <span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span> <span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span>
+    <span class="n">mkdir</span> <span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span>
+    <span class="n">cd</span> <span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span>
+    <span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span> <span class="k">new</span> <span class="n">$node</span> <span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span>
+    <span class="n">echo</span> <span class="s1">&#39;osd pool default size = 2&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">ceph</span><span class="p">.</span><span class="n">conf</span>
+    <span class="n">echo</span> <span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">ceph</span><span class="p">.</span><span class="n">conf</span>
+</code></pre></div>
 
 <h3>Complete the Ceph deployment</h3>
-<div class="highlight"><pre><span></span>    ceph-deploy install <span class="nv">$node</span>
+<div class="highlight"><pre><span></span><code>    ceph-deploy install <span class="nv">$node</span>
     ceph-deploy mon create-initial
     drives=&quot;vda vdb vdc&quot;  # the 1TB drives - check that these are correct for your system
     for drive in <span class="nv">$drives</span>; do ceph-deploy disk zap <span class="nv">$node</span>:<span class="nv">$drive</span>; ceph-deploy osd prepare <span class="nv">$node</span>:<span class="nv">$drive</span>; done
@@ -235,20 +226,18 @@ upon which which this is based:
     ceph-deploy admin <span class="nv">$node</span>
     sudo chmod +r /etc/ceph/ceph.client.admin.keyring
     ceph -s # Check the state of the cluster
-</pre></div>
-
+</code></pre></div>
 
 <h3>Configure CephFS</h3>
-<div class="highlight"><pre><span></span>    ceph-deploy mds create $node
-    ceph osd pool create cephfs_data 128
-    ceph osd pool create cephfs_metadata 128
-    ceph fs new cephfs cephfs_metadata cephfs_data
-    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
-    sudo mkdir /mnt/cephfs
-    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
-    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    ceph-deploy mds create $node</span>
+<span class="err">    ceph osd pool create cephfs_data 128</span>
+<span class="err">    ceph osd pool create cephfs_metadata 128</span>
+<span class="err">    ceph fs new cephfs cephfs_metadata cephfs_data</span>
+<span class="err">    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running</span>
+<span class="err">    sudo mkdir /mnt/cephfs</span>
+<span class="err">    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`</span>
+<span class="err">    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key</span>
+</code></pre></div>
 
 <h2>References</h2>
 <ol>
@@ -271,6 +260,9 @@ upon which which this is based:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -281,9 +273,6 @@ upon which which this is based:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>
