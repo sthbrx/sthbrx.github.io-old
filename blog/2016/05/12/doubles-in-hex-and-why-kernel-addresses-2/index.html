@@ -165,7 +165,7 @@ Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
 <p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 <em>most</em> of the trouble.</p>
-<div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
 
 <span class="kt">void</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -173,8 +173,7 @@ userspace (where we are capable of printing floats) and we can save ourselves
 
     <span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
 <span class="p">}</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>So all we're doing is taking our hex value and storing it in a long (val), then
 getting a pointer to val, casting it to a double pointer, and dereferencing it
@@ -185,9 +184,8 @@ and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer i
 <p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:</p>
-<div class="highlight"><pre><span></span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">double</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+</code></pre></div>
 
 <p>And now we get:</p>
 <blockquote>
@@ -213,16 +211,15 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).</p>
 <h2>But What is -2 as a Double in hex?</h2>
 <p>Well lets modify the above program and find out:</p>
-<div class="highlight"><pre><span></span><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<div class="highlight"><pre><span></span><code><span class="n">include</span> <span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 
 <span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
-        <span class="kt">double</span> <span class="n">val</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span><span class="p">;</span>
+        <span class="kt">double</span> <span class="n">val</span> <span class="o">=</span> <span class="mi">-2</span><span class="p">;</span>
 
         <span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: 0x%lx</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">((</span><span class="kt">long</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
 <span class="p">}</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>Result?</p>
 <blockquote>
@@ -271,6 +268,9 @@ a double, 0xc00000001568fba0 =
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -281,9 +281,6 @@ a double, 0xc00000001568fba0 =
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

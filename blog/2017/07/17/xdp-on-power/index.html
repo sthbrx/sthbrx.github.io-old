@@ -175,12 +175,11 @@ to trivially set up a VM running Ubuntu Zesty on your local machine.</p>
 need to edit the 'interface' section and add the following snippet
 (with thanks to the <a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html">xdp-newbies
 list</a>):</p>
-<div class="highlight"><pre><span></span><span class="nt">&lt;driver</span> <span class="na">name=</span><span class="s">&#39;vhost&#39;</span> <span class="na">queues=</span><span class="s">&#39;4&#39;</span><span class="nt">&gt;</span>
+<div class="highlight"><pre><span></span><code><span class="nt">&lt;driver</span> <span class="na">name=</span><span class="s">&#39;vhost&#39;</span> <span class="na">queues=</span><span class="s">&#39;4&#39;</span><span class="nt">&gt;</span>
     <span class="nt">&lt;host</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
     <span class="nt">&lt;guest</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
 <span class="nt">&lt;/driver&gt;</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>(If you have more than 2 vCPUs, set the queues parameter to 2x the
 number of vCPUs.)</p>
@@ -201,11 +200,10 @@ powerpc.</p>
 <p>Then, once you get the stuff compiled, and try to run it on a
 current-at-time-of-writing Zesty kernel, you'll hit a massive debug
 splat ending in:</p>
-<div class="highlight"><pre><span></span>32: (61) r1 = *(u32 *)(r8 +12)
-misaligned packet access off 0+18+12 size 4
-load_bpf_file: Permission denied
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="mi">32</span><span class="p">:</span> <span class="p">(</span><span class="mi">61</span><span class="p">)</span> <span class="n">r1</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">u32</span> <span class="o">*</span><span class="p">)(</span><span class="n">r8</span> <span class="o">+</span><span class="mi">12</span><span class="p">)</span>
+<span class="n">misaligned</span> <span class="n">packet</span> <span class="n">access</span> <span class="n">off</span> <span class="mi">0</span><span class="o">+</span><span class="mi">18</span><span class="o">+</span><span class="mi">12</span> <span class="n">size</span> <span class="mi">4</span>
+<span class="n">load_bpf_file</span><span class="p">:</span> <span class="n">Permission</span> <span class="n">denied</span>
+</code></pre></div>
 
 <p>It turns out this is because in Ubuntu's Zesty kernel,
 CONFIG_HAS_EFFICIENT_UNALIGNED_ACCESS is not set on ppc64el. Because
@@ -250,6 +248,9 @@ either!)</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -260,9 +261,6 @@ either!)</p></div>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

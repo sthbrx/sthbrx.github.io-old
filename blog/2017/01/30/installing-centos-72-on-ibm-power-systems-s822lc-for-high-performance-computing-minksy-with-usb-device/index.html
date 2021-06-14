@@ -160,28 +160,24 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>For the following impitool commands, server_ip_address is the IP address of the BMC from Step 2, and ipmi_user and ipmi_password are the default user ID and password for IPMI.</p>
 <h3>Power On using IPMI</h3>
 <p>If your server is not powered on, run the following command to power the server on:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password chassis power on
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span> <span class="o">-</span><span class="n">I</span> <span class="n">lanplus</span> <span class="o">-</span><span class="n">H</span> <span class="n">server_ip_address</span> <span class="o">-</span><span class="n">U</span> <span class="n">ipmi_user</span> <span class="o">-</span><span class="n">P</span> <span class="n">ipmi_password</span> <span class="n">chassis</span> <span class="n">power</span> <span class="n">on</span>
+</code></pre></div>
 
 <h3><a name="active-sol-ipmi"></a>Activate Serial-Over-Lan using IPMI</h3>
 <p>Activate your IPMI console by running this command:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password sol activate
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span> <span class="o">-</span><span class="n">I</span> <span class="n">lanplus</span> <span class="o">-</span><span class="n">H</span> <span class="n">server_ip_address</span> <span class="o">-</span><span class="n">U</span> <span class="n">ipmi_user</span> <span class="o">-</span><span class="n">P</span> <span class="n">ipmi_password</span> <span class="n">sol</span> <span class="n">activate</span>
+</code></pre></div>
 
 <p>After powering on your system, the Petitboot interface loads. If you do not interrupt the boot process by pressing any key within 10 seconds, Petitboot automatically boots the first option. At this point the IPMI console will be connected to the Operating Systems serial. If you get to this stage accidently you can deactivate and reboot as per the following two commands.</p>
 <h3>Deactivate Serial-Over-Lan using IPMI</h3>
 <p>If you need to power off or reboot your system, deactivate the console by running this command:</p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password sol deactivate
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span> <span class="o">-</span><span class="n">I</span> <span class="n">lanplus</span> <span class="o">-</span><span class="n">H</span> <span class="n">server_ip_address</span> <span class="o">-</span><span class="n">U</span> <span class="n">user</span><span class="o">-</span><span class="n">name</span> <span class="o">-</span><span class="n">P</span> <span class="n">ipmi_password</span> <span class="n">sol</span> <span class="n">deactivate</span>
+</code></pre></div>
 
 <h3>Reboot using IPMI</h3>
 <p>If you need to reboot the system, run this command: </p>
-<div class="highlight"><pre><span></span>ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password chassis power reset
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span> <span class="o">-</span><span class="n">I</span> <span class="n">lanplus</span> <span class="o">-</span><span class="n">H</span> <span class="n">server_ip_address</span> <span class="o">-</span><span class="n">U</span> <span class="n">user</span><span class="o">-</span><span class="n">name</span> <span class="o">-</span><span class="n">P</span> <span class="n">ipmi_password</span> <span class="n">chassis</span> <span class="n">power</span> <span class="n">reset</span>
+</code></pre></div>
 
 <h2>Step 4: Creating a USB device and booting</h2>
 <p>At this point, your IPMI console should be contain a Petitboot bootloader menu as illustrated below and you are ready to install Centos 7 on your server.</p>
@@ -236,12 +232,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>Using the ipmitool's shell (<em>ctrl-b 2</em>):</li>
 <li>Enter the following commands to generate a grub.cfg file</li>
 </ol>
-<div class="highlight"><pre><span></span>chroot /mnt/sysimage
-rm /etc/grub.d/30_os-prober
-grub2-mkconfig -o /boot/grub2/grub.cfg
-exit
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">chroot /mnt/sysimage</span>
+<span class="err">rm /etc/grub.d/30_os-prober</span>
+<span class="err">grub2-mkconfig -o /boot/grub2/grub.cfg</span>
+<span class="err">exit</span>
+</code></pre></div>
 
 <p><code>/etc/grub.d/30_os-prober</code> is removed as Petitboot probes the other devices anyway so including it would create lots of duplicate menu items.</p>
 <p>The last step is to restart your system.</p>
@@ -271,6 +266,9 @@ For more information, see the following resources:</p>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -281,9 +279,6 @@ For more information, see the following resources:</p>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

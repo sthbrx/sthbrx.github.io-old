@@ -140,15 +140,14 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>We basically want <code>gf_vect_mul(size_t len, &lt;something representing the constant&gt;, unsigned char * src, unsigned char * dest)</code></p>
 <h3>Simple and slow approach</h3>
 <p>The simplest way is to do something like this:</p>
-<div class="highlight"><pre><span></span>void gf_vect_mul_simple(size_t len, unsigned char c, unsigned char * src, unsigned char * dest) {
+<div class="highlight"><pre><span></span><code><span class="n">void</span><span class="w"> </span><span class="n">gf_vect_mul_simple</span><span class="p">(</span><span class="n">size_t</span><span class="w"> </span><span class="nf">len</span><span class="p">,</span><span class="w"> </span><span class="n">unsigned</span><span class="w"> </span><span class="nc">char</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">unsigned</span><span class="w"> </span><span class="nc">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">unsigned</span><span class="w"> </span><span class="nc">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">dest</span><span class="p">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
 
-    size_t i;
-    for (i=0; i&lt;len; i++) {
-        dest[i] = gf_mul(c, src[i]);
-    }
-}
-</pre></div>
-
+<span class="w">    </span><span class="n">size_t</span><span class="w"> </span><span class="n">i</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">&lt;</span><span class="nf">len</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">dest</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gf_mul</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="err">}</span><span class="w"></span>
+<span class="err">}</span><span class="w"></span>
+</code></pre></div>
 
 <p>That does multiplication element by element using the library's supplied <code>gf_mul</code> function, which - as the name suggests - does GF(2^8) multiplication of a scalar by a scalar.</p>
 <p>This works. The problem is that it is very, painfully, slow - in the order of a few hundred megabytes per second.</p>
@@ -169,46 +168,43 @@ document.addEventListener('DOMContentLoaded', function() {
 </ul>
 <p>Generating the tables is reasonably straight-forward, in theory. Recall that the tables are <code>a</code> * {{00},{01},...,{0f}} and <code>a</code> * {{00},{10},..,{f0}} - a couple of loops in C will generate them without difficulty. ISA-L has a function to do this, as does gf-complete in split-table mode, so I won't repeat them here.</p>
 <p>So, let's recast our function to take the tables as an input rather than the constant <code>a</code>. Assume we're provided the two tables concatenated into one 32-byte chunk. That would give us:</p>
-<div class="highlight"><pre><span></span>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest)
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest)</span>
+</code></pre></div>
 
 <p>Here's how you would do it in C:</p>
-<div class="highlight"><pre><span></span>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest) {
-        vector unsigned char tbl1, tbl2, in, out;
-        size_t i;
+<div class="highlight"><pre><span></span><code><span class="n">void</span> <span class="n">gf_vect_mul_v2</span><span class="p">(</span><span class="n">size_t</span> <span class="n">len</span><span class="p">,</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="k">table</span><span class="p">,</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="n">src</span><span class="p">,</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span> <span class="n">dest</span><span class="p">)</span> <span class="err">{</span>
+        <span class="n">vector</span> <span class="n">unsigned</span> <span class="nb">char</span> <span class="n">tbl1</span><span class="p">,</span> <span class="n">tbl2</span><span class="p">,</span> <span class="k">in</span><span class="p">,</span> <span class="k">out</span><span class="p">;</span>
+        <span class="n">size_t</span> <span class="n">i</span><span class="p">;</span>
 
-        /* Assume table, src, dest are aligned and len is a multiple of 16 */
+        <span class="cm">/* Assume table, src, dest are aligned and len is a multiple of 16 */</span>
 
-        tbl1 = vec_ld(16, table);
-        tbl2 = vec_ld(0, table);
-        for (i=0; i&lt;len; i+=16) {
-            in = vec_ld(i, (unsigned char *)src);
-            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in)
-            vec_st(out, i, (unsigned char *)dest);
-        }
-}
-</pre></div>
-
+        <span class="n">tbl1</span> <span class="o">=</span> <span class="n">vec_ld</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="k">table</span><span class="p">);</span>
+        <span class="n">tbl2</span> <span class="o">=</span> <span class="n">vec_ld</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="k">table</span><span class="p">);</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="n">len</span><span class="p">;</span> <span class="n">i</span><span class="o">+=</span><span class="mi">16</span><span class="p">)</span> <span class="err">{</span>
+            <span class="k">in</span> <span class="o">=</span> <span class="n">vec_ld</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span><span class="p">)</span><span class="n">src</span><span class="p">);</span>
+            <span class="n">__asm__</span><span class="p">(</span><span class="ss">&quot;vpermxor %0, %1, %2, %3&quot;</span> <span class="p">:</span> <span class="ss">&quot;=v&quot;</span><span class="p">(</span><span class="k">out</span><span class="p">)</span> <span class="p">:</span> <span class="ss">&quot;v&quot;</span><span class="p">(</span><span class="n">tbl1</span><span class="p">),</span> <span class="ss">&quot;v&quot;</span><span class="p">(</span><span class="n">tbl2</span><span class="p">),</span> <span class="ss">&quot;v&quot;</span><span class="p">(</span><span class="k">in</span><span class="p">)</span>
+            <span class="n">vec_st</span><span class="p">(</span><span class="k">out</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">unsigned</span> <span class="nb">char</span> <span class="o">*</span><span class="p">)</span><span class="n">dest</span><span class="p">);</span>
+        <span class="err">}</span>
+<span class="err">}</span>
+</code></pre></div>
 
 <p>There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.</p>
 <p>We can go a bit faster by doing larger chunks at a time:</p>
-<div class="highlight"><pre><span></span>    for (i=0; i&lt;vlen; i+=64) {
-            in1 = vec_ld(i, (unsigned char *)src);
-            in2 = vec_ld(i+16, (unsigned char *)src);
-            in3 = vec_ld(i+32, (unsigned char *)src);
-            in4 = vec_ld(i+48, (unsigned char *)src);
-            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out1) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in1));
-            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out2) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in2));
-            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out3) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in3));
-            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out4) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in4));
-            vec_st(out1, i, (unsigned char *)dest);
-            vec_st(out2, i+16, (unsigned char *)dest);
-            vec_st(out3, i+32, (unsigned char *)dest);
-            vec_st(out4, i+48, (unsigned char *)dest);
-    }
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">    for (i=0; i&lt;vlen; i+=64) {</span>
+<span class="err">            in1 = vec_ld(i, (unsigned char *)src);</span>
+<span class="err">            in2 = vec_ld(i+16, (unsigned char *)src);</span>
+<span class="err">            in3 = vec_ld(i+32, (unsigned char *)src);</span>
+<span class="err">            in4 = vec_ld(i+48, (unsigned char *)src);</span>
+<span class="err">            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out1) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in1));</span>
+<span class="err">            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out2) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in2));</span>
+<span class="err">            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out3) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in3));</span>
+<span class="err">            __asm__(&quot;vpermxor %0, %1, %2, %3&quot; : &quot;=v&quot;(out4) : &quot;v&quot;(tbl1), &quot;v&quot;(tbl2), &quot;v&quot;(in4));</span>
+<span class="err">            vec_st(out1, i, (unsigned char *)dest);</span>
+<span class="err">            vec_st(out2, i+16, (unsigned char *)dest);</span>
+<span class="err">            vec_st(out3, i+32, (unsigned char *)dest);</span>
+<span class="err">            vec_st(out4, i+48, (unsigned char *)dest);</span>
+<span class="err">    }</span>
+</code></pre></div>
 
 <p>This goes at about 23.5 GB/s.</p>
 <p>We can go one step further and do the core loop in assembler - that means we control the instruction layout and so on. I tried this: it turns out that for the basic vector multiply loop, if we turn off ASLR and pin to a particular CPU, we can see a improvement of a few percent (and a decrease in variability) over C code.</p>
@@ -248,23 +244,22 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>For what it's worth, ISA-L ships with only the first approach in x86 assembler, and Jerasure leans heavily towards the second approach.</p>
 <p>Once you have a vector dot product sorted, you can build a full erasure coding setup: build your tables with your library, then do a dot product to generate each of your outputs!</p>
 <p>In ISA-L, this is implemented something like this:</p>
-<div class="highlight"><pre><span></span><span class="cm">/*</span>
-<span class="cm"> * ec_encode_data_simple(length of each data input, number of inputs,</span>
-<span class="cm"> *                       number of outputs, pre-generated GF(2^8) tables,</span>
-<span class="cm"> *                       input data pointers, output code pointers)</span>
-<span class="cm"> */</span><span class="w"></span>
-void<span class="w"> </span>ec_encode_data_simple<span class="o">(</span>int<span class="w"> </span>len<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>k<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>rows<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">*</span>g_tbls<span class="o">,</span><span class="w"></span>
-<span class="w">                           </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>data<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>coding<span class="o">)</span><span class="w"></span>
-<span class="err">{</span><span class="w"></span>
-<span class="w">        </span><span class="kr">while</span><span class="w"> </span><span class="o">(</span>rows<span class="o">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
-<span class="w">                </span>gf_vect_dot_prod<span class="o">(</span>len<span class="o">,</span><span class="w"> </span>k<span class="o">,</span><span class="w"> </span>g_tbls<span class="o">,</span><span class="w"> </span>data<span class="o">,</span><span class="w"> </span><span class="o">*</span>coding<span class="o">)</span><span class="err">;</span><span class="w"></span>
-<span class="w">                </span>g_tbls<span class="w"> </span><span class="o">+=</span><span class="w"> </span>k<span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">32</span><span class="err">;</span><span class="w"></span>
-<span class="w">                </span>coding<span class="o">++</span><span class="err">;</span><span class="w"></span>
-<span class="w">                </span>rows<span class="o">--</span><span class="err">;</span><span class="w"></span>
-<span class="w">        </span><span class="err">}</span><span class="w"></span>
-<span class="err">}</span><span class="w"></span>
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">/*</span>
+<span class="err"> * ec_encode_data_simple(length of each data input, number of inputs,</span>
+<span class="err"> *                       number of outputs, pre-generated GF(2^8) tables,</span>
+<span class="err"> *                       input data pointers, output code pointers)</span>
+<span class="err"> */</span>
+<span class="err">void ec_encode_data_simple(int len, int k, int rows, unsigned char *g_tbls,</span>
+<span class="err">                           unsigned char **data, unsigned char **coding)</span>
+<span class="err">{</span>
+<span class="err">        while (rows) {</span>
+<span class="err">                gf_vect_dot_prod(len, k, g_tbls, data, *coding);</span>
+<span class="err">                g_tbls += k * 32;</span>
+<span class="err">                coding++;</span>
+<span class="err">                rows--;</span>
+<span class="err">        }</span>
+<span class="err">}</span>
+</code></pre></div>
 
 <h2>Going faster still</h2>
 <p>Eagle eyed readers will notice that however we generate an output, we have to read all the input elements. This means that if we're doing a code with 10 data disks and 4 coding disks, we have to read each of the 10 inputs 4 times.</p>
@@ -274,11 +269,10 @@ void<span class="w"> </span>ec_encode_data_simple<span class="o">(</span>int<spa
 <ul>
 <li>
 <p>Benchmarking is tricky. I do the following on a bare-metal, idle machine, with ASLR off and pinned to an arbitrary hardware thread. (Code is for the <a href="https://fishshell.com/">fish shell</a>)</p>
-<div class="highlight"><pre><span></span>for x in (seq 1 50)
-    setarch ppc64le -R taskset -c 24 erasure_code/gf_vect_mul_perf
-end | awk &#39;/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}&#39;
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">for x in (seq 1 50)</span>
+<span class="err">    setarch ppc64le -R taskset -c 24 erasure_code/gf_vect_mul_perf</span>
+<span class="err">end | awk &#39;/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}&#39;</span>
+</code></pre></div>
 
 </li>
 <li>
@@ -289,14 +283,13 @@ end | awk &#39;/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}&#39;
 </li>
 <li>
 <p>Related: GCC is moving towards assignment over vector intrinsics, at least on Power:</p>
-<div class="highlight"><pre><span></span>vector unsigned char a;
-unsigned char * data;
-// good, also handles word-aligned data with VSX
-a = *(vector unsigned char *)data;
-// bad, requires special handling of non-16-byte aligned data
-a = vec_ld(0, (unsigned char *) data);
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="err">vector unsigned char a;</span>
+<span class="err">unsigned char * data;</span>
+<span class="err">// good, also handles word-aligned data with VSX</span>
+<span class="err">a = *(vector unsigned char *)data;</span>
+<span class="err">// bad, requires special handling of non-16-byte aligned data</span>
+<span class="err">a = vec_ld(0, (unsigned char *) data);</span>
+</code></pre></div>
 
 </li>
 </ul>
@@ -330,6 +323,9 @@ a = vec_ld(0, (unsigned char *) data);
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -340,9 +336,6 @@ a = vec_ld(0, (unsigned char *) data);
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

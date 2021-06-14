@@ -127,9 +127,9 @@ So it should just be a matter of compiling Petitboot LE right? Well...</p>
 <p>Endianess, and several other things besides, are controlled by the Machine State Register (MSR). Each processor in a machine has an MSR, and each bit of the MSR controls some aspect of the processor such as 64-bit mode or enabling interrupts. To switch endianess we set the LE bit (63) to 1.</p>
 <p>When a processor first starts up it defaults to big-endian (bit 63 = 0). However the processor doesn't actually know the endianess of the kernel code it is about to execute - either it is big-endian and everything is fine, or it isn't and the processor will very quickly try to execute an illegal instruction.</p>
 <p>The solution to this is an amazing little snippet of code in <a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/boot/ppc_asm.h#L65">arch/powerpc/boot/ppc_asm.h</a> (follow the link to see some helpful commenting):</p>
-<div class="highlight"><pre><span></span><span class="cp">#define FIXUP_ENDIAN</span>
+<div class="highlight"><pre><span></span><code><span class="cp">#define FIXUP_ENDIAN</span>
     <span class="n">tdi</span>   <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">;</span>
-    <span class="n">b</span>     <span class="err">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
+    <span class="n">b</span>     <span class="n">$</span><span class="o">+</span><span class="mi">36</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0x05009f42</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa602487d</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0x1c004a39</span><span class="p">;</span>
@@ -138,8 +138,7 @@ So it should just be a matter of compiling Petitboot LE right? Well...</p>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6035a7d</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0xa6037b7d</span><span class="p">;</span>
     <span class="p">.</span><span class="kt">long</span> <span class="mh">0x2400004c</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>By some amazing coincidence if you take the opcode for <code>tdi 0, 0, 0x48</code> and flip the order of the bytes it forms the opcode for <code>b . + 8</code>. So if the kernel is big-endian, the processor will jump to the next instruction after this snippet. However if the kernel is little-endian we execute the next 8 instructions. These are written in reverse so that if the processor isn't in the right endian it interprets them backwards, executing the instructions shown in the linked comments above, resulting in MSR<sub>LE</sub> being set to 1.</p>
 <p>When booting a little-endian kernel all of the above works fine - but there is a problem for Petitboot that will become apparent a little further down...</p>
@@ -195,6 +194,9 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -205,9 +207,6 @@ This is actually what turns on the HILE bit in the first place, and is meant to 
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

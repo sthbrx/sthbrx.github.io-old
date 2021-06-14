@@ -159,10 +159,9 @@ dump the correct part of memory which corresponds to the log buffer.</p>
 <p>Before we can dump the log buffer we need to know where it is. Luckily for us
 this is fairly simple, we just need to dump all the kernel symbols and look for
 the right one.</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">nm</span> <span class="n">vmlinux</span> <span class="o">&gt;</span> <span class="n">tmp</span><span class="p">;</span> <span class="n">grep</span> <span class="n">__log_buf</span> <span class="n">tmp</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span> <span class="n">nm</span> <span class="n">vmlinux</span> <span class="o">&gt;</span> <span class="n">tmp</span><span class="p">;</span> <span class="n">grep</span> <span class="n">__log_buf</span> <span class="n">tmp</span><span class="p">;</span>
 <span class="n">c000000000f5e3dc</span> <span class="n">b</span> <span class="n">__log_buf</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>We use the nm tool to list all the kernel symbols and output this into some
 temporary file, we can then grep this for the log buffer (which we know to be
@@ -171,7 +170,7 @@ named __log_buf), and presto we are told that it's at kernel address 0xf5e3dc.</
 <p>It's then simply a case of dumping guest memory from the QEMU console. So first
 we press ^a+c to get us to the QEMU console, then we can use the aptly named
 dump-guest-memory.</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">help</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span> <span class="n">help</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span>
 <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">z</span><span class="o">|-</span><span class="n">l</span><span class="o">|-</span><span class="n">s</span><span class="p">]</span> <span class="n">filename</span> <span class="p">[</span><span class="n">begin</span> <span class="n">length</span><span class="p">]</span> <span class="o">--</span> <span class="n">dump</span> <span class="n">guest</span> <span class="n">memory</span> <span class="n">into</span> <span class="n">file</span> <span class="err">&#39;</span><span class="n">filename</span><span class="err">&#39;</span><span class="p">.</span>
             <span class="o">-</span><span class="nl">p</span><span class="p">:</span> <span class="k">do</span> <span class="n">paging</span> <span class="n">to</span> <span class="n">get</span> <span class="n">guest</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">memory</span> <span class="n">mapping</span><span class="p">.</span>
             <span class="o">-</span><span class="nl">d</span><span class="p">:</span> <span class="k">return</span> <span class="n">immediately</span> <span class="p">(</span><span class="k">do</span> <span class="n">not</span> <span class="n">wait</span> <span class="k">for</span> <span class="n">completion</span><span class="p">).</span>
@@ -180,27 +179,23 @@ dump-guest-memory.</p>
             <span class="o">-</span><span class="nl">s</span><span class="p">:</span> <span class="n">dump</span> <span class="n">in</span> <span class="n">kdump</span><span class="o">-</span><span class="n">compressed</span> <span class="n">format</span><span class="p">,</span> <span class="n">with</span> <span class="n">snappy</span> <span class="n">compression</span><span class="p">.</span>
             <span class="nl">begin</span><span class="p">:</span> <span class="n">the</span> <span class="n">starting</span> <span class="n">physical</span> <span class="n">address</span><span class="p">.</span>
             <span class="nl">length</span><span class="p">:</span> <span class="n">the</span> <span class="n">memory</span> <span class="n">size</span><span class="p">,</span> <span class="n">in</span> <span class="n">bytes</span><span class="p">.</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>We just give it a filename for where we want our output to go, we know the
 starting address, we just don't know the length. We could choose some arbitrary
 length, but inspection of the kernel code shows us that:</p>
-<div class="highlight"><pre><span></span><span class="cp">#define __LOG_BUF_LEN (1 &lt;&lt; CONFIG_LOG_BUF_SHIFT)</span>
+<div class="highlight"><pre><span></span><code><span class="cp">#define __LOG_BUF_LEN (1 &lt;&lt; CONFIG_LOG_BUF_SHIFT)</span>
 <span class="k">static</span> <span class="kt">char</span> <span class="n">__log_buf</span><span class="p">[</span><span class="n">__LOG_BUF_LEN</span><span class="p">]</span> <span class="n">__aligned</span><span class="p">(</span><span class="n">LOG_ALIGN</span><span class="p">);</span>
-</pre></div>
-
+</code></pre></div>
 
 <p>Looking at the pseries_defconfig file shows us that the LOG_BUF_SHIFT is set to
 18, and thus we know that the buffer is 2^18 bytes or 256kb. So now we run:</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="n">tmp</span> <span class="mh">0xf5e3dc</span> <span class="mi">262144</span>
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span> <span class="n">dump</span><span class="o">-</span><span class="n">guest</span><span class="o">-</span><span class="n">memory</span> <span class="n">tmp</span> <span class="mh">0xf5e3dc</span> <span class="mi">262144</span>
+</code></pre></div>
 
 <p>And we now get our log buffer in the file tmp. This can simply be viewed with:</p>
-<div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">hexdump</span> <span class="o">-</span><span class="n">C</span> <span class="n">tmp</span>
-</pre></div>
-
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span> <span class="n">hexdump</span> <span class="o">-</span><span class="n">C</span> <span class="n">tmp</span>
+</code></pre></div>
 
 <p>This gives a readable, if poorly formatted output. I'm sure you can find
 something better but I'll leave that as an exercise for the reader.</p>
@@ -223,6 +218,9 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.<
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
       <li class="post">
@@ -233,9 +231,6 @@ buffer in QEMU and hopefully therein lies the answer to why you failed to boot.<
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
       </li>
     </ul>
   </section>

@@ -179,9 +179,8 @@ improvement in this benchmark.&lt;/p&gt;
 &lt;h3&gt;OpenSSL&lt;/h3&gt;
 &lt;p&gt;&lt;a href="https://www.openssl.org/"&gt;OpenSSL&lt;/a&gt; is among other things a cryptographic library. The Phoronix benchmark
 measures the number of RSA 4096 signs per second:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ openssl speed -multi &lt;span class="k"&gt;$(&lt;/span&gt;nproc&lt;span class="k"&gt;)&lt;/span&gt; rsa4096
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;$ openssl speed -multi &lt;span class="k"&gt;$(&lt;/span&gt;nproc&lt;span class="k"&gt;)&lt;/span&gt; rsa4096
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
 Mainline OpenSSL has some powerpc multiplication and squaring assembly code which seems
@@ -277,11 +276,10 @@ but not great for CPUs. The image size (1280x720) to tile size ratio limits the
 number of jobs created and therefore the number threads used.&lt;/p&gt;
 &lt;p&gt;To obtain a realistic CPU measurement with more that 15 threads you can force
 the use of the CPU file by overwriting the GPU file with the CPU one:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ cp
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;$ cp
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;As you can see in the image below, now all of the cores are being utilised!
 &lt;img alt="Blender with CPU Blend file" src="/images/phoronix/blender-88threads.png" title="Blender with CPU Blend file"&gt;&lt;/p&gt;
@@ -375,38 +373,34 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 &lt;h3&gt;GPU Drivers and CUDA&lt;/h3&gt;
 &lt;p&gt;Firstly, you'll need CUDA and the NVidia drivers.&lt;/p&gt;
 &lt;p&gt;You can install CUDA by following the instructions on NVidia's &lt;a href="https://developer.nvidia.com/cuda-downloads"&gt;CUDA Downloads&lt;/a&gt; page.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install epel-release
-yum install dkms
-# download the rpm from the NVidia website
-rpm -i cuda-repo-rhel7-8-0-local-ga2-8.0.54-1.ppc64le.rpm
-yum clean expire-cache
-yum install cuda
-# this will take a while...
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;epel&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;release&lt;/span&gt;
+&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;dkms&lt;/span&gt;
+&lt;span class="c1"&gt;# download the rpm from the NVidia website&lt;/span&gt;
+&lt;span class="n"&gt;rpm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="n"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;repo&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rhel7&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ga2&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;8.0&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;54&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;ppc64le&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;rpm&lt;/span&gt;
+&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;clean&lt;/span&gt; &lt;span class="n"&gt;expire&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cache&lt;/span&gt;
+&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;cuda&lt;/span&gt;
+&lt;span class="c1"&gt;# this will take a while...&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Then, we set up a profile file to automatically load CUDA into our path:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cat &amp;gt;  /etc/profile.d/cuda_path.sh &lt;span class="err"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;EOF&lt;/span&gt;
-&lt;span class="err"&gt;#&lt;/span&gt; &lt;span class="err"&gt;From&lt;/span&gt; &lt;span class="err"&gt;http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf&lt;/span&gt; &lt;span class="err"&gt;-&lt;/span&gt; &lt;span class="err"&gt;4.4.2.1&lt;/span&gt;
-&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/bin${PATH:+:${PATH}}&lt;/span&gt;
-&lt;span class="err"&gt;export&lt;/span&gt; &lt;span class="na"&gt;LD_LIBRARY_PATH=&lt;/span&gt;&lt;span class="s"&gt;/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}&lt;/span&gt;
-&lt;span class="err"&gt;EOF&lt;/span&gt;
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="n"&gt;cat&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt;  &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;profile&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;cuda_path&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sh&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;EOF&lt;/span&gt;
+&lt;span class="c1"&gt;# From http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf - 4.4.2.1&lt;/span&gt;
+&lt;span class="k"&gt;export&lt;/span&gt; &lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;8.0&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="p"&gt;}}&lt;/span&gt;
+&lt;span class="k"&gt;export&lt;/span&gt; &lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;cuda&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;8.0&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib64&lt;/span&gt;&lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;LD_LIBRARY_PATH&lt;/span&gt;&lt;span class="p"&gt;}}&lt;/span&gt;
+&lt;span class="n"&gt;EOF&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Now, open a new terminal session and check to see if it works:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cuda-install-samples-8.0.sh ~
-cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;amp;&amp;amp; ./bandwidthTest
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="err"&gt;cuda-install-samples-8.0.sh ~&lt;/span&gt;
+&lt;span class="err"&gt;cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest&lt;/span&gt;
+&lt;span class="err"&gt;make &amp;amp;&amp;amp; ./bandwidthTest&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.&lt;/p&gt;
 &lt;h3&gt;Compilers&lt;/h3&gt;
 &lt;p&gt;You need a c++ compiler:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;yum install gcc-c++
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="err"&gt;yum install gcc-c++&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;h2&gt;Building NAMD&lt;/h2&gt;
 &lt;p&gt;Once CUDA and the compilers are installed, building NAMD is reasonably straightforward. The one hitch is that because we're using CUDA 8.0, and the NAMD build scripts assume CUDA 7.5, we need to supply an updated &lt;a href="/images/namd/Linux-POWER.cuda"&gt;Linux-POWER.cuda file&lt;/a&gt;. (We also enable code generation for the Pascal in this file.)&lt;/p&gt;
@@ -416,18 +410,16 @@ make &amp;amp;&amp;amp; ./bandwidthTest
 &lt;p&gt;If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get &lt;code&gt;charm++ built successfully.&lt;/code&gt; at the end, you should be OK.&lt;/p&gt;
 &lt;h2&gt;Testing NAMD&lt;/h2&gt;
 &lt;p&gt;We have been testing NAMD using the STMV files available from the &lt;a href="http://www.ks.uiuc.edu/Research/namd/utilities/"&gt;NAMD website&lt;/a&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cd NAMD_2.12_Source/Linux-POWER-g++
-wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
-tar -xf stmv.tar.gz
-sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="err"&gt;cd NAMD_2.12_Source/Linux-POWER-g++&lt;/span&gt;
+&lt;span class="err"&gt;wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz&lt;/span&gt;
+&lt;span class="err"&gt;tar -xf stmv.tar.gz&lt;/span&gt;
+&lt;span class="err"&gt;sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.&lt;/p&gt;
 &lt;p&gt;You should see messages about finding and using GPUs:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="err"&gt;Pe 0 physical rank 0 binding to CUDA device 0 on &amp;lt;hostname&amp;gt;: &amp;#39;Graphics Device&amp;#39;  Mem: 4042MB  Rev: 6.0&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;This should be &lt;em&gt;significantly&lt;/em&gt; faster than on non-NVLink machines - we saw a gain of about 2x in speed going from a machine with Nvidia K80s to a Minsky. If things aren't faster for you, let us know!&lt;/p&gt;
 &lt;h2&gt;Downloads&lt;/h2&gt;
@@ -438,12 +430,11 @@ sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
 &lt;h2&gt;Other notes&lt;/h2&gt;
 &lt;p&gt;Namd requires some libraries, some of which they supply as binary downloads on &lt;a href="http://www.ks.uiuc.edu/Research/namd/libraries/"&gt;their website&lt;/a&gt;.
 Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian
-/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)
-/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="err"&gt;/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regfree.o)&lt;/span&gt;
+&lt;span class="err"&gt;/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(regerror.o): compiled for a big endian system and target is little endian&lt;/span&gt;
+&lt;span class="err"&gt;/bin/ld: failed to merge target specific data of file .rootdir/tcl/lib/libtcl8.5.a(regerror.o)&lt;/span&gt;
+&lt;span class="err"&gt;/bin/ld: .rootdir/tcl/lib/libtcl8.5.a(tclAlloc.o): compiled for a big endian system and target is little endian&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;The script we supply should get these right automatically.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Daniel Axtens</dc:creator><pubDate>Wed, 01 Feb 2017 08:32:00 +1100</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2017-02-01:/blog/2017/02/01/namd-on-nvlink/</guid><category>nvlink</category><category>namd</category><category>cuda</category><category>gpu</category><category>hpc</category><category>minsky</category><category>S822LC for hpc</category></item><item><title>Installing Centos 7.2 on IBM Power System's S822LC for High Performance Computing (Minksy) with USB device</title><link>https://sthbrx.github.io/blog/2017/01/30/installing-centos-72-on-ibm-power-systems-s822lc-for-high-performance-computing-minksy-with-usb-device/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
 &lt;p&gt;If you are installing Linux on your IBM Power System's S822LC server then the instructions in this article will help you to start and run your system.  These instructions are specific to installing CentOS 7 on an IBM Power System S822LC for High Performance Computing (Minsky), but also work for RHEL 7 - just swap CentOS for RHEL.&lt;/p&gt;
@@ -484,28 +475,24 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;p&gt;For the following impitool commands, server_ip_address is the IP address of the BMC from Step 2, and ipmi_user and ipmi_password are the default user ID and password for IPMI.&lt;/p&gt;
 &lt;h3&gt;Power On using IPMI&lt;/h3&gt;
 &lt;p&gt;If your server is not powered on, run the following command to power the server on:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password chassis power on
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="n"&gt;ipmi_user&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;chassis&lt;/span&gt; &lt;span class="n"&gt;power&lt;/span&gt; &lt;span class="n"&gt;on&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;h3&gt;&lt;a name="active-sol-ipmi"&gt;&lt;/a&gt;Activate Serial-Over-Lan using IPMI&lt;/h3&gt;
 &lt;p&gt;Activate your IPMI console by running this command:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U ipmi_user -P ipmi_password sol activate
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="n"&gt;ipmi_user&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;sol&lt;/span&gt; &lt;span class="n"&gt;activate&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;After powering on your system, the Petitboot interface loads. If you do not interrupt the boot process by pressing any key within 10 seconds, Petitboot automatically boots the first option. At this point the IPMI console will be connected to the Operating Systems serial. If you get to this stage accidently you can deactivate and reboot as per the following two commands.&lt;/p&gt;
 &lt;h3&gt;Deactivate Serial-Over-Lan using IPMI&lt;/h3&gt;
 &lt;p&gt;If you need to power off or reboot your system, deactivate the console by running this command:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password sol deactivate
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;sol&lt;/span&gt; &lt;span class="n"&gt;deactivate&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;h3&gt;Reboot using IPMI&lt;/h3&gt;
 &lt;p&gt;If you need to reboot the system, run this command: &lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ipmitool -I lanplus -H server_ip_address -U user-name -P ipmi_password chassis power reset
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="n"&gt;ipmitool&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;I&lt;/span&gt; &lt;span class="n"&gt;lanplus&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt; &lt;span class="n"&gt;server_ip_address&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt; &lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="n"&gt;ipmi_password&lt;/span&gt; &lt;span class="n"&gt;chassis&lt;/span&gt; &lt;span class="n"&gt;power&lt;/span&gt; &lt;span class="n"&gt;reset&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;h2&gt;Step 4: Creating a USB device and booting&lt;/h2&gt;
 &lt;p&gt;At this point, your IPMI console should be contain a Petitboot bootloader menu as illustrated below and you are ready to install Centos 7 on your server.&lt;/p&gt;
@@ -560,12 +547,11 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 &lt;li&gt;Using the ipmitool's shell (&lt;em&gt;ctrl-b 2&lt;/em&gt;):&lt;/li&gt;
 &lt;li&gt;Enter the following commands to generate a grub.cfg file&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;chroot /mnt/sysimage
-rm /etc/grub.d/30_os-prober
-grub2-mkconfig -o /boot/grub2/grub.cfg
-exit
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="err"&gt;chroot /mnt/sysimage&lt;/span&gt;
+&lt;span class="err"&gt;rm /etc/grub.d/30_os-prober&lt;/span&gt;
+&lt;span class="err"&gt;grub2-mkconfig -o /boot/grub2/grub.cfg&lt;/span&gt;
+&lt;span class="err"&gt;exit&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;&lt;code&gt;/etc/grub.d/30_os-prober&lt;/code&gt; is removed as Petitboot probes the other devices anyway so including it would create lots of duplicate menu items.&lt;/p&gt;
 &lt;p&gt;The last step is to restart your system.&lt;/p&gt;
