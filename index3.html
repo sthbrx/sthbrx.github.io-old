@@ -102,6 +102,49 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2018/12/19/ipmi-initiating-better-overrides/">IPMI: Initiating Better Overrides</a>
+      </h1>
+    <p class="meta">
+<time datetime="2018-12-19T10:08:00+11:00" pubdate>Wed 19 December 2018</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2018-12-19T10:08:00+11:00" pubdate>Wed 19 December 2018</time></div>
+
+  <div class="entry-content"><p>On platforms that support it Petitboot can interact with the inband IPMI interface to pull information from the BMC. One particularly useful example of this is the "Get System Boot Options" command which we use to implement boot "overrides". By setting parameter 5 of the command a user can remotely force Petitboot to boot from only one class of device or disable autoboot completely. This is great for automation or debug purposes, but since it can only specify device types like "disk" or "network" it can't be used to boot from specific devices.</p>
+<p>Introducing..</p>
+<p><strong>The Boot Initiator Mailbox</strong></p>
+<p>Alexander Amelkin <a href="https://github.com/open-power/petitboot/issues/45">pointed out</a> that the "Get System Boot Options" command also specifies parameter 7, "Boot Initiator Mailbox". This parameter just defines a region of vendor-defined data that can be used to influence the booting behaviour of the system. The parameter description specifies that a BMC must support at least 80 bytes of data in that mailbox so as Alex pointed out we could easily use it to set a partition UUID. But why stop there? Let's go further and use the mailbox to provide an alterate "petitboot,bootdevs=.." parameter and let a user set a full substitute boot order!</p>
+<p><strong>The Mailbox Format</strong></p>
+<p>Parameter 7 has two fields, 1 byte for the "set selector", and up to 16 bytes of "block data". The spec sets the minimum amount of data to support at 80 bytes, which means a BMC must support at least 5 of these 16-byte "blocks" which can be individually accessed via the set selector. Aside from the first 3 bytes which must be an IANA ID number, the rest of the data is defined by us.</p>
+<p>So if we want to set an alternate Petitboot boot order such as "network, usb, disk", the format of the mailbox would be:</p>
+<div class="highlight"><pre><span></span><code><span class="gh">Block # |       Block Data              |</span>
+<span class="gh">-----------------------------------------</span>
+0       |2|0|0|p|e|t|i|t|b|o|o|t|,|b|o|o|
+1       |t|d|e|v|s|=|n|e|t|w|o|r|k| |u|s|
+2       |b| |d|i|s|k| | | | | | | | | | |
+3       | | | | | | | | | | | | | | | | |
+4       | | | | | | | | | | | | | | | | |
+</code></pre></div>
+
+<p>Where the string is null-terminated, <code>2,0,0</code> is the IBM IANA ID, and the contents of any remaining data is not important. The <a href="https://github.com/open-power/petitboot/blob/master/utils/ipmi-mailbox-config.py">ipmi-mailbox-config.py</a> script constructs and sends the required IPMI commands from a given parameter string to make this easier, eg:</p>
+<div class="highlight"><pre><span></span><code>./utils/ipmi-mailbox-config.py -b bmc-ip -u user -p pass -m 5 \
+        -c &quot;petitboot,bootdevs=uuid:c6e4c4f9-a9a2-4c30-b0db-6fa00f433b3b&quot;
+</code></pre></div>
+
+<p><img alt="Active Mailbox Override" src="/images/sammj/ipmi-mailbox.png"></p>
+<hr>
+<p>That is basically all there is to it. Setting a boot order this way overrides the existing order from NVRAM if there is one. Parameter 7 doesn't have a 'persistent' flag so the contents need to either be manually cleared from the BMC or cleared via the "Clear" button in the System Configuration screen.</p>
+<p>From the machines I've been able to test on at least AMI BMCs support the mailbox, and hopefully <a href="https://lists.ozlabs.org/pipermail/openbmc/2018-December/014224.html">OpenBMC</a> will be able to add it to their IPMI implementation. This is supported in Petitboot as of v1.10.0 so go ahead and try it out!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2018/11/21/openpower-summit-europe-2018-a-software-developers-introduction-to-opencapi/">OpenPOWER Summit Europe 2018: A Software Developer's Introduction to OpenCAPI</a>
       </h1>
     <p class="meta">
@@ -594,93 +637,93 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 <p>The sysfs pseudo file system was first introduced in Linux 2.6, and is generally used for exposing system and device information.</p>
 <p>Per the <a href="https://www.kernel.org/doc/Documentation/filesystems/sysfs.txt">sysfs documentation</a>, sysfs is tied in very closely with the <a href="https://www.kernel.org/doc/Documentation/kobject.txt">kobject</a> infrastructure. sysfs exposes kobjects as directories, containing "attributes" represented as files. The kobject infrastructure provides a way to define kobjects representing entities (e.g. devices) and ksets which define collections of kobjects (e.g. devices of a particular type).</p>
 <p>Using kobjects you can do lots of fancy things such as sending events to userspace when devices are hotplugged - but that's all out of the scope of this post. It turns out there's some fairly straightforward wrapper functions if all you want to do is create a kobject just to have a simple directory in sysfs.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#include</span> <span class="cpf">&lt;linux/kobject.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/kobject.h&gt;</span><span class="cp"></span>
 
-<span class="k">static</span> <span class="kt">int</span> <span class="n">__init</span> <span class="n">ssh_key_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-        <span class="k">struct</span> <span class="nc">kobject</span> <span class="o">*</span><span class="n">ssh_kobj</span><span class="p">;</span>
-        <span class="n">ssh_kobj</span> <span class="o">=</span> <span class="n">kobject_create_and_add</span><span class="p">(</span><span class="s">&quot;ssh&quot;</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ssh_kobj</span><span class="p">)</span> <span class="p">{</span>
-                <span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: kobject creation failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-                <span class="k">return</span> <span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
-        <span class="p">}</span>
-<span class="p">}</span>
-<span class="n">late_initcall</span><span class="p">(</span><span class="n">ssh_key_init</span><span class="p">);</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">ssh_key_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">ssh_kobj</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="n">ssh_kobj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kobject_create_and_add</span><span class="p">(</span><span class="s">&quot;ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ssh_kobj</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: kobject creation failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="n">late_initcall</span><span class="p">(</span><span class="n">ssh_key_init</span><span class="p">);</span><span class="w"></span>
 </code></pre></div>
 
 <p>This creates and adds a kobject called <code>ssh</code>. And just like that, we've got a directory in <code>/sys/ssh/</code>!</p>
 <p>The next thing we have to do is define a sysfs attribute for our <code>authorized_keys</code> file. sysfs provides a framework for subsystems to define their own custom types of attributes with their own metadata - but for our purposes, we'll use the generic <code>bin_attribute</code> attribute type.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#include</span> <span class="cpf">&lt;linux/sysfs.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/sysfs.h&gt;</span><span class="cp"></span>
 
-<span class="k">const</span> <span class="kt">char</span> <span class="n">key</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;PUBLIC KEY HERE...&quot;</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PUBLIC KEY HERE...&quot;</span><span class="p">;</span><span class="w"></span>
 
-<span class="k">static</span> <span class="kt">ssize_t</span> <span class="n">show_key</span><span class="p">(</span><span class="k">struct</span> <span class="nc">file</span> <span class="o">*</span><span class="n">file</span><span class="p">,</span> <span class="k">struct</span> <span class="nc">kobject</span> <span class="o">*</span><span class="n">kobj</span><span class="p">,</span>
-                        <span class="k">struct</span> <span class="nc">bin_attribute</span> <span class="o">*</span><span class="n">bin_attr</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">to</span><span class="p">,</span>
-                        <span class="n">loff_t</span> <span class="n">pos</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">count</span><span class="p">)</span>
-<span class="p">{</span>
-        <span class="k">return</span> <span class="nf">memory_read_from_buffer</span><span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">pos</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">bin_attr</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span>
-<span class="p">}</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">show_key</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">kobj</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="o">*</span><span class="n">bin_attr</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">to</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">memory_read_from_buffer</span><span class="p">(</span><span class="n">to</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">bin_attr</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 
-<span class="k">static</span> <span class="k">const</span> <span class="k">struct</span> <span class="nc">bin_attribute</span> <span class="n">authorized_keys_attr</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="p">.</span><span class="n">attr</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">name</span> <span class="o">=</span> <span class="s">&quot;authorized_keys&quot;</span><span class="p">,</span> <span class="p">.</span><span class="n">mode</span> <span class="o">=</span> <span class="mo">0444</span> <span class="p">},</span>
-        <span class="p">.</span><span class="n">read</span> <span class="o">=</span> <span class="n">show_key</span><span class="p">,</span>
-        <span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-<span class="p">};</span>
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="n">authorized_keys_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;authorized_keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mo">0444</span><span class="w"> </span><span class="p">},</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">show_key</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
 </code></pre></div>
 
 <p>We provide a simple callback, <code>show_key()</code>, that copies the key string into the file's buffer, and we put it in a <code>bin_attribute</code> with the appropriate name, size and permissions.</p>
 <p>To actually add the attribute, we put the following in <code>ssh_key_init()</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="kt">int</span> <span class="n">rc</span><span class="p">;</span>
-<span class="n">rc</span> <span class="o">=</span> <span class="n">sysfs_create_bin_file</span><span class="p">(</span><span class="n">ssh_kobj</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">authorized_keys_attr</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">rc</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: sysfs creation failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">rc</span><span class="p">);</span>
-        <span class="k">return</span> <span class="n">rc</span><span class="p">;</span>
-<span class="p">}</span>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sysfs_create_bin_file</span><span class="p">(</span><span class="n">ssh_kobj</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">authorized_keys_attr</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: sysfs creation failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 </code></pre></div>
 
 <p>Woo, we've now got <code>/sys/ssh/authorized_keys</code>! Time to move on to the bind mount.</p>
 <h2>Mounting</h2>
 <p>Now that we've got a directory with the key file in it, it's time to figure out the bind mount.</p>
 <p>Because I had no idea how any of the file system code works, I started off by running <code>strace</code> on <code>mount --bind ~/tmp1 ~/tmp2</code> just to see how the userspace <code>mount</code> tool uses the <code>mount</code> syscall to request the bind mount.</p>
-<div class="highlight"><pre><span></span><code><span class="n">execve</span><span class="p">(</span><span class="s">&quot;/bin/mount&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s">&quot;mount&quot;</span><span class="p">,</span> <span class="s">&quot;--bind&quot;</span><span class="p">,</span> <span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span> <span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">],</span> <span class="p">[</span><span class="cm">/* 18 vars */</span><span class="p">])</span> <span class="o">=</span> <span class="mi">0</span>
+<div class="highlight"><pre><span></span><code><span class="n">execve</span><span class="p">(</span><span class="s">&quot;/bin/mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--bind&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="cm">/* 18 vars */</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
 
-<span class="p">...</span>
+<span class="p">...</span><span class="w"></span>
 
-<span class="n">mount</span><span class="p">(</span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span> <span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">,</span> <span class="mh">0x18b78bf00</span><span class="p">,</span> <span class="n">MS_MGC_VAL</span><span class="o">|</span><span class="n">MS_BIND</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">mount</span><span class="p">(</span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x18b78bf00</span><span class="p">,</span><span class="w"> </span><span class="n">MS_MGC_VAL</span><span class="o">|</span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
 </code></pre></div>
 
 <p>The first and second arguments are the source and target paths respectively. The third argument, looking at the signature of the <code>mount</code> syscall, is a pointer to a string with the file system type. Because this is a bind mount, the type is irrelevant (upon further digging, it turns out that this particular pointer is to the string "none").</p>
 <p>The fourth argument is where we specify the flags bitfield. <code>MS_MGC_VAL</code> is a magic value that was required before Linux 2.4 and can now be safely ignored. <code>MS_BIND</code>, as you can probably guess, signals that we want a bind mount.</p>
 <p>(The final argument is used to pass file system specific data - as you can see it's ignored here.)</p>
 <p>Now, how is the syscall actually handled on the kernel side? The answer is found in <a href="http://elixir.free-electrons.com/linux/latest/source/fs/namespace.c#L2969">fs/namespace.c</a>.</p>
-<div class="highlight"><pre><span></span><code><span class="n">SYSCALL_DEFINE5</span><span class="p">(</span><span class="n">mount</span><span class="p">,</span> <span class="kt">char</span> <span class="n">__user</span> <span class="o">*</span><span class="p">,</span> <span class="n">dev_name</span><span class="p">,</span> <span class="kt">char</span> <span class="n">__user</span> <span class="o">*</span><span class="p">,</span> <span class="n">dir_name</span><span class="p">,</span>
-                <span class="kt">char</span> <span class="n">__user</span> <span class="o">*</span><span class="p">,</span> <span class="n">type</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">long</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="kt">void</span> <span class="n">__user</span> <span class="o">*</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-<span class="p">{</span>
-        <span class="kt">int</span> <span class="n">ret</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="n">SYSCALL_DEFINE5</span><span class="p">(</span><span class="n">mount</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dev_name</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"></span>
+<span class="w">                </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span><span class="w"></span>
 
-        <span class="cm">/* ... copy parameters from userspace memory ... */</span>
+<span class="w">        </span><span class="cm">/* ... copy parameters from userspace memory ... */</span><span class="w"></span>
 
-        <span class="n">ret</span> <span class="o">=</span> <span class="n">do_mount</span><span class="p">(</span><span class="n">kernel_dev</span><span class="p">,</span> <span class="n">dir_name</span><span class="p">,</span> <span class="n">kernel_type</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">options</span><span class="p">);</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="n">kernel_dev</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_type</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span><span class="w"></span>
 
-        <span class="cm">/* ... cleanup ... */</span>
-<span class="p">}</span>
+<span class="w">        </span><span class="cm">/* ... cleanup ... */</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 </code></pre></div>
 
 <p>So in order to achieve the same thing from within the kernel, we just call <code>do_mount()</code> with exactly the same parameters as the syscall uses:</p>
-<div class="highlight"><pre><span></span><code><span class="n">rc</span> <span class="o">=</span> <span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;/sys/ssh&quot;</span><span class="p">,</span> <span class="s">&quot;/root/.ssh&quot;</span><span class="p">,</span> <span class="s">&quot;sysfs&quot;</span><span class="p">,</span> <span class="n">MS_BIND</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">rc</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: bind mount failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">rc</span><span class="p">);</span>
-        <span class="k">return</span> <span class="n">rc</span><span class="p">;</span>
-<span class="p">}</span>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;/sys/ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/root/.ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: bind mount failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 </code></pre></div>
 
 <p>...and we're done, right? Not so fast:</p>
-<div class="highlight"><pre><span></span><code><span class="n">SSH</span><span class="o">:</span> <span class="n">bind</span> <span class="n">mount</span> <span class="n">failed</span><span class="o">,</span> <span class="n">rc</span> <span class="o">-</span><span class="mi">2</span>
+<div class="highlight"><pre><span></span><code><span class="n">SSH</span><span class="o">:</span><span class="w"> </span><span class="n">bind</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">failed</span><span class="o">,</span><span class="w"> </span><span class="n">rc</span><span class="w"> </span><span class="o">-</span><span class="mi">2</span><span class="w"></span>
 </code></pre></div>
 
 <p>-2 is <code>ENOENT</code> - no such file or directory. For some reason, we can't find <code>/sys/ssh</code>... of course, that would be because even though we've created the sysfs entry, we haven't actually mounted sysfs on <code>/sys</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="n">rc</span> <span class="o">=</span> <span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span> <span class="s">&quot;/sys&quot;</span><span class="p">,</span> <span class="s">&quot;sysfs&quot;</span><span class="p">,</span>
-              <span class="n">MS_NOSUID</span> <span class="o">|</span> <span class="n">MS_NOEXEC</span> <span class="o">|</span> <span class="n">MS_NODEV</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/sys&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">              </span><span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NODEV</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
 </code></pre></div>
 
 <p>At this point, my key worked!</p>
@@ -688,31 +731,31 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 <h2>Kconfig</h2>
 <p>The final piece of the puzzle is building our new code into the kernel image.</p>
 <p>To allow us to switch this important functionality on and off, I added a config option to <code>fs/Kconfig</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="n">config</span> <span class="n">SSH_KEY</span>
-        <span class="n">bool</span> <span class="ss">&quot;Andrew&#39;s dumb SSH key hack&quot;</span>
-        <span class="k">default</span> <span class="n">y</span>
-        <span class="n">help</span>
-          <span class="n">Hardcode</span> <span class="n">an</span> <span class="n">SSH</span> <span class="k">key</span> <span class="k">for</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="p">.</span><span class="n">ssh</span><span class="o">/</span><span class="n">authorized_keys</span><span class="p">.</span>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span> <span class="nv">SSH_KEY</span>
+        <span class="nv">bool</span> <span class="s2">&quot;</span><span class="s">Andrew&#39;s dumb SSH key hack</span><span class="s2">&quot;</span>
+        <span class="nv">default</span> <span class="nv">y</span>
+        <span class="nv">help</span>
+          <span class="nv">Hardcode</span> <span class="nv">an</span> <span class="nv">SSH</span> <span class="nv">key</span> <span class="k">for</span> <span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.
 
-          <span class="n">This</span> <span class="k">is</span> <span class="n">a</span> <span class="n">stupid</span> <span class="n">idea</span><span class="p">.</span> <span class="k">If</span> <span class="n">unsure</span><span class="p">,</span> <span class="n">say</span> <span class="n">N</span><span class="p">.</span>
+          <span class="nv">This</span> <span class="nv">is</span> <span class="nv">a</span> <span class="nv">stupid</span> <span class="nv">idea</span>. <span class="k">If</span> <span class="nv">unsure</span>, <span class="nv">say</span> <span class="nv">N</span>.
 </code></pre></div>
 
 <p>This will show up in <code>make menuconfig</code> under the <code>File systems</code> menu.</p>
 <p>And in <code>fs/Makefile</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="err">obj-$(CONFIG_SSH_KEY)           += ssh_key.o</span>
+<div class="highlight"><pre><span></span><code><span class="nv">obj-$(CONFIG_SSH_KEY)</span>           <span class="o">+=</span> ssh_key.o
 </code></pre></div>
 
 <p>If <code>CONFIG_SSH_KEY</code> is set to <code>y</code>, <code>obj-$(CONFIG_SSH_KEY)</code> evaluates to <code>obj-y</code> and thus <code>ssh-key.o</code> gets compiled. Conversely, <code>obj-n</code> is completely ignored by the build system.</p>
 <p>I thought I was all done... then <a href="https://twitter.com/mramboar">Andrew</a> suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:</p>
-<div class="highlight"><pre><span></span><code><span class="err">config SSH_KEY_VALUE</span>
-<span class="err">        string &quot;Value for SSH key&quot;</span>
-<span class="err">        depends on SSH_KEY</span>
-<span class="err">        help</span>
-<span class="err">          Enter in the content for /root/.ssh/authorized_keys.</span>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span> <span class="nv">SSH_KEY_VALUE</span>
+        <span class="nv">string</span> <span class="s2">&quot;</span><span class="s">Value for SSH key</span><span class="s2">&quot;</span>
+        <span class="nv">depends</span> <span class="nv">on</span> <span class="nv">SSH_KEY</span>
+        <span class="nv">help</span>
+          <span class="nv">Enter</span> <span class="nv">in</span> <span class="nv">the</span> <span class="nv">content</span> <span class="k">for</span> <span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.
 </code></pre></div>
 
 <p>Including the string in the C file is as simple as:</p>
-<div class="highlight"><pre><span></span><code><span class="k">const</span> <span class="kt">char</span> <span class="n">key</span><span class="p">[]</span> <span class="o">=</span> <span class="n">CONFIG_SSH_KEY_VALUE</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CONFIG_SSH_KEY_VALUE</span><span class="p">;</span><span class="w"></span>
 </code></pre></div>
 
 <p>And there we have it, a nicely configurable albeit highly limited kernel SSH backdoor!</p>
@@ -720,102 +763,6 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
 <p>I've put the <a href="https://github.com/ajdlinux/linux/commit/052c0cb7296f7510fd482fecbe572b641c29239f">full code</a> up on GitHub for perusal. Please don't use it, I will be extremely disappointed in you if you do.</p>
 <p>Thanks to Jono for giving me stupid ideas, and the rest of OzLabs for being very angry when they saw the disgusting things I was doing.</p>
 <p>Comments and further stupid suggestions welcome!</p></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/">NCSI - Nice Network You've Got There</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-09-22T10:08:00+10:00" pubdate>Fri 22 September 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2017-09-22T10:08:00+10:00" pubdate>Fri 22 September 2017</time></div>
-
-  <div class="entry-content"><p>A neat piece of kernel code dropped into my lap recently, and as a way of
-processing having to inject an entire network stack into by brain in
-less-than-ideal time I thought we'd have a look at it here: NCSI!</p>
-<h2>NCSI - Not the TV Show</h2>
-<p>NCSI stands for Network Controller Sideband Interface, and put most simply it
-is a way for a management controller (eg. a BMC like those found on our OpenPOWER
-machines) to share a single physical network interface with a host machine.
-Instead of two distinct network interfaces you plug in a single cable and both
-the host and the BMC have network connectivity.</p>
-<p>NCSI-capable network controllers achieve this by filtering network traffic as
-it arrives and determining if it is host- or BMC-bound. To know how to do this
-the BMC needs to tell the network controller what to look out for, and from a
-Linux driver perspective this the focus of the NCSI protocol.</p>
-<p><img alt="NCSI Overview" src="/images/sammj/ncsi_overview.png"></p>
-<h2>Hi My Name Is 70:e2:84:14:24:a1</h2>
-<p>The major components of what NCSI helps facilitate are:</p>
-<ul>
-<li>Network Controllers, known as 'Packages' in this context. There may be multiple
-  separate packages which contain one or more Channels.</li>
-<li>Channels, most easily thought of as the individual physical network interfaces.
-  If a package is the network card, channels are the individual network jacks. (Somewhere a pedant's head is spinning in circles).</li>
-<li>Management Controllers, or our BMC, with their own network interfaces. Hypothetically there can be multiple
-  management controllers in a single NCSI system, but I've not come across such
-  a setup yet.</li>
-</ul>
-<p>NCSI is the medium and protocol via which these components communicate.</p>
-<p><img alt="NCSI Packages" src="/images/sammj/ncsi_packages.png"></p>
-<p>The interface between Management Controller and one or more
-Packages carries both general network traffic to/from the Management
-Controller as well as NCSI traffic between the Management Controller
-and the Packages &amp; Channels. Management traffic is differentiated from
-regular traffic via the inclusion of a special NCSI tag inserted
-in the Ethernet frame header.
-These management commands are used to discover and configure the state of the
-NCSI packages and channels.</p>
-<p>If a BMC's network interface is configured to use NCSI, as soon as the interface
-is brought up NCSI gets to work finding and configuring a usable channel.
-The NCSI driver at first glance is an intimidating combination of state machines
-and packet handlers, but with enough coffee it can be represented like this:</p>
-<p><img alt="NCSI State Diagram" src="/images/sammj/ncsi_states.png"></p>
-<p>Without getting into the nitty gritty details the overall process for configuring
-a channel enough to get packets flowing is fairly straightforward:</p>
-<ul>
-<li>Find available packages.</li>
-<li>Find each package's available channels.</li>
-<li>(At least in the Linux driver) select a channel with link.</li>
-<li>Put this channel into the Initial Config State.
-The Initial Config State is where all the useful configuration occurs. Here we
-find out what the selected channel is capable of and its current configuration,
-and set it up to recognise the traffic we're interested in. The first and most
-basic way of doing this is configuring the channel to filter traffic based on
-our MAC address.</li>
-<li>Enable the channel and let the packets flow.</li>
-</ul>
-<p>At this point NCSI takes a back seat to normal network traffic, transmitting
-a "Get Link Status" packet at regular intervals to monitor the channel.</p>
-<h2>AEN Packets</h2>
-<p>Changes can occur from the package side too; the NCSI package communicates these
-back to the BMC with Asynchronous Event Notification (AEN) packets. As the name
-suggests these can occur at any time and the driver needs to catch and handle these.
-There are different types but they essentially boil down to changes in link state,
-telling the BMC the channel needs to be reconfigured, or to select a different
-channel.
-These are only transmitted once and no effort is made to recover lost AEN packets -
-another good reason for the NCSI driver to periodically monitor the channel.</p>
-<h2>Filtering</h2>
-<p>Each channel can be configured to filter traffic based on MAC address,
-broadcast traffic, multicast traffic, and VLAN tagging. Associated with each of
-these filters is a <em>filter table</em> which can hold a finite number of entries.
-In the case of the VLAN filter each channel could match against 15 different
-VLAN IDs for example, but in practice the physical device will likely
-support less. Indeed the popular BCM5718 controller supports only two!</p>
-<p>This is where I dived into NCSI. The driver had a lot of the pieces for
-configuring VLAN filters but none of it was actually hooked up in the configure
-state, and didn't have a way of actually knowing which VLAN IDs were meant to be
-configured on the interface. The bulk of that work appears in <a href="https://github.com/torvalds/linux/commit/21acf63013ed3d6fce3176cc34b74064052a31b4#diff-f391518f4e552724349be3589e00dfa7">this commit</a> where we take advantage of some useful network stack callbacks to get the VLAN configuration and set them during the configuration state. Getting <em>to</em> the configuration state at some arbitrary time and then managing to assign multiple IDs was the trickiest bit, and is something I'll be looking at simplifying in the future.</p>
-<hr>
-<p>NCSI! A neat way to give physically separate users access to a single network controller, and if it works right you won't notice it at all. I'll surely be spending more time here (fleshing out the driver's features, better error handling, and making the state machine a touch more readable to start, and I haven't even <em>mentioned</em> HWA), so watch this space!</p></div>
   		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index4.html">&larr; Older</a>
@@ -828,6 +775,9 @@ configured on the interface. The bulk of that work appears in <a href="https://g
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
       </li>
       <li class="post">
@@ -838,9 +788,6 @@ configured on the interface. The bulk of that work appears in <a href="https://g
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
       </li>
     </ul>
   </section>
@@ -861,7 +808,7 @@ configured on the interface. The bulk of that work appears in <a href="https://g
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
@@ -908,7 +855,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2021  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
 </body>

@@ -145,76 +145,76 @@ upon which which this is based:
 <ul>
 <li>Enable ssh</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    sudo apt install openssh-server</span>
-<span class="err">    sudo apt update</span>
-<span class="err">    sudo apt upgrade</span>
-<span class="err">    sudo reboot</span>
+<div class="highlight"><pre><span></span><code>    sudo apt install openssh-server
+    sudo apt update
+    sudo apt upgrade
+    sudo reboot
 </code></pre></div>
 
 <ul>
 <li>Install build tools</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    sudo apt install git debhelper</span>
+<div class="highlight"><pre><span></span><code>    sudo apt install git debhelper
 </code></pre></div>
 
 <h3>Build Ceph</h3>
 <ul>
 <li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    mkdir $HOME/src</span>
-<span class="err">    cd $HOME/src</span>
-<span class="err">    git clone --recursive https://github.com/ceph/ceph.git  # This may take a while</span>
-<span class="err">    cd ceph</span>
-<span class="err">    git checkout master</span>
-<span class="err">    git submodule update --force --init --recursive</span>
+<div class="highlight"><pre><span></span><code>    <span class="nv">mkdir</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
+    <span class="nv">cd</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
+    <span class="nv">git</span> <span class="nv">clone</span> <span class="o">--</span><span class="nv">recursive</span> <span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span>  # <span class="nv">This</span> <span class="nv">may</span> <span class="nv">take</span> <span class="nv">a</span> <span class="k">while</span>
+    <span class="nv">cd</span> <span class="nv">ceph</span>
+    <span class="nv">git</span> <span class="nv">checkout</span> <span class="nv">master</span>
+    <span class="nv">git</span> <span class="nv">submodule</span> <span class="nv">update</span> <span class="o">--</span><span class="nv">force</span> <span class="o">--</span><span class="nv">init</span> <span class="o">--</span><span class="nv">recursive</span>
 </code></pre></div>
 
 <ul>
 <li>Cherry-pick the Power performance patches:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    git remote add kestrels https://github.com/kestrels/ceph.git</span>
-<span class="err">    git fetch --all</span>
-<span class="err">    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11</span>
+<div class="highlight"><pre><span></span><code>    git remote add kestrels https://github.com/kestrels/ceph.git
+    git fetch --all
+    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
 </code></pre></div>
 
 <ul>
 <li>Install prerequisites</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    ./install-deps.sh</span>
-<span class="err">    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework</span>
-<span class="err">    sudo pip3 install ceph-deploy</span>
+<div class="highlight"><pre><span></span><code>    ./install-deps.sh
+    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
+    sudo pip3 install ceph-deploy
 </code></pre></div>
 
 <ul>
 <li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    cd $HOME/src/ceph</span>
-<span class="err">    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)</span>
+<div class="highlight"><pre><span></span><code>    cd $HOME/src/ceph
+    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
 </code></pre></div>
 
 <ul>
 <li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="err">    cd $HOME/src</span>
-<span class="err">    sudo dpkg -i *.deb</span>
+<div class="highlight"><pre><span></span><code>    cd $HOME/src
+    sudo dpkg -i *.deb
 </code></pre></div>
 
 <h3>Create the ceph-deploy user</h3>
-<div class="highlight"><pre><span></span><code><span class="err">    sudo adduser ceph-deploy</span>
-<span class="err">    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy</span>
-<span class="err">    sudo chmod 0440 /etc/sudoers.d/ceph-deploy</span>
+<div class="highlight"><pre><span></span><code>    sudo adduser ceph-deploy
+    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy
+    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
 </code></pre></div>
 
 <h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span><code>    <span class="n">su</span> <span class="o">-</span> <span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span>
-    <span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span>
-    <span class="n">node</span><span class="o">=</span><span class="n">`hostname`</span>
-    <span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span> <span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span>
-    <span class="n">mkdir</span> <span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span>
-    <span class="n">cd</span> <span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span>
-    <span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span> <span class="k">new</span> <span class="n">$node</span> <span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span>
-    <span class="n">echo</span> <span class="s1">&#39;osd pool default size = 2&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">ceph</span><span class="p">.</span><span class="n">conf</span>
-    <span class="n">echo</span> <span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">ceph</span><span class="p">.</span><span class="n">conf</span>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">su</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"></span>
+<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span><span class="w"></span>
+<span class="w">    </span><span class="n">node</span><span class="o">=</span><span class="n n-Quoted">`hostname`</span><span class="w"></span>
+<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span><span class="w"></span>
+<span class="w">    </span><span class="n">mkdir</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
+<span class="w">    </span><span class="n">cd</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
+<span class="w">    </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">$node</span><span class="w"> </span><span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span><span class="w"></span>
+<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd pool default size = 2&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
+<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
 </code></pre></div>
 
 <h3>Complete the Ceph deployment</h3>
@@ -229,14 +229,14 @@ upon which which this is based:
 </code></pre></div>
 
 <h3>Configure CephFS</h3>
-<div class="highlight"><pre><span></span><code><span class="err">    ceph-deploy mds create $node</span>
-<span class="err">    ceph osd pool create cephfs_data 128</span>
-<span class="err">    ceph osd pool create cephfs_metadata 128</span>
-<span class="err">    ceph fs new cephfs cephfs_metadata cephfs_data</span>
-<span class="err">    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running</span>
-<span class="err">    sudo mkdir /mnt/cephfs</span>
-<span class="err">    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`</span>
-<span class="err">    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key</span>
+<div class="highlight"><pre><span></span><code>    ceph-deploy mds create $node
+    ceph osd pool create cephfs_data 128
+    ceph osd pool create cephfs_metadata 128
+    ceph fs new cephfs cephfs_metadata cephfs_data
+    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
+    sudo mkdir /mnt/cephfs
+    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
+    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
 </code></pre></div>
 
 <h2>References</h2>
@@ -260,6 +260,9 @@ upon which which this is based:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
       </li>
       <li class="post">
@@ -270,9 +273,6 @@ upon which which this is based:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
       </li>
     </ul>
   </section>
@@ -293,7 +293,7 @@ upon which which this is based:
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
@@ -340,7 +340,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2021  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">

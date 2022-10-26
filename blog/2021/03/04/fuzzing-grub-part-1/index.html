@@ -179,32 +179,36 @@ anything (unsurprisingly) but it does support most other modules, including
 things like the config file parser.</p>
 <p>We can configure grub to build the emulator. We disable the graphical frontend
 for now.</p>
-<div class="highlight"><pre><span></span><code>./bootstrap
-./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
+<div class="highlight"><pre><span></span><code>:::shell
+./bootstrap
+./configure --with-platform=emu --disable-grub-emu-sdl
 </code></pre></div>
 
 <p>At this point in building a fuzzing target, we'd normally try to configure with
 <code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
 grub configure script is not a fan:</p>
-<div class="highlight"><pre><span></span><code>./configure --with-platform=emu --disable-grub-emu-sdl CC=$AFL_PATH/afl-cc
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
+.<span class="o">/</span><span class="nv">configure</span> <span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span> <span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span> <span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
 ...
-checking whether target compiler is working... no
-configure: error: cannot compile for the target
+<span class="nv">checking</span> <span class="nv">whether</span> <span class="nv">target</span> <span class="nv">compiler</span> <span class="nv">is</span> <span class="nv">working</span>... <span class="nv">no</span>
+<span class="nv">configure</span>: <span class="nv">error</span>: <span class="nv">cannot</span> <span class="nv">compile</span> <span class="k">for</span> <span class="nv">the</span> <span class="nv">target</span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
 <p>Hmm, ok, so what if we just... lie a bit?</p>
-<div class="highlight"><pre><span></span><code>./configure --with-platform<span class="o">=</span>emu --disable-grub-emu-sdl
-make <span class="nv">CC</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AFL_PATH</span><span class="s2">/afl-gcc&quot;</span> 
+<div class="highlight"><pre><span></span><code>:::shell
+./configure --with-platform=emu --disable-grub-emu-sdl
+make CC=&quot;$AFL_PATH/afl-gcc&quot; 
 </code></pre></div>
 
 <p>(Normally I'd use <code>CC=clang</code> and <code>afl-cc</code>, but clang support is slightly broken
 upstream at the moment.)</p>
 <p>After a small fix for gcc-10 compatibility, we get the userspace tools
 (potentially handy!) but a bunch of link errors for <code>grub-emu</code>:</p>
-<div class="highlight"><pre><span></span><code>/usr/bin/ld: disk.module:(.bss+0x20): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
-/usr/bin/ld: regexp.module:(.bss+0x70): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
-/usr/bin/ld: blocklist.module:(.bss+0x28): multiple definition of `__afl_global_area_ptr&#39;; kernel.exec:(.bss+0xe078): first defined here
+<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
 </code></pre></div>
 
 <p>The problem is the module linkage that I talked about earlier: because there is
@@ -216,16 +220,18 @@ enough.</p>
 mode instead. This builds a specially instrumented qemu user-mode emulator
 that's capable of doing coverage-guided fuzzing on uninstrumented binaries at
 the cost of a significant performance penalty.</p>
-<div class="highlight"><pre><span></span><code>make clean
+<div class="highlight"><pre><span></span><code>:::shell
+make clean
 make
 </code></pre></div>
 
 <p>Now we have a grub-emu binary. If you run it directly, you'll pick up your
 system boot configuration, but the <code>-d</code> option can point it to a directory of
 your choosing. Let's set up one for fuzzing:</p>
-<div class="highlight"><pre><span></span><code>mkdir stage
-<span class="nb">echo</span> <span class="s2">&quot;echo Hello sthbrx readers&quot;</span> &gt; stage/grub.cfg
-<span class="nb">cd</span> stage
+<div class="highlight"><pre><span></span><code>:::shell
+mkdir stage
+echo &quot;echo Hello sthbrx readers&quot; &gt; stage/grub.cfg
+cd stage
 ../grub-core/grub-emu -d .
 </code></pre></div>
 
@@ -234,28 +240,30 @@ running the config file, but if you pipe it through <code>less</code> or somethi
 see it.</p>
 <h1>Running the fuzzer</h1>
 <p>So, that seems to work - let's create a test input and try fuzzing:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
-mkdir in
-<span class="nb">echo</span> <span class="s2">&quot;echo hi&quot;</span> &gt; in/echo-hi
+<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span>
+<span class="nv">cd</span> ..
+<span class="nv">mkdir</span> <span class="nv">in</span>
+<span class="nv">echo</span> <span class="s2">&quot;</span><span class="s">echo hi</span><span class="s2">&quot;</span> <span class="o">&gt;</span> <span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span>
 
-<span class="nb">cd</span> stage
-<span class="c1"># -Q qemu mode</span>
-<span class="c1"># -M main fuzzer</span>
-<span class="c1"># -d don&#39;t do deterministic steps (too slow for a text format)</span>
-<span class="c1"># -f create file grub.cfg</span>
-<span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .
+<span class="nv">cd</span> <span class="nv">stage</span>
+# <span class="o">-</span><span class="nv">Q</span> <span class="nv">qemu</span> <span class="nv">mode</span>
+# <span class="o">-</span><span class="nv">M</span> <span class="nv">main</span> <span class="nv">fuzzer</span>
+# <span class="o">-</span><span class="nv">d</span> <span class="nv">don</span><span class="s1">&#39;</span><span class="s">t do deterministic steps (too slow for a text format)</span>
+# <span class="o">-</span><span class="nv">f</span> <span class="nv">create</span> <span class="nv">file</span> <span class="nv">grub</span>.<span class="nv">cfg</span>
+<span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">fuzz</span> <span class="o">-</span><span class="nv">Q</span> <span class="o">-</span><span class="nv">i</span> ..<span class="o">/</span><span class="nv">in</span> <span class="o">-</span><span class="nv">o</span> ..<span class="o">/</span><span class="nv">out</span> <span class="o">-</span><span class="nv">M</span> <span class="nv">main</span> <span class="o">-</span><span class="nv">d</span> <span class="o">--</span> ..<span class="o">/</span><span class="nv">grub</span><span class="o">-</span><span class="nv">core</span><span class="o">/</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span> <span class="o">-</span><span class="nv">d</span> .
 </code></pre></div>
 
 <p>Sadly:</p>
-<div class="highlight"><pre><span></span><code>[-] The program took more than 1000 ms to process one of the initial test cases.
-    This is bad news; raising the limit with the -t option is possible, but
-    will probably make the fuzzing process extremely slow.
+<div class="highlight"><pre><span></span><code><span class="c">:::text</span>
+<span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> The program took more than 1000 ms to process one of the initial test cases</span><span class="nt">.</span><span class="c"></span>
+<span class="c">    This is bad news; raising the limit with the </span><span class="nb">-</span><span class="c">t option is possible</span><span class="nt">,</span><span class="c"> but</span>
+<span class="c">    will probably make the fuzzing process extremely slow</span><span class="nt">.</span><span class="c"></span>
 
-    If this test case is just a fluke, the other option is to just avoid it
-    altogether, and find one that is less of a CPU hog.
+<span class="c">    If this test case is just a fluke</span><span class="nt">,</span><span class="c"> the other option is to just avoid it</span>
+<span class="c">    altogether</span><span class="nt">,</span><span class="c"> and find one that is less of a CPU hog</span><span class="nt">.</span><span class="c"></span>
 
-[-] PROGRAM ABORT : Test case &#39;id:000000,time:0,orig:echo-hi&#39; results in a timeout
-         Location : perform_dry_run(), src/afl-fuzz-init.c:866
+<span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> PROGRAM ABORT : Test case &#39;id:000000</span><span class="nt">,</span><span class="c">time:0</span><span class="nt">,</span><span class="c">orig:echo</span><span class="nb">-</span><span class="c">hi&#39; results in a timeout</span>
+<span class="c">         Location : perform_dry_run()</span><span class="nt">,</span><span class="c"> src/afl</span><span class="nb">-</span><span class="c">fuzz</span><span class="nb">-</span><span class="c">init</span><span class="nt">.</span><span class="c">c:866</span>
 </code></pre></div>
 
 <p>What we're seeing here (and indeed what you can observe if you run <code>grub-emu</code>
@@ -263,10 +271,11 @@ directly) is that <code>grub-emu</code> isn't exiting when it's done. It's waiti
 input, and will keep waiting for input until it's killed by <code>afl-fuzz</code>.</p>
 <p>We need to patch grub to sort that out. It's on <a href="https://github.com/daxtens/grub/commit/ad2e84224e674eb1f9dcd8efc3d8efe78ed62bec">my GitHub</a>.</p>
 <p>Apply that, rebuild with <code>FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION</code>, and voila:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
-make <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&quot;</span>
-<span class="nb">cd</span> stage
-<span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
+<div class="highlight"><pre><span></span><code>:::shell
+cd ..
+make CFLAGS=&quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&quot;
+cd stage
+$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
 </code></pre></div>
 
 <p>And fuzzing is happening!</p>
@@ -276,25 +285,28 @@ parsing!</p>
 <h1>Fuzzing beyond the config file</h1>
 <p>You can also extend this to fuzzing other things that don't require the
 graphical UI, such as grub's transparent decompression support:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">cd</span> ..
+<div class="highlight"><pre><span></span><code>:::shell
+cd ..
 rm -rf in out stage
 mkdir in stage
-<span class="nb">echo</span> hi &gt; in/hi
+echo hi &gt; in/hi
 gzip in/hi
-<span class="nb">cd</span> stage
-<span class="nb">echo</span> <span class="s2">&quot;cat thefile&quot;</span> &gt; grub.cfg
-<span class="nv">$AFL_PATH</span>/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
+cd stage
+echo &quot;cat thefile&quot; &gt; grub.cfg
+$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
 </code></pre></div>
 
 <p>You should be able to find a hang pretty quickly with this, an as-yet-unfixed
 bug where grub will print output forever from a corrupt file: (your mileage may
 vary, as will the paths.)</p>
-<div class="highlight"><pre><span></span><code>cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
-../grub-core/grub-emu -d . <span class="p">|</span> less <span class="c1"># observe this going on forever</span>
+<div class="highlight"><pre><span></span><code>:::shell
+cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
+../grub-core/grub-emu -d . | less # observe this going on forever
 </code></pre></div>
 
 <p><code>zcat</code>, on the other hand, reports it as simply corrupt:</p>
-<div class="highlight"><pre><span></span><code>$ zcat thefile
+<div class="highlight"><pre><span></span><code>:::text
+$ zcat thefile
 
 gzip: thefile: invalid compressed data--format violated
 </code></pre></div>
@@ -317,6 +329,9 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
       </li>
       <li class="post">
@@ -327,9 +342,6 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
       </li>
     </ul>
   </section>
@@ -350,7 +362,7 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
@@ -397,7 +409,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2021  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">
