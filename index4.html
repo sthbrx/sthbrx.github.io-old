@@ -102,6 +102,171 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/09/23/stupid-solutions-to-stupid-problems-hardcoding-your-ssh-key-in-the-kernel/">Stupid Solutions to Stupid Problems: Hardcoding Your SSH Key in the Kernel</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-09-23T03:00:00+10:00" pubdate>Sat 23 September 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2017-09-23T03:00:00+10:00" pubdate>Sat 23 September 2017</time></div>
+
+  <div class="entry-content"><h2>The "problem"</h2>
+<p>I'm currently working on firmware and kernel support for <a href="http://opencapi.org/">OpenCAPI</a> on POWER9.</p>
+<p>I've recently been allocated a machine in the lab for development purposes. We use an internal IBM tool running on a secondary machine that triggers hardware initialisation procedures, then loads a specified <a href="https://github.com/open-power/skiboot">skiboot</a> firmware image, a kernel image, and a root file system directly into RAM. This allows us to get skiboot and Linux running without requiring the usual <a href="https://github.com/open-power/hostboot">hostboot</a> initialisation and gives us a lot of options for easier tinkering, so it's super-useful for our developers working on bringup.</p>
+<p>When I got access to my machine, I figured out the necessary scripts, developed a workflow, and started fixing my code... so far, so good.</p>
+<p>One day, I was trying to debug something and get logs off the machine using <code>ssh</code> and <code>scp</code>, when I got frustrated with having to repeatedly type in our ultra-secret, ultra-secure root password, <code>abc123</code>. So, I ran <code>ssh-copy-id</code> to copy over my public key, and all was good.</p>
+<p>Until I rebooted the machine, when strangely, my key stopped working. It took me longer than it should have to realise that this is an obvious consequence of running entirely from an initrd that's reloaded every boot...</p>
+<h2>The "solution"</h2>
+<p>I mentioned something about this to Jono, my housemate/partner-in-stupid-ideas, one evening a few weeks ago. We decided that clearly, the best way to solve this problem was to hardcode my SSH public key in the kernel.</p>
+<p>This would definitely be the easiest and most sensible way to solve the problem, as opposed to, say, just keeping my own copy of the root filesystem image. Or asking <a href="https://twitter.com/mikeyneuling">Mikey</a>, whose desk is three metres away from mine, whether he could use his write access to add my key to the image. Or just writing a wrapper around <a href="https://linux.die.net/man/1/sshpass">sshpass</a>...</p>
+<p>One Tuesday afternoon, I was feeling bored...</p>
+<h2>The approach</h2>
+<p>The SSH daemon looks for authorised public keys in <code>~/.ssh/authorized_keys</code>, so we need to have a read of <code>/root/.ssh/authorized_keys</code> return a specified hard-coded string.</p>
+<p>I did a bit of investigation. My first thought was to put some kind of hook inside whatever filesystem driver was being used for the root. After some digging, I found out that the filesystem type <code>rootfs</code>, as seen in <code>mount</code>, is actually backed by the <code>tmpfs</code> filesystem. I took a look around the <code>tmpfs</code> code for a while, but didn't see any way to hook in a fake file without a lot of effort - the <code>tmpfs</code> code wasn't exactly designed with this in mind.</p>
+<p>I thought about it some more - what would be the easiest way to create a file such that it just returns a string?</p>
+<p>Then I remembered sysfs, the filesystem normally mounted at <code>/sys</code>, which is used by various kernel subsystems to expose configuration and debugging information to userspace in the form of files. The sysfs API allows you to define a file and specify callbacks to handle reads and writes to the file.</p>
+<p>That got me thinking - could I create a file in <code>/sys</code>, and then use a <a href="https://unix.stackexchange.com/questions/198590/what-is-a-bind-mount">bind mount</a> to have that file appear where I need it in <code>/root/.ssh/authorized_keys</code>? This approach seemed fairly straightforward, so I decided to give it a try.</p>
+<p>First up, creating a pseudo-file. It had been a while since the last time I'd used the sysfs API...</p>
+<h2>sysfs</h2>
+<p>The sysfs pseudo file system was first introduced in Linux 2.6, and is generally used for exposing system and device information.</p>
+<p>Per the <a href="https://www.kernel.org/doc/Documentation/filesystems/sysfs.txt">sysfs documentation</a>, sysfs is tied in very closely with the <a href="https://www.kernel.org/doc/Documentation/kobject.txt">kobject</a> infrastructure. sysfs exposes kobjects as directories, containing "attributes" represented as files. The kobject infrastructure provides a way to define kobjects representing entities (e.g. devices) and ksets which define collections of kobjects (e.g. devices of a particular type).</p>
+<p>Using kobjects you can do lots of fancy things such as sending events to userspace when devices are hotplugged - but that's all out of the scope of this post. It turns out there's some fairly straightforward wrapper functions if all you want to do is create a kobject just to have a simple directory in sysfs.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/kobject.h&gt;</span><span class="cp"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">ssh_key_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">ssh_kobj</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="n">ssh_kobj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kobject_create_and_add</span><span class="p">(</span><span class="s">&quot;ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ssh_kobj</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: kobject creation failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="n">late_initcall</span><span class="p">(</span><span class="n">ssh_key_init</span><span class="p">);</span><span class="w"></span>
+</code></pre></div>
+
+<p>This creates and adds a kobject called <code>ssh</code>. And just like that, we've got a directory in <code>/sys/ssh/</code>!</p>
+<p>The next thing we have to do is define a sysfs attribute for our <code>authorized_keys</code> file. sysfs provides a framework for subsystems to define their own custom types of attributes with their own metadata - but for our purposes, we'll use the generic <code>bin_attribute</code> attribute type.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/sysfs.h&gt;</span><span class="cp"></span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PUBLIC KEY HERE...&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">show_key</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">kobj</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="o">*</span><span class="n">bin_attr</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">to</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">memory_read_from_buffer</span><span class="p">(</span><span class="n">to</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">bin_attr</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="n">authorized_keys_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;authorized_keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mo">0444</span><span class="w"> </span><span class="p">},</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">show_key</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</code></pre></div>
+
+<p>We provide a simple callback, <code>show_key()</code>, that copies the key string into the file's buffer, and we put it in a <code>bin_attribute</code> with the appropriate name, size and permissions.</p>
+<p>To actually add the attribute, we put the following in <code>ssh_key_init()</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sysfs_create_bin_file</span><span class="p">(</span><span class="n">ssh_kobj</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">authorized_keys_attr</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: sysfs creation failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>Woo, we've now got <code>/sys/ssh/authorized_keys</code>! Time to move on to the bind mount.</p>
+<h2>Mounting</h2>
+<p>Now that we've got a directory with the key file in it, it's time to figure out the bind mount.</p>
+<p>Because I had no idea how any of the file system code works, I started off by running <code>strace</code> on <code>mount --bind ~/tmp1 ~/tmp2</code> just to see how the userspace <code>mount</code> tool uses the <code>mount</code> syscall to request the bind mount.</p>
+<div class="highlight"><pre><span></span><code><span class="n">execve</span><span class="p">(</span><span class="s">&quot;/bin/mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--bind&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="cm">/* 18 vars */</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+
+<span class="p">...</span><span class="w"></span>
+
+<span class="n">mount</span><span class="p">(</span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x18b78bf00</span><span class="p">,</span><span class="w"> </span><span class="n">MS_MGC_VAL</span><span class="o">|</span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+</code></pre></div>
+
+<p>The first and second arguments are the source and target paths respectively. The third argument, looking at the signature of the <code>mount</code> syscall, is a pointer to a string with the file system type. Because this is a bind mount, the type is irrelevant (upon further digging, it turns out that this particular pointer is to the string "none").</p>
+<p>The fourth argument is where we specify the flags bitfield. <code>MS_MGC_VAL</code> is a magic value that was required before Linux 2.4 and can now be safely ignored. <code>MS_BIND</code>, as you can probably guess, signals that we want a bind mount.</p>
+<p>(The final argument is used to pass file system specific data - as you can see it's ignored here.)</p>
+<p>Now, how is the syscall actually handled on the kernel side? The answer is found in <a href="http://elixir.free-electrons.com/linux/latest/source/fs/namespace.c#L2969">fs/namespace.c</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">SYSCALL_DEFINE5</span><span class="p">(</span><span class="n">mount</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dev_name</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"></span>
+<span class="w">                </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">        </span><span class="cm">/* ... copy parameters from userspace memory ... */</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="n">kernel_dev</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_type</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">        </span><span class="cm">/* ... cleanup ... */</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>So in order to achieve the same thing from within the kernel, we just call <code>do_mount()</code> with exactly the same parameters as the syscall uses:</p>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;/sys/ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/root/.ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: bind mount failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>...and we're done, right? Not so fast:</p>
+<div class="highlight"><pre><span></span><code><span class="n">SSH</span><span class="o">:</span><span class="w"> </span><span class="n">bind</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">failed</span><span class="o">,</span><span class="w"> </span><span class="n">rc</span><span class="w"> </span><span class="o">-</span><span class="mi">2</span><span class="w"></span>
+</code></pre></div>
+
+<p>-2 is <code>ENOENT</code> - no such file or directory. For some reason, we can't find <code>/sys/ssh</code>... of course, that would be because even though we've created the sysfs entry, we haven't actually mounted sysfs on <code>/sys</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/sys&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">              </span><span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NODEV</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+</code></pre></div>
+
+<p>At this point, my key worked!</p>
+<p>Note that this requires that your root file system has an empty directory created at <code>/sys</code> to be the mount point. Additionally, in a typical Linux distribution environment (as opposed to my hardware bringup environment), your initial root file system will contain an init script that mounts your real root file system somewhere and calls <code>pivot_root()</code> to switch to the new root file system. At that point, the bind mount won't be visible from children processes using the new root - I think this could be worked around but would require some effort.</p>
+<h2>Kconfig</h2>
+<p>The final piece of the puzzle is building our new code into the kernel image.</p>
+<p>To allow us to switch this important functionality on and off, I added a config option to <code>fs/Kconfig</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span> <span class="nv">SSH_KEY</span>
+        <span class="nv">bool</span> <span class="s2">&quot;</span><span class="s">Andrew&#39;s dumb SSH key hack</span><span class="s2">&quot;</span>
+        <span class="nv">default</span> <span class="nv">y</span>
+        <span class="nv">help</span>
+          <span class="nv">Hardcode</span> <span class="nv">an</span> <span class="nv">SSH</span> <span class="nv">key</span> <span class="k">for</span> <span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.
+
+          <span class="nv">This</span> <span class="nv">is</span> <span class="nv">a</span> <span class="nv">stupid</span> <span class="nv">idea</span>. <span class="k">If</span> <span class="nv">unsure</span>, <span class="nv">say</span> <span class="nv">N</span>.
+</code></pre></div>
+
+<p>This will show up in <code>make menuconfig</code> under the <code>File systems</code> menu.</p>
+<p>And in <code>fs/Makefile</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">obj-$(CONFIG_SSH_KEY)</span>           <span class="o">+=</span> ssh_key.o
+</code></pre></div>
+
+<p>If <code>CONFIG_SSH_KEY</code> is set to <code>y</code>, <code>obj-$(CONFIG_SSH_KEY)</code> evaluates to <code>obj-y</code> and thus <code>ssh-key.o</code> gets compiled. Conversely, <code>obj-n</code> is completely ignored by the build system.</p>
+<p>I thought I was all done... then <a href="https://twitter.com/mramboar">Andrew</a> suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span> <span class="nv">SSH_KEY_VALUE</span>
+        <span class="nv">string</span> <span class="s2">&quot;</span><span class="s">Value for SSH key</span><span class="s2">&quot;</span>
+        <span class="nv">depends</span> <span class="nv">on</span> <span class="nv">SSH_KEY</span>
+        <span class="nv">help</span>
+          <span class="nv">Enter</span> <span class="nv">in</span> <span class="nv">the</span> <span class="nv">content</span> <span class="k">for</span> <span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.
+</code></pre></div>
+
+<p>Including the string in the C file is as simple as:</p>
+<div class="highlight"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CONFIG_SSH_KEY_VALUE</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
+<p>And there we have it, a nicely configurable albeit highly limited kernel SSH backdoor!</p>
+<h2>Conclusion</h2>
+<p>I've put the <a href="https://github.com/ajdlinux/linux/commit/052c0cb7296f7510fd482fecbe572b641c29239f">full code</a> up on GitHub for perusal. Please don't use it, I will be extremely disappointed in you if you do.</p>
+<p>Thanks to Jono for giving me stupid ideas, and the rest of OzLabs for being very angry when they saw the disgusting things I was doing.</p>
+<p>Comments and further stupid suggestions welcome!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/">NCSI - Nice Network You've Got There</a>
       </h1>
     <p class="meta">
@@ -590,148 +755,6 @@ kernel changes!</p>
 now is a good time to learn them! (And those on Power have no excuse
 either!)</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a>
-    </span>
-  </span>
-<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time></div>
-
-  <div class="entry-content"><h2>Methodology</h2>
-<p>To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
-space to compile the software, as well as 3 sparse 1TB disks to create the
-object store.</p>
-<p>We will then build &amp; install the Ceph packages, after adding the PowerPC
-optimisiations to the code. This is done, as ceph-deploy will fetch prebuilt
-packages that do not have the performance patches if the packages are not
-installed.</p>
-<p>Finally, we will use the ceph-deploy to deploy the instance. We will ceph-deploy
-via pip, to avoid file conflicts with the packages that we built.</p>
-<p>For more information on what each command does, visit the following tutorial,
-upon which which this is based:
-<a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></p>
-<h3>Virtual Machine Config</h3>
-<p>Create a virtual machine with at least the following:
- - 16GB of memory
- - 16 CPUs
- - 64GB disk for the root filesystem
- - 3 x 1TB for the Ceph object store
- - Ubuntu 16.04 default install (only use the 64GB disk, leave the others unpartitioned)</p>
-<h3>Initial config</h3>
-<ul>
-<li>Enable ssh</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    sudo apt install openssh-server
-    sudo apt update
-    sudo apt upgrade
-    sudo reboot
-</code></pre></div>
-
-<ul>
-<li>Install build tools</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    sudo apt install git debhelper
-</code></pre></div>
-
-<h3>Build Ceph</h3>
-<ul>
-<li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
-</ul>
-<div class="highlight"><pre><span></span><code>    <span class="nv">mkdir</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
-    <span class="nv">cd</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
-    <span class="nv">git</span> <span class="nv">clone</span> <span class="o">--</span><span class="nv">recursive</span> <span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span>  # <span class="nv">This</span> <span class="nv">may</span> <span class="nv">take</span> <span class="nv">a</span> <span class="k">while</span>
-    <span class="nv">cd</span> <span class="nv">ceph</span>
-    <span class="nv">git</span> <span class="nv">checkout</span> <span class="nv">master</span>
-    <span class="nv">git</span> <span class="nv">submodule</span> <span class="nv">update</span> <span class="o">--</span><span class="nv">force</span> <span class="o">--</span><span class="nv">init</span> <span class="o">--</span><span class="nv">recursive</span>
-</code></pre></div>
-
-<ul>
-<li>Cherry-pick the Power performance patches:</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    git remote add kestrels https://github.com/kestrels/ceph.git
-    git fetch --all
-    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
-</code></pre></div>
-
-<ul>
-<li>Install prerequisites</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    ./install-deps.sh
-    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
-    sudo pip3 install ceph-deploy
-</code></pre></div>
-
-<ul>
-<li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
-</ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src/ceph
-    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
-</code></pre></div>
-
-<ul>
-<li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src
-    sudo dpkg -i *.deb
-</code></pre></div>
-
-<h3>Create the ceph-deploy user</h3>
-<div class="highlight"><pre><span></span><code>    sudo adduser ceph-deploy
-    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy
-    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
-</code></pre></div>
-
-<h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">su</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span><span class="w"></span>
-<span class="w">    </span><span class="n">node</span><span class="o">=</span><span class="n n-Quoted">`hostname`</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span><span class="w"></span>
-<span class="w">    </span><span class="n">mkdir</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">cd</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">$node</span><span class="w"> </span><span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd pool default size = 2&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-</code></pre></div>
-
-<h3>Complete the Ceph deployment</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy install <span class="nv">$node</span>
-    ceph-deploy mon create-initial
-    drives=&quot;vda vdb vdc&quot;  # the 1TB drives - check that these are correct for your system
-    for drive in <span class="nv">$drives</span>; do ceph-deploy disk zap <span class="nv">$node</span>:<span class="nv">$drive</span>; ceph-deploy osd prepare <span class="nv">$node</span>:<span class="nv">$drive</span>; done
-    for drive in <span class="nv">$drives</span>; do ceph-deploy osd activate <span class="nv">$node</span>:/dev/<span class="cp">${</span><span class="n">drive</span><span class="cp">}</span>1; done
-    ceph-deploy admin <span class="nv">$node</span>
-    sudo chmod +r /etc/ceph/ceph.client.admin.keyring
-    ceph -s # Check the state of the cluster
-</code></pre></div>
-
-<h3>Configure CephFS</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy mds create $node
-    ceph osd pool create cephfs_data 128
-    ceph osd pool create cephfs_metadata 128
-    ceph fs new cephfs cephfs_metadata cephfs_data
-    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
-    sudo mkdir /mnt/cephfs
-    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
-    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
-</code></pre></div>
-
-<h2>References</h2>
-<ol>
-<li><a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
-<li><a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
-<li><a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></li>
-</ol></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index5.html">&larr; Older</a>
 
@@ -743,6 +766,9 @@ upon which which this is based:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
       </li>
       <li class="post">
@@ -753,9 +779,6 @@ upon which which this is based:
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
       </li>
     </ul>
   </section>
@@ -776,7 +799,7 @@ upon which which this is based:
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>

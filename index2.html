@@ -102,6 +102,96 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
+      </h1>
+    <p class="meta">
+<time datetime="2019-12-18T17:30:00+11:00" pubdate>Wed 18 December 2019</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2019-12-18T17:30:00+11:00" pubdate>Wed 18 December 2019</time></div>
+
+  <div class="entry-content"><p>I was staring at some assembly recently, and for not the first time encountered <em>rfid</em> and <em>hrfid</em>, two instructions that we use when doing things like returning to userspace, returning from OPAL to the kernel, or from a host kernel into a guest.</p>
+<p><em>rfid</em> copies various bits from the register SRR1 (Machine Status Save/Restore Register 1) into the MSR (Machine State Register), and then jumps to an address given in SRR0 (Machine Status Save/Restore Register 0). <em>hrfid</em> does something similar, using HSRR0 and HSRR1 (Hypervisor Machine Status Save/Restore Registers 0/1), and slightly different handling of MSR bits.</p>
+<p>The various Save/Restore Registers are used to preserve the state of the CPU before jumping to an interrupt handler, entering the kernel, etc, and are set up as part of instructions like <em>sc</em> (System Call), by the interrupt mechanism, or manually (using instructions like <em>mtsrr1</em>).</p>
+<p>Anyway, the way in which <em>rfid</em> and <em>hrfid</em> restores MSR bits is documented somewhat obtusely in the ISA (if you don't believe me, look it up), and I was annoyed by this, so here, have a more useful definition. Leave a comment if I got something wrong.</p>
+<h1>rfid - Return From Interrupt Doubleword</h1>
+<h2>Machine State Register</h2>
+<p>Copy all bits (except some reserved bits) from SRR1 into the MSR, with the following exceptions:</p>
+<ul>
+<li>
+<p>MSR_3 (HV, Hypervisor State) = MSR_3 &amp; SRR1_3<br>
+[We won't put the thread into hypervisor state if we're not already in hypervisor state]</p>
+</li>
+<li>
+<p>If MSR_29:31 != 0b010 [Transaction State Suspended, TM not available], or SRR1_29:31 != 0b000 [Transaction State Non-transactional, TM not available] then:</p>
+<ul>
+<li>MSR_29:30 (TS, Transaction State) = SRR1_29:30</li>
+<li>MSR_31 (TM, Transactional Memory Available) = SRR1_31</li>
+</ul>
+<p>[See the ISA description for explanation on how rfid interacts with TM and resulting interrupts]</p>
+</li>
+<li>
+<p>MSR_48 (EE, External Interrupt Enable) = SRR1_48 | SRR1_49 (PR, Problem State)<br>
+[If going into problem state, external interrupts will be enabled]</p>
+</li>
+<li>
+<p>MSR_51 (ME, Machine Check Interrupt Enable) = (MSR_3 (HV, Hypervisor State) &amp; SRR1_51) | ((! MSR_3) &amp; MSR_51)<br>
+[If we're not already in hypervisor state, we won't alter ME]</p>
+</li>
+<li>
+<p>MSR_58 (IR, Instruction Relocate) = SRR1_58 | SRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+<li>
+<p>MSR_59 (DR, Data Relocate) = SRR1_59 | SRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+</ul>
+<h2>Next Instruction Address</h2>
+<ul>
+<li>NIA = SRR0_0:61 || 0b00<br>
+[Jump to SRR0, set last 2 bits to zero to ensure address is aligned to 4 bytes]</li>
+</ul>
+<h1>hrfid - Hypervisor Return From Interrupt Doubleword</h1>
+<h2>Machine State Register</h2>
+<p>Copy all bits (except some reserved bits) from HSRR1 into the MSR, with the following exceptions:</p>
+<ul>
+<li>
+<p>If MSR_29:31 != 0b010 [Transaction State Suspended, TM not available], or HSRR1_29:31 != 0b000 [Transaction State Non-transactional, TM not available] then:</p>
+<ul>
+<li>MSR_29:30 (TS, Transaction State) = HSRR1_29:30</li>
+<li>MSR_31 (TM, Transactional Memory Available) = HSRR1_31</li>
+</ul>
+<p>[See the ISA description for explanation on how rfid interacts with TM and resulting interrupts]</p>
+</li>
+<li>
+<p>MSR_48 (EE, External Interrupt Enable) = HSRR1_48 | HSRR1_49 (PR, Problem State)<br>
+[If going into problem state, external interrupts will be enabled]</p>
+</li>
+<li>
+<p>MSR_58 (IR, Instruction Relocate) = HSRR1_58 | HSRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+<li>
+<p>MSR_59 (DR, Data Relocate) = HSRR1_59 | HSRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+</ul>
+<h2>Next Instruction Address</h2>
+<ul>
+<li>NIA = HSRR0_0:61 || 0b00<br>
+[Jump to HSRR0, set last 2 bits to zero to ensure address is aligned to 4 bytes]</li>
+</ul></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2019/06/18/ten-thousand-disks/">TEN THOUSAND DISKS</a>
       </h1>
     <p class="meta">
@@ -405,54 +495,6 @@ However, for our current set of programs and use cases, this is probably not tra
 <p>In short, the article is full of great ideas if you happen to be parsing a simple language, or are designing not just a parser but a full language ecosystem. They do also provide a binary parser toolkit that might be helpful if you are parsing a binary format that can be expressed with a parser combinator.</p>
 <p>Overall, however, I think the burden of maintaining old systems is such that a security paradigm that relies on new code is pretty unlikely, and one that relies on new languages is fatally doomed from the outset. New systems should take up these ideas, yes. But I'd really like to see people grappling with how to deal with the complex and irregular languages that we're stuck with (HTML, PDF, etc) in secure ways.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">What Do You Mean "No"?</a>
-      </h1>
-    <p class="meta">
-<time datetime="2019-02-25T16:47:00+11:00" pubdate>Mon 25 February 2019</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2019-02-25T16:47:00+11:00" pubdate>Mon 25 February 2019</time></div>
-
-  <div class="entry-content"><p>Quite often when building small Linux images having separate user accounts isn't always at the top of the list of things to include. Petitboot is no different; the most common operations like mounting disks, configuring interfaces, and calling <code>kexec</code> all require root and Petitboot generally only exists long enough to boot into the next thing, so why not run it all as root?</p>
-<p>The picture is less clear when we start to think about what is possible to do in Petitboot by default. If someone comes across an open Petitboot console they're only a few keystrokes away from wiping disks, changing files, or even flashing firmware. Depending on how your system is used that may or may not be something you care about, but over time there have been a few requests to "add a password screen to Petitboot" to at least make it so that the system isn't open season for whoever sees it.</p>
-<h2>Enter Password:</h2>
-<p>The most direct way to avoid this would be to slap a password prompt onto Petitboot before any changes can be made. There are two immediate drawbacks to this:</p>
-<ul>
-<li>The Petitboot UI still runs as root, and</li>
-<li>Exiting to the shell gives the user root permissions as well.</li>
-</ul>
-<p>There is already a <a href="https://github.com/open-power/petitboot/commit/f5dab0206a3baca73895a587583ddfa402f8f569">mechanism</a> to prevent the user exiting to the shell, but this puts all of our eggs in the basket of petitboot-nc being a secure program. If a user can accidentally or otherwise find a way to exit or crash the UI then they're immediately in a root shell, and while petitboot-nc is a good UI it was never designed to be a hardened program protecting the system.</p>
-<h2>You Have No Power Here</h2>
-<p>The idea instead as of Petitboot v1.10.0 is not to care if the user drops to the shell; because now it's completely unprivileged.</p>
-<p><img alt="Normal shell" src="/images/sammj/users-reboot.png"></p>
-<p>The only process now that runs as root is pb-discover itself; the console, UI, and helper scripts run as a new 'petituser'. For the server and clients to still communicate the "petitiboot.ui" socket permissions are modified to allow processes that are part of the 'petitgroup' to connect. However now if pb-discover notices that a client in the petitgroup is connecting  (or more accurately the client isn't running as root) by default it ignores any commands from it that would configure or boot the system.</p>
-<p>A new command, <code>PB_PROTOCOL_ACTION_AUTHENTICATE</code>, lets a client send a password to the server to then be allowed to send all the usual commands like updating the config or booting a specific option. This keeps all the authentication on the server side, avoiding writing any "secure" ncurses code. In the UI the biggest difference is that when trying to change something the user will hit a password field:</p>
-<p><img alt="Denied" src="/images/sammj/users-denied.png"></p>
-<p>Then the password is sent to the server, checked, and if correct the action goes ahead.</p>
-<h2>Whose Passwords?</h2>
-<p>But where does this password come from? Technically it's just the root password. The server computes a hash of the supplied password and compares it against the system's root password. Similarly in the shell the user can run <code>sudo</code> with the root password to enter a full shell if needed:</p>
-<p><img alt="Oops" src="/images/sammj/users-dd-random.png"></p>
-<p>Petitboot of course runs in memory, and writing a root password into the image itself would mean recompiling to change the password, so instead Petitboot pulls the root password from NVRAM. On startup Petitboot reads the <code>petitboot,password</code> parameter which is the <em>hash</em> of the root password and updates <code>/etc/shadow</code> with it. This happens before any clients are up or can connect to the server.</p>
-<h2>Don't Panic</h2>
-<p>By default no password is set. After all we don't want people upgrading and then being somehow locked out of their system. For ease of use, and for testing-purposes, if no password is configured and the user drops to the shell it is automatically upgraded to a root shell:</p>
-<p><img alt="Elevated" src="/images/sammj/users-elevated.png"></p>
-<p>To set a password there is a new subscreen in System Configuration:</p>
-<p><img alt="New Password" src="/images/sammj/users-new-password.png"></p>
-<p>This sends an authentication command to the server, and assuming the client is authenticated with the current password as well pb-discover updates the shadow file, and writes the hash back to NVRAM.</p>
-<hr>
-<p>User support exists in Petitboot v1.10.0 onwards. You will also need some support in your build system to set up the users, see how <a href="https://github.com/open-power/op-build/commit/7b5f1efbee6ace9d4ee80640875aa3ad57e95c69">op-build did it for an example</a>.</p>
-<p>There are a few items on the TODO list still which would be good to have. For example storing the password hash in an attached TPM if available, as well as splitting out more of what runs as root; for example the bootloader parsers in pb-discover preferably wouldn't run with root privileges, but they are all part of the one binary.</p>
-<p>As always, comments, suggestions, and patches welcome on the <a href="https://lists.ozlabs.org/listinfo/petitboot">list</a>!</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -464,6 +506,9 @@ However, for our current set of programs and use cases, this is probably not tra
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
       </li>
       <li class="post">
@@ -474,9 +519,6 @@ However, for our current set of programs and use cases, this is probably not tra
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
       </li>
     </ul>
   </section>
@@ -497,7 +539,7 @@ However, for our current set of programs and use cases, this is probably not tra
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
