@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>Dumb bugs: When a date breaks booting the kernel &mdash; Store Halfword Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Halfword Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="http://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="http://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="http://sthbrx.github.io/">Store Halfword Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li class="active">
+        <a href="http://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="http://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="http://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="http://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
+        <a href="http://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="http://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="http://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Dumb bugs: When a date breaks booting the kernel</h1>
+    <p class="meta">
+<time datetime="2023-03-24T00:00:00+11:00" pubdate>Fri 24 March 2023</time>    </p>
+</header>
+
+  <div class="byline_index">
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="http://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a>
+    </span>
+  </span>
+<time datetime="2023-03-24T00:00:00+11:00" pubdate>Fri 24 March 2023</time>  <span class="categories">
+    <a class='category' href='http://sthbrx.github.io/category/development.html'>Development</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="http://sthbrx.github.io/tag/linux.html">linux</a>  </span>
+</p>  </div>
+  <div class="entry-content"><h2>The setup</h2>
+<p>I've recently been working on internal CI infrastructure for testing kernels before sending them to the mailing list. As part of this effort, I became interested in <a href="https://reproducible-builds.org/">reproducible builds</a>. Minimising the changing parts outside of the source tree itself could improve consistency and ccache hits, which is great for trying to make the CI faster and more reproducible across different machines. This means removing 'external' factors like timestamps from the build process, because the time changes every build and means the results between builds of the same tree are no longer identical binaries. This also prevents using previously cached results, potentially slowing down builds (though it turns out the kernel does a good job of limiting the scope of where timestamps appear in the build).</p>
+<p>As part of this effort, I came across the <code>KBUILD_BUILD_TIMESTAMP</code> environment variable. This variable is used to set the kernel timestamp, which is primarily for any users who want to know when their kernel was built. That's mostly irrelevant for our work, so an easy <code>KBUILD_BUILD_TIMESTAMP=0</code> later and... it still uses the current date.</p>
+<p>Ok, checking <a href="https://docs.kernel.org/kbuild/kbuild.html#kbuild-build-timestamp">the documentation</a> it says</p>
+<blockquote>
+<p>Setting this to a date string overrides the timestamp used in the UTS_VERSION definition (uname -v in the running kernel). The value has to be a string that can be passed to date -d. The default value is the output of the date command at one point during build.</p>
+</blockquote>
+<p>So it looks like the timestamp variable is actually expected to be a date format. To make it obvious that it's not a 'real' date, let's set <code>KBUILD_BUILD_TIMESTAMP=0000-01-01</code>. A bunch of zeroes (and the ones to make it a valid month and day) should tip off anyone to the fact it's invalid.</p>
+<p>As an aside, this is a different date to what I tried to set it to earlier; a 'timestamp' typically refers to the number of seconds since the UNIX epoch (1970), so my first attempt would have corresponded to 1970-01-01. But given we're passing a date, not a timestamp, there should be no problem setting it back to the year 0. And I like the aesthetics of 0000 over 1970.</p>
+<p>Building and booting the kernel, we see <code>#1 SMP 0000-01-01</code> printed as the build timestamp. Success! After confirming everything works, I set the environment variable in the CI jobs and call it a day.</p>
+<h2>An unexpected error</h2>
+<p>A few days later I need to run the CI to test my patches, and something strange happens. It builds fine, but the boot tests that load a root disk image fail inexplicably: there is a kernel panic saying "VFS: Unable to mount root fs on unknown-block(253,2)".</p>
+<div class="highlight"><pre><span></span><code>[    0.909648][    T1] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(253,2)
+[    0.909797][    T1] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 6.3.0-rc2-g065ffaee7389 #8
+[    0.909880][    T1] Hardware name: IBM pSeries (emulated by qemu) POWER8 (raw) 0x4d0200 0xf000004 of:SLOF,HEAD pSeries
+[    0.910044][    T1] Call Trace:
+[    0.910107][    T1] [c000000003643b00] [c000000000fb6f9c] dump_stack_lvl+0x70/0xa0 (unreliable)
+[    0.910378][    T1] [c000000003643b30] [c000000000144e34] panic+0x178/0x424
+[    0.910423][    T1] [c000000003643bd0] [c000000002005144] mount_block_root+0x1d0/0x2bc
+[    0.910457][    T1] [c000000003643ca0] [c000000002005720] prepare_namespace+0x1d4/0x22c
+[    0.910487][    T1] [c000000003643d20] [c000000002004b04] kernel_init_freeable+0x36c/0x3bc
+[    0.910517][    T1] [c000000003643df0] [c000000000013830] kernel_init+0x30/0x1a0
+[    0.910549][    T1] [c000000003643e50] [c00000000000df94] ret_from_kernel_thread+0x5c/0x64
+[    0.910587][    T1] --- interrupt: 0 at 0x0
+[    0.910794][    T1] NIP:  0000000000000000 LR: 0000000000000000 CTR: 0000000000000000
+[    0.910828][    T1] REGS: c000000003643e80 TRAP: 0000   Not tainted  (6.3.0-rc2-g065ffaee7389)
+[    0.910883][    T1] MSR:  0000000000000000 &lt;&gt;  CR: 00000000  XER: 00000000
+[    0.910990][    T1] CFAR: 0000000000000000 IRQMASK: 0
+[    0.910990][    T1] GPR00: 0000000000000000 c000000003644000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR04: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR08: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR12: 0000000000000000 0000000000000000 c000000000013808 0000000000000000
+[    0.910990][    T1] GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR20: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR24: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR28: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.911371][    T1] NIP [0000000000000000] 0x0
+[    0.911397][    T1] LR [0000000000000000] 0x0
+[    0.911427][    T1] --- interrupt: 0
+qemu-system-ppc64: OS terminated: OS panic: VFS: Unable to mount root fs on unknown-block(253,2)
+</code></pre></div>
+
+<p>Above the panic was some more context, saying</p>
+<div class="highlight"><pre><span></span><code>[    0.906194][    T1] Warning: unable to open an initial console.
+...
+[    0.908321][    T1] VFS: Cannot open root device &quot;vda2&quot; or unknown-block(253,2): error -2
+[    0.908356][    T1] Please append a correct &quot;root=&quot; boot option; here are the available partitions:
+[    0.908528][    T1] 0100           65536 ram0
+[    0.908657][    T1]  (driver?)
+[    0.908735][    T1] 0101           65536 ram1
+[    0.908744][    T1]  (driver?)
+...
+[    0.909216][    T1] 010f           65536 ram15
+[    0.909226][    T1]  (driver?)
+[    0.909265][    T1] fd00         5242880 vda
+[    0.909282][    T1]  driver: virtio_blk
+[    0.909335][    T1]   fd01            4096 vda1 d1f35394-01
+[    0.909364][    T1]
+[    0.909401][    T1]   fd02         5237760 vda2 d1f35394-02
+[    0.909408][    T1]
+[    0.909441][    T1] fd10             366 vdb
+[    0.909446][    T1]  driver: virtio_blk
+[    0.909479][    T1] 0b00         1048575 sr0
+[    0.909486][    T1]  driver: sr
+</code></pre></div>
+
+<p>This is even more baffling: if it's unable to open a console, then what am I reading these messages on? And error <code>-2</code>, or ENOENT, on opening 'vda2' implies that no such file or directory exists. But it then lists vda2 as a present drive with a known driver? So is vda2 missing or not?</p>
+<h2>Living in denial</h2>
+<p>As you've read the title of this article, you can probably guess as to what changed to cause this error. But at the time I had no idea what could have been the cause. I'd already confirmed that a kernel with a set timestamp can boot to userspace, and there was another (seemingly) far more likely candidate for the failure: as part of the CI design, patches are extracted from the submitted branch and rebased onto the maintainer's tree. This is great from a convenience perspective, because you don't need to worry about forgetting to rebase your patches before testing and submission. But if the maintainer has synced their branch with Linus' tree it means there could be a lot of things changed in the source tree between runs, even if they were only a few days apart.</p>
+<p>So, when you're faced with a working test on one commit and a broken test on another commit, it's time to break out the <code>git bisect</code>. Downloading the kernel images from the relevant CI jobs, I confirmed that indeed one was working while the other was broken. So I bisected the relevant commits, and... everything kept working. Each step I would build and boot the kernel, and each step would reach userspace just fine. I was getting suspicious at this point, so skipped ahead to the known bad commit and built and tested it locally. It <em>also worked</em>.</p>
+<p>This was highly confusing, because it meant there was something fishy going on. Some kind of state outside of the kernel tree. Could it be... surely not...</p>
+<p>Comparing the boot logs of the two CI kernels, I see that the working one indeed uses an actual timestamp, and the broken one uses the 0000-01-01 fixed date. Oh no. Setting the timestamp with a local build, I can now reproduce the boot panic with a kernel I built myself.</p>
+<h2>But... why?</h2>
+<p>OK, so it's obvious at this point that the timestamp is affecting loading a root disk somehow. But why? The obvious answer is that it's before the UNIX epoch. Something in the build process is turning the date into an actual timestamp, and going wrong when that timestamp gets used for something.</p>
+<p>But it's not like there was a build error complaining about it. As best I could tell, the kernel doesn't try to parse the date anywhere, besides passing it to <code>date</code> during the build. And if <code>date</code> had an issue with it, it would have broken the <em>build</em>. Not <em>booting</em> the kernel. There's no <code>date</code> utility being invoked during kernel boot!</p>
+<p>Regardless, I set about tracing the usage of <code>KBUILD_BUILD_TIMESTAMP</code> inside the kernel. The stacktrace in the panic gave the end point of the search; the function <code>mount_block_root()</code> wasn't happy. So all I had to do was work out at which point <code>mount_block_root()</code> tried to access the <code>KBUILD_BUILD_TIMESTAMP</code> value.</p>
+<p>In short, that went nowhere.</p>
+<p><code>mount_block_root()</code> effectively just tries to open a file in the filesystem. There's massive amounts of code handling this, and any part could have had the undocumented dependency on <code>KBUILD_BUILD_TIMESTAMP</code>. Approaching from the other direction, <code>KBUILD_BUILD_TIMESTAMP</code> is turned into <code>build-timestamp</code> inside a Makefile, which is in turn related to a file <code>include/generated/utsversion.h</code>. This file <code>#define</code>s <code>UTS_VERSION</code> equal to the <code>KBUILD_BUILD_TIMESTAMP</code> value. Searching the kernel for <code>UTS_VERSION</code>, we hit <code>init/version-timestamp.c</code> which stores it in a struct with other build information:</p>
+<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">uts_namespace</span><span class="w"> </span><span class="n">init_uts_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REFCOUNT_INIT</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">sysname</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_SYSNAME</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">nodename</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_NODENAME</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">release</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_RELEASE</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">version</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_VERSION</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">machine</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_MACHINE</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">domainname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_DOMAINNAME</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">user_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">init_user_ns</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">inum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PROC_UTS_INIT_INO</span><span class="p">,</span><span class="w"></span>
+<span class="cp">#ifdef CONFIG_UTS_NS</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">utsns_operations</span><span class="p">,</span><span class="w"></span>
+<span class="cp">#endif</span>
+<span class="p">};</span><span class="w"></span>
+</code></pre></div>
+
+<p>This is where the trail goes cold: I don't know if you've ever tried this, but searching for <code>.version</code> in the kernel's codebase is not a very fruitful endeavor when you're interested in a specific kind of version.</p>
+<div class="highlight"><pre><span></span><code>$ rg &quot;(\.|\-&gt;)version\b&quot; | wc -l
+5718
+</code></pre></div>
+
+<p>I tried tracing the usage of <code>init_uts_ns</code>, but didn't get very far.</p>
+<p>By now I'd already posted this in chat and another developer, <a href="https://shenki.github.io/">Joel Stanley</a>, was also investigating this bizarre bug. They had been testing different timestamp values and made the horrifying discovery that the bug sticks around after a rebuild. So you could start with a broken build, set the timestamp back to the correct value, rebuild, and the resulting kernel would <em>still be broken</em>. The boot log would report the correct time, but the root disk mounter panicked all the same.</p>
+<h2>Getting sidetracked</h2>
+<p>I wasn't prepared to investigate the boot panic directly until the persistence bug was fixed. Having to run <code>make clean</code> and rebuild everything would take an annoyingly long time, even with ccache. Fortunately, I had a plan. All I had to do was work out which generated files are different between a broken and working build, and binary search by deleting half of them until deleting only one made the difference between the bug persisting or not. We can use <code>diff</code> for this. Running the initial diff we get</p>
+<div class="highlight"><pre><span></span><code>$ diff -q --exclude System.map --exclude .tmp_vmlinux* --exclude tools broken/ working/
+Common subdirectories: broken/arch and working/arch
+Common subdirectories: broken/block and working/block
+Files broken/built-in.a and working/built-in.a differ
+Common subdirectories: broken/certs and working/certs
+Common subdirectories: broken/crypto and working/crypto
+Common subdirectories: broken/drivers and working/drivers
+Common subdirectories: broken/fs and working/fs
+Common subdirectories: broken/include and working/include
+Common subdirectories: broken/init and working/init
+Common subdirectories: broken/io_uring and working/io_uring
+Common subdirectories: broken/ipc and working/ipc
+Common subdirectories: broken/kernel and working/kernel
+Common subdirectories: broken/lib and working/lib
+Common subdirectories: broken/mm and working/mm
+Common subdirectories: broken/net and working/net
+Common subdirectories: broken/scripts and working/scripts
+Common subdirectories: broken/security and working/security
+Common subdirectories: broken/sound and working/sound
+Common subdirectories: broken/usr and working/usr
+Files broken/.version and working/.version differ
+Common subdirectories: broken/virt and working/virt
+Files broken/vmlinux and working/vmlinux differ
+Files broken/vmlinux.a and working/vmlinux.a differ
+Files broken/vmlinux.o and working/vmlinux.o differ
+Files broken/vmlinux.strip.gz and working/vmlinux.strip.gz differ
+</code></pre></div>
+
+<p>Hmm, OK so only some top level files are different. Deleting all the different files doesn't fix the persistence bug though, and I know that a proper <code>make clean</code> does fix it, so what could possibly be the difference when all the remaining files are identical?</p>
+<p>Oh wait. <code>man diff</code> reports that <code>diff</code> only compares the top level folder entries by default. So it was literally just telling me "yes, both the broken and working builds have a folder named X". How GNU of it. Re-running the diff command with actually useful options, we get a more promising story</p>
+<div class="highlight"><pre><span></span><code>$ diff -qr --exclude System.map --exclude .tmp_vmlinux* --exclude tools build/broken/ build/working/
+Files build/broken/arch/powerpc/boot/zImage and build/working/arch/powerpc/boot/zImage differ
+Files build/broken/arch/powerpc/boot/zImage.epapr and build/working/arch/powerpc/boot/zImage.epapr differ
+Files build/broken/arch/powerpc/boot/zImage.pseries and build/working/arch/powerpc/boot/zImage.pseries differ
+Files build/broken/built-in.a and build/working/built-in.a differ
+Files build/broken/include/generated/utsversion.h and build/working/include/generated/utsversion.h differ
+Files build/broken/init/built-in.a and build/working/init/built-in.a differ
+Files build/broken/init/utsversion-tmp.h and build/working/init/utsversion-tmp.h differ
+Files build/broken/init/version.o and build/working/init/version.o differ
+Files build/broken/init/version-timestamp.o and build/working/init/version-timestamp.o differ
+Files build/broken/usr/built-in.a and build/working/usr/built-in.a differ
+Files build/broken/usr/initramfs_data.cpio and build/working/usr/initramfs_data.cpio differ
+Files build/broken/usr/initramfs_data.o and build/working/usr/initramfs_data.o differ
+Files build/broken/usr/initramfs_inc_data and build/working/usr/initramfs_inc_data differ
+Files build/broken/.version and build/working/.version differ
+Files build/broken/vmlinux and build/working/vmlinux differ
+Files build/broken/vmlinux.a and build/working/vmlinux.a differ
+Files build/broken/vmlinux.o and build/working/vmlinux.o differ
+Files build/broken/vmlinux.strip.gz and build/working/vmlinux.strip.gz differ
+</code></pre></div>
+
+<p>There are some new entries here: notably <code>init/version*</code> and <code>usr/initramfs*</code>. Binary searching these files results in a single culprit: <code>usr/initramfs_data.cpio</code>. This is quite fitting, as the <code>.cpio</code> file is an archive defining a filesystem layout, <a href="https://docs.kernel.org/filesystems/ramfs-rootfs-initramfs.html?highlight=initramfs#why-cpio-rather-than-tar">much like <code>.tar</code> files</a>. This file is actually embedded into the kernel image, and loaded as a bare-bones shim filesystem when the user doesn't provide their own initramfs<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>.</p>
+<p>So it would make sense that if the CPIO archive wasn't being rebuilt, then the initial filesystem wouldn't change. And it would make sense for the initial filesystem to be causing mount issues of the proper root disk filesystem.</p>
+<p>This just leaves the question of how <code>KBUILD_BUILD_TIMESTAMP</code> is breaking the CPIO archive. And it's around this time that a third developer, <a href="https://twitter.com/ajdlinux">Andrew</a>, who I'd roped into this bug hunt for having the (mis)fortune to sit next to me, pointed out that the generator script for this CPIO archive was passing the <code>KBUILD_BUILD_TIMESTAMP</code> to <code>date</code>. Whoop, we've found the murder weapon<sup id="fnref:2"><a class="footnote-ref" href="#fn:2">2</a></sup>!</p>
+<p>The persistence bug could be explained now: because the script was only using <code>KBUILD_BUILD_TIMESTAMP</code> internally, <code>make</code> had no way of knowing that the archive generation depended on this variable. So even when I changed the variable to a valid value, <code>make</code> didn't know to rebuild the corrupt archive. Let's now get back to the main issue: why boot panics.</p>
+<h2>Solving the case</h2>
+<p>Following along the CPIO generation script, the <code>KBUILD_BUILD_TIMESTAMP</code> variable is turned into a timestamp by <code>date -d"$KBUILD_BUILD_TIMESTAMP" +%s</code>. Testing this in the shell with <code>0000-01-01</code> we get this (somewhat amusing, but also painful) result</p>
+<div class="highlight"><pre><span></span><code>date -d&quot;$KBUILD_BUILD_TIMESTAMP&quot; +%s
+-62167255492
+</code></pre></div>
+
+<p>This timestamp is then passed to a C program that assigns it to a variable <code>default_mtime</code>. Looking over the source, it seems this variable is used to set the <code>mtime</code> field on the files in the CPIO archive. The timestamp is stored as a <code>time_t</code>, which is an alias for <code>int64_t</code>. That's 64 bits of data, up to 16 hexadecimal characters. And yes, that's relevant: CPIO stores the <code>mtime</code> (and all other numerical fields) as 32 bit unsigned integers represented by ASCII hexadecimal characters. The <code>sprintf()</code> call that ultimately embeds the timestamp uses the <code>%08lX</code> format specifier. This formats a <code>long</code> as hexadecimal, padded to at least 8 characters. Hang on... <strong><em>at least</em></strong> 8 characters? What if our timestamp happens to be more?</p>
+<p>It turns out that large timestamps are already guarded against. The program will error during build if the date is later than 2106-02-07 (maximum unsigned 8 hex digit timestamp).</p>
+<div class="highlight"><pre><span></span><code><span class="cm">/*</span>
+<span class="cm"> * Timestamps after 2106-02-07 06:28:15 UTC have an ascii hex time_t</span>
+<span class="cm"> * representation that exceeds 8 chars and breaks the cpio header</span>
+<span class="cm"> * specification.</span>
+<span class="cm"> */</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">default_mtime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mh">0xffffffff</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ERROR: Timestamp too large for cpio format</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>But we are using an <code>int64_t</code>. What would happen if one were to provide a negative timestamp?</p>
+<p>Well, <code>sprintf()</code> happily spits out <code>FFFFFFF1868AF63C</code> when we pass in our negative timestamp representing <code>0000-01-01</code>. That's 16 characters, 8 too many for the CPIO header<sup id="fnref:3"><a class="footnote-ref" href="#fn:3">3</a></sup>.</p>
+<p>So at last we've found the cause of the panic: the timestamp is being formatted too long, which breaks the CPIO header and the kernel doesn't create an initial filesystem correctly. This includes the <code>/dev</code> folder (which surprisingly is not hardcoded into kernel, but must be declared by the initramfs). So when the root disk mounter tries to open <code>/dev/vda2</code>, it correctly complains that it failed to create a device in the non-existent <code>/dev</code>.</p>
+<h2>Postmortem</h2>
+<p>After discovering all this, I sent in a couple of patches to fix <a href="https://lore.kernel.org/all/20230320040839.660475-1-bgray@linux.ibm.com/">the CPIO generation</a> and <a href="https://lore.kernel.org/all/20230320040839.660475-2-bgray@linux.ibm.com/">rebuild logic</a>. They were not complicated fixes, but wow were they time consuming to track down. I didn't see the error initially because I typically only boot with my own initramfs over the embedded one, and not with the intent to load a root disk. Then the panic itself was quite far away from the real issue, and there were many dead ends to explore.</p>
+<p>I also got curious as to why the kernel didn't complain about a corrupt initramfs earlier. A brief investigation showed a streaming parser that is <em>extremely</em> fault tolerant, silently skipping invalid entries (like ones missing or having too long a name). The corrupted header was being interpreted as an entry with an empty name and 2 gigabyte body contents, which meant that (1) the kernel skipped inserting it due to the empty name, and (2) the kernel skipped the rest of the initramfs because it thought that up to 2 GB of the remaining content was part of that first entry.</p>
+<p>Perhaps this could be improved to require that all input is consumed without unexpected EOF, such as how the userspace <code>cpio</code> tool works (which, by the way, recognises the corrupt archive as such and refuses to decompress it). The parsing logic is mostly from the before-times though (i.e., pre initial git commit), so it's difficult to distinguish intentional leniency and bugs.</p>
+<h2>Afterword</h2>
+<p>Incidentally, in investigating this I came across another bug. There is a helper function <code>panic_show_mem()</code> in the initramfs that's meant to dump memory information and then call <code>panic()</code>. It takes in standard <code>printf()</code> style format string and arguments, and tries to forward them to <code>panic()</code> which ultimately prints them.</p>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">panic_show_mem</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">show_mem</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">panic</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">panic</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span><span class="w"></span>
+</code></pre></div>
+
+<p>But variadic arguments don't quite work this way: instead of forwarding the list <code>args</code> as intended, <code>panic()</code> will instead interpret <code>args</code> as a single argument for the format string <code>fmt</code>. Standard library functions address this by providing <code>v*</code> variants of <code>printf()</code> and friends. For example,</p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">printf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span><span class="w"></span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">vprintf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+</code></pre></div>
+
+<p>We might create a <code>vpanic()</code> function in the kernel that follows this style, but it seems easier to just make <code>panic_show_mem()</code> a macro and 'forward' the arguments in the source code</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#define panic_show_mem(fmt, ...) \</span>
+<span class="cp">    ({ show_mem(0, NULL); panic(fmt, ##__VA_ARGS__); })</span>
+</code></pre></div>
+
+<p><a href="https://lore.kernel.org/all/20230320230534.50174-1-bgray@linux.ibm.com/">Patch sent</a>.</p>
+<p>And that's where I've left things. Big thanks to Joel and Andrew for helping me with this bug. It was certainly a trip.</p>
+<div class="footnote">
+<hr>
+<ol>
+<li id="fn:1">
+<p>initramfs, or initrd for the older format, are specific kinds of CPIO archives. The initramfs is intended to be loaded as the initial filesystem of a booted kernel, typically in preparation for loading your normal root filesystem. It might contain modules necessary to mount the disk for example.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+<li id="fn:2">
+<p>Hindsight again would suggest it was obvious to look here because it shows up when searching for <code>KBUILD_BUILD_TIMESTAMP</code>. I unfortunately wasn't familiar with the <code>usr/</code> source folder initially, and focused on the core kernel components too much earlier. Oh well, we found it eventually.&#160;<a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+</li>
+<li id="fn:3">
+<p>I almost missed this initially. Thanks to the ASCII header format, <code>strings</code> was able to print the headers without any CPIO specific tooling. I did a double take when I noticed the headers for the broken CPIO were a little longer than the headers in the working one.&#160;<a class="footnote-backref" href="#fnref:3" title="Jump back to footnote 3 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div></div>
+    <footer>
+<div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="http://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
+          <a href="http://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
+      <li class="post">
+          <a href="http://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
+      </li>
+      <li class="post">
+          <a href="http://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </li>
+      <li class="post">
+          <a href="http://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="http://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="http://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="http://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="http://sthbrx.github.io/category/performance.html">Performance</a></li>
+        <li><a href="http://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="http://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="http://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="http://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="http://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="http://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="http://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="http://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="http://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="http://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="http://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="http://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="http://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="http://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="http://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="http://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="http://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="http://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="http://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="http://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="http://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="http://sthbrx.github.io/tag/security.html">security</a>,    <a href="http://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="http://sthbrx.github.io/tag/code.html">code</a>,    <a href="http://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="http://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="http://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="http://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="http://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="http://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="http://sthbrx.github.io/tag/google.html">google</a>,    <a href="http://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="http://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="http://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="http://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="http://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="http://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="http://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="http://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="http://sthbrx.github.io/tag/network.html">network</a>,    <a href="http://sthbrx.github.io/tag/power.html">power</a>,    <a href="http://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="http://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="http://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="http://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="http://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="http://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="http://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="http://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="http://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="http://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="http://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="http://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="http://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="http://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="http://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="http://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="http://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="http://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="http://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="http://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="http://sthbrx.github.io/tag/early.html">early</a>,    <a href="http://sthbrx.github.io/tag/error.html">error</a>,    <a href="http://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="http://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="http://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="http://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="http://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="http://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="http://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="http://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="http://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="http://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="http://sthbrx.github.io/tag/development.html">Development</a>,    <a href="http://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="http://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="http://sthbrx.github.io/tag/education.html">Education</a>,    <a href="http://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="http://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="http://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="http://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="http://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="http://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="http://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="http://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="http://sthbrx.github.io/tag/double.html">double</a>,    <a href="http://sthbrx.github.io/tag/float.html">float</a>,    <a href="http://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="http://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="http://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="http://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="http://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="http://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="http://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="http://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="http://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="http://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="http://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="http://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="http://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="http://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="http://sthbrx.github.io/tag/php.html">php</a>,    <a href="http://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+  <section>
+    <h1><a href="http://sthbrx.github.io/authors.html">Authors</a></h1>
+    <ul id="authors_list">
+        <li><a href="http://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
+        <li><a href="http://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
+        <li><a href="http://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="http://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
+        <li><a href="http://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
+        <li><a href="http://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
+        <li><a href="http://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
+        <li><a href="http://sthbrx.github.io/author/daniel-black.html">Daniel Black</a></li>
+        <li><a href="http://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a></li>
+        <li><a href="http://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a></li>
+        <li><a href="http://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a></li>
+        <li><a href="http://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a></li>
+        <li><a href="http://sthbrx.github.io/author/russell-currey.html">Russell Currey</a></li>
+        <li><a href="http://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a></li>
+        <li><a href="http://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a></li>
+    </ul>
+  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/';
+    var disqus_url = 'http://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/';
+    var disqus_title = 'Dumb bugs: When a date breaks booting the kernel';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
