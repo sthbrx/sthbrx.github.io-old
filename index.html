@@ -102,6 +102,252 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </h1>
+    <p class="meta">
+<time datetime="2023-03-24T00:00:00+11:00" pubdate>Fri 24 March 2023</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a>
+    </span>
+  </span>
+<time datetime="2023-03-24T00:00:00+11:00" pubdate>Fri 24 March 2023</time></div>
+
+  <div class="entry-content"><h2>The setup</h2>
+<p>I've recently been working on internal CI infrastructure for testing kernels before sending them to the mailing list. As part of this effort, I became interested in <a href="https://reproducible-builds.org/">reproducible builds</a>. Minimising the changing parts outside of the source tree itself could improve consistency and ccache hits, which is great for trying to make the CI faster and more reproducible across different machines. This means removing 'external' factors like timestamps from the build process, because the time changes every build and means the results between builds of the same tree are no longer identical binaries. This also prevents using previously cached results, potentially slowing down builds (though it turns out the kernel does a good job of limiting the scope of where timestamps appear in the build).</p>
+<p>As part of this effort, I came across the <code>KBUILD_BUILD_TIMESTAMP</code> environment variable. This variable is used to set the kernel timestamp, which is primarily for any users who want to know when their kernel was built. That's mostly irrelevant for our work, so an easy <code>KBUILD_BUILD_TIMESTAMP=0</code> later and... it still uses the current date.</p>
+<p>Ok, checking <a href="https://docs.kernel.org/kbuild/kbuild.html#kbuild-build-timestamp">the documentation</a> it says</p>
+<blockquote>
+<p>Setting this to a date string overrides the timestamp used in the UTS_VERSION definition (uname -v in the running kernel). The value has to be a string that can be passed to date -d. The default value is the output of the date command at one point during build.</p>
+</blockquote>
+<p>So it looks like the timestamp variable is actually expected to be a date format. To make it obvious that it's not a 'real' date, let's set <code>KBUILD_BUILD_TIMESTAMP=0000-01-01</code>. A bunch of zeroes (and the ones to make it a valid month and day) should tip off anyone to the fact it's invalid.</p>
+<p>As an aside, this is a different date to what I tried to set it to earlier; a 'timestamp' typically refers to the number of seconds since the UNIX epoch (1970), so my first attempt would have corresponded to 1970-01-01. But given we're passing a date, not a timestamp, there should be no problem setting it back to the year 0. And I like the aesthetics of 0000 over 1970.</p>
+<p>Building and booting the kernel, we see <code>#1 SMP 0000-01-01</code> printed as the build timestamp. Success! After confirming everything works, I set the environment variable in the CI jobs and call it a day.</p>
+<h2>An unexpected error</h2>
+<p>A few days later I need to run the CI to test my patches, and something strange happens. It builds fine, but the boot tests that load a root disk image fail inexplicably: there is a kernel panic saying "VFS: Unable to mount root fs on unknown-block(253,2)".</p>
+<div class="highlight"><pre><span></span><code>[    0.909648][    T1] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(253,2)
+[    0.909797][    T1] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 6.3.0-rc2-g065ffaee7389 #8
+[    0.909880][    T1] Hardware name: IBM pSeries (emulated by qemu) POWER8 (raw) 0x4d0200 0xf000004 of:SLOF,HEAD pSeries
+[    0.910044][    T1] Call Trace:
+[    0.910107][    T1] [c000000003643b00] [c000000000fb6f9c] dump_stack_lvl+0x70/0xa0 (unreliable)
+[    0.910378][    T1] [c000000003643b30] [c000000000144e34] panic+0x178/0x424
+[    0.910423][    T1] [c000000003643bd0] [c000000002005144] mount_block_root+0x1d0/0x2bc
+[    0.910457][    T1] [c000000003643ca0] [c000000002005720] prepare_namespace+0x1d4/0x22c
+[    0.910487][    T1] [c000000003643d20] [c000000002004b04] kernel_init_freeable+0x36c/0x3bc
+[    0.910517][    T1] [c000000003643df0] [c000000000013830] kernel_init+0x30/0x1a0
+[    0.910549][    T1] [c000000003643e50] [c00000000000df94] ret_from_kernel_thread+0x5c/0x64
+[    0.910587][    T1] --- interrupt: 0 at 0x0
+[    0.910794][    T1] NIP:  0000000000000000 LR: 0000000000000000 CTR: 0000000000000000
+[    0.910828][    T1] REGS: c000000003643e80 TRAP: 0000   Not tainted  (6.3.0-rc2-g065ffaee7389)
+[    0.910883][    T1] MSR:  0000000000000000 &lt;&gt;  CR: 00000000  XER: 00000000
+[    0.910990][    T1] CFAR: 0000000000000000 IRQMASK: 0
+[    0.910990][    T1] GPR00: 0000000000000000 c000000003644000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR04: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR08: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR12: 0000000000000000 0000000000000000 c000000000013808 0000000000000000
+[    0.910990][    T1] GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR20: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR24: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.910990][    T1] GPR28: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[    0.911371][    T1] NIP [0000000000000000] 0x0
+[    0.911397][    T1] LR [0000000000000000] 0x0
+[    0.911427][    T1] --- interrupt: 0
+qemu-system-ppc64: OS terminated: OS panic: VFS: Unable to mount root fs on unknown-block(253,2)
+</code></pre></div>
+
+<p>Above the panic was some more context, saying</p>
+<div class="highlight"><pre><span></span><code>[    0.906194][    T1] Warning: unable to open an initial console.
+...
+[    0.908321][    T1] VFS: Cannot open root device &quot;vda2&quot; or unknown-block(253,2): error -2
+[    0.908356][    T1] Please append a correct &quot;root=&quot; boot option; here are the available partitions:
+[    0.908528][    T1] 0100           65536 ram0
+[    0.908657][    T1]  (driver?)
+[    0.908735][    T1] 0101           65536 ram1
+[    0.908744][    T1]  (driver?)
+...
+[    0.909216][    T1] 010f           65536 ram15
+[    0.909226][    T1]  (driver?)
+[    0.909265][    T1] fd00         5242880 vda
+[    0.909282][    T1]  driver: virtio_blk
+[    0.909335][    T1]   fd01            4096 vda1 d1f35394-01
+[    0.909364][    T1]
+[    0.909401][    T1]   fd02         5237760 vda2 d1f35394-02
+[    0.909408][    T1]
+[    0.909441][    T1] fd10             366 vdb
+[    0.909446][    T1]  driver: virtio_blk
+[    0.909479][    T1] 0b00         1048575 sr0
+[    0.909486][    T1]  driver: sr
+</code></pre></div>
+
+<p>This is even more baffling: if it's unable to open a console, then what am I reading these messages on? And error <code>-2</code>, or ENOENT, on opening 'vda2' implies that no such file or directory exists. But it then lists vda2 as a present drive with a known driver? So is vda2 missing or not?</p>
+<h2>Living in denial</h2>
+<p>As you've read the title of this article, you can probably guess as to what changed to cause this error. But at the time I had no idea what could have been the cause. I'd already confirmed that a kernel with a set timestamp can boot to userspace, and there was another (seemingly) far more likely candidate for the failure: as part of the CI design, patches are extracted from the submitted branch and rebased onto the maintainer's tree. This is great from a convenience perspective, because you don't need to worry about forgetting to rebase your patches before testing and submission. But if the maintainer has synced their branch with Linus' tree it means there could be a lot of things changed in the source tree between runs, even if they were only a few days apart.</p>
+<p>So, when you're faced with a working test on one commit and a broken test on another commit, it's time to break out the <code>git bisect</code>. Downloading the kernel images from the relevant CI jobs, I confirmed that indeed one was working while the other was broken. So I bisected the relevant commits, and... everything kept working. Each step I would build and boot the kernel, and each step would reach userspace just fine. I was getting suspicious at this point, so skipped ahead to the known bad commit and built and tested it locally. It <em>also worked</em>.</p>
+<p>This was highly confusing, because it meant there was something fishy going on. Some kind of state outside of the kernel tree. Could it be... surely not...</p>
+<p>Comparing the boot logs of the two CI kernels, I see that the working one indeed uses an actual timestamp, and the broken one uses the 0000-01-01 fixed date. Oh no. Setting the timestamp with a local build, I can now reproduce the boot panic with a kernel I built myself.</p>
+<h2>But... why?</h2>
+<p>OK, so it's obvious at this point that the timestamp is affecting loading a root disk somehow. But why? The obvious answer is that it's before the UNIX epoch. Something in the build process is turning the date into an actual timestamp, and going wrong when that timestamp gets used for something.</p>
+<p>But it's not like there was a build error complaining about it. As best I could tell, the kernel doesn't try to parse the date anywhere, besides passing it to <code>date</code> during the build. And if <code>date</code> had an issue with it, it would have broken the <em>build</em>. Not <em>booting</em> the kernel. There's no <code>date</code> utility being invoked during kernel boot!</p>
+<p>Regardless, I set about tracing the usage of <code>KBUILD_BUILD_TIMESTAMP</code> inside the kernel. The stacktrace in the panic gave the end point of the search; the function <code>mount_block_root()</code> wasn't happy. So all I had to do was work out at which point <code>mount_block_root()</code> tried to access the <code>KBUILD_BUILD_TIMESTAMP</code> value.</p>
+<p>In short, that went nowhere.</p>
+<p><code>mount_block_root()</code> effectively just tries to open a file in the filesystem. There's massive amounts of code handling this, and any part could have had the undocumented dependency on <code>KBUILD_BUILD_TIMESTAMP</code>. Approaching from the other direction, <code>KBUILD_BUILD_TIMESTAMP</code> is turned into <code>build-timestamp</code> inside a Makefile, which is in turn related to a file <code>include/generated/utsversion.h</code>. This file <code>#define</code>s <code>UTS_VERSION</code> equal to the <code>KBUILD_BUILD_TIMESTAMP</code> value. Searching the kernel for <code>UTS_VERSION</code>, we hit <code>init/version-timestamp.c</code> which stores it in a struct with other build information:</p>
+<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">uts_namespace</span><span class="w"> </span><span class="n">init_uts_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REFCOUNT_INIT</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">sysname</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_SYSNAME</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">nodename</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_NODENAME</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">release</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_RELEASE</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">version</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_VERSION</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">machine</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_MACHINE</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">domainname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_DOMAINNAME</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">user_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">init_user_ns</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">inum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PROC_UTS_INIT_INO</span><span class="p">,</span><span class="w"></span>
+<span class="cp">#ifdef CONFIG_UTS_NS</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">utsns_operations</span><span class="p">,</span><span class="w"></span>
+<span class="cp">#endif</span>
+<span class="p">};</span><span class="w"></span>
+</code></pre></div>
+
+<p>This is where the trail goes cold: I don't know if you've ever tried this, but searching for <code>.version</code> in the kernel's codebase is not a very fruitful endeavor when you're interested in a specific kind of version.</p>
+<div class="highlight"><pre><span></span><code>$ rg &quot;(\.|\-&gt;)version\b&quot; | wc -l
+5718
+</code></pre></div>
+
+<p>I tried tracing the usage of <code>init_uts_ns</code>, but didn't get very far.</p>
+<p>By now I'd already posted this in chat and another developer, <a href="https://shenki.github.io/">Joel Stanley</a>, was also investigating this bizarre bug. They had been testing different timestamp values and made the horrifying discovery that the bug sticks around after a rebuild. So you could start with a broken build, set the timestamp back to the correct value, rebuild, and the resulting kernel would <em>still be broken</em>. The boot log would report the correct time, but the root disk mounter panicked all the same.</p>
+<h2>Getting sidetracked</h2>
+<p>I wasn't prepared to investigate the boot panic directly until the persistence bug was fixed. Having to run <code>make clean</code> and rebuild everything would take an annoyingly long time, even with ccache. Fortunately, I had a plan. All I had to do was work out which generated files are different between a broken and working build, and binary search by deleting half of them until deleting only one made the difference between the bug persisting or not. We can use <code>diff</code> for this. Running the initial diff we get</p>
+<div class="highlight"><pre><span></span><code>$ diff -q --exclude System.map --exclude .tmp_vmlinux* --exclude tools broken/ working/
+Common subdirectories: broken/arch and working/arch
+Common subdirectories: broken/block and working/block
+Files broken/built-in.a and working/built-in.a differ
+Common subdirectories: broken/certs and working/certs
+Common subdirectories: broken/crypto and working/crypto
+Common subdirectories: broken/drivers and working/drivers
+Common subdirectories: broken/fs and working/fs
+Common subdirectories: broken/include and working/include
+Common subdirectories: broken/init and working/init
+Common subdirectories: broken/io_uring and working/io_uring
+Common subdirectories: broken/ipc and working/ipc
+Common subdirectories: broken/kernel and working/kernel
+Common subdirectories: broken/lib and working/lib
+Common subdirectories: broken/mm and working/mm
+Common subdirectories: broken/net and working/net
+Common subdirectories: broken/scripts and working/scripts
+Common subdirectories: broken/security and working/security
+Common subdirectories: broken/sound and working/sound
+Common subdirectories: broken/usr and working/usr
+Files broken/.version and working/.version differ
+Common subdirectories: broken/virt and working/virt
+Files broken/vmlinux and working/vmlinux differ
+Files broken/vmlinux.a and working/vmlinux.a differ
+Files broken/vmlinux.o and working/vmlinux.o differ
+Files broken/vmlinux.strip.gz and working/vmlinux.strip.gz differ
+</code></pre></div>
+
+<p>Hmm, OK so only some top level files are different. Deleting all the different files doesn't fix the persistence bug though, and I know that a proper <code>make clean</code> does fix it, so what could possibly be the difference when all the remaining files are identical?</p>
+<p>Oh wait. <code>man diff</code> reports that <code>diff</code> only compares the top level folder entries by default. So it was literally just telling me "yes, both the broken and working builds have a folder named X". How GNU of it. Re-running the diff command with actually useful options, we get a more promising story</p>
+<div class="highlight"><pre><span></span><code>$ diff -qr --exclude System.map --exclude .tmp_vmlinux* --exclude tools build/broken/ build/working/
+Files build/broken/arch/powerpc/boot/zImage and build/working/arch/powerpc/boot/zImage differ
+Files build/broken/arch/powerpc/boot/zImage.epapr and build/working/arch/powerpc/boot/zImage.epapr differ
+Files build/broken/arch/powerpc/boot/zImage.pseries and build/working/arch/powerpc/boot/zImage.pseries differ
+Files build/broken/built-in.a and build/working/built-in.a differ
+Files build/broken/include/generated/utsversion.h and build/working/include/generated/utsversion.h differ
+Files build/broken/init/built-in.a and build/working/init/built-in.a differ
+Files build/broken/init/utsversion-tmp.h and build/working/init/utsversion-tmp.h differ
+Files build/broken/init/version.o and build/working/init/version.o differ
+Files build/broken/init/version-timestamp.o and build/working/init/version-timestamp.o differ
+Files build/broken/usr/built-in.a and build/working/usr/built-in.a differ
+Files build/broken/usr/initramfs_data.cpio and build/working/usr/initramfs_data.cpio differ
+Files build/broken/usr/initramfs_data.o and build/working/usr/initramfs_data.o differ
+Files build/broken/usr/initramfs_inc_data and build/working/usr/initramfs_inc_data differ
+Files build/broken/.version and build/working/.version differ
+Files build/broken/vmlinux and build/working/vmlinux differ
+Files build/broken/vmlinux.a and build/working/vmlinux.a differ
+Files build/broken/vmlinux.o and build/working/vmlinux.o differ
+Files build/broken/vmlinux.strip.gz and build/working/vmlinux.strip.gz differ
+</code></pre></div>
+
+<p>There are some new entries here: notably <code>init/version*</code> and <code>usr/initramfs*</code>. Binary searching these files results in a single culprit: <code>usr/initramfs_data.cpio</code>. This is quite fitting, as the <code>.cpio</code> file is an archive defining a filesystem layout, <a href="https://docs.kernel.org/filesystems/ramfs-rootfs-initramfs.html?highlight=initramfs#why-cpio-rather-than-tar">much like <code>.tar</code> files</a>. This file is actually embedded into the kernel image, and loaded as a bare-bones shim filesystem when the user doesn't provide their own initramfs<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>.</p>
+<p>So it would make sense that if the CPIO archive wasn't being rebuilt, then the initial filesystem wouldn't change. And it would make sense for the initial filesystem to be causing mount issues of the proper root disk filesystem.</p>
+<p>This just leaves the question of how <code>KBUILD_BUILD_TIMESTAMP</code> is breaking the CPIO archive. And it's around this time that a third developer, <a href="https://twitter.com/ajdlinux">Andrew</a>, who I'd roped into this bug hunt for having the (mis)fortune to sit next to me, pointed out that the generator script for this CPIO archive was passing the <code>KBUILD_BUILD_TIMESTAMP</code> to <code>date</code>. Whoop, we've found the murder weapon<sup id="fnref:2"><a class="footnote-ref" href="#fn:2">2</a></sup>!</p>
+<p>The persistence bug could be explained now: because the script was only using <code>KBUILD_BUILD_TIMESTAMP</code> internally, <code>make</code> had no way of knowing that the archive generation depended on this variable. So even when I changed the variable to a valid value, <code>make</code> didn't know to rebuild the corrupt archive. Let's now get back to the main issue: why boot panics.</p>
+<h2>Solving the case</h2>
+<p>Following along the CPIO generation script, the <code>KBUILD_BUILD_TIMESTAMP</code> variable is turned into a timestamp by <code>date -d"$KBUILD_BUILD_TIMESTAMP" +%s</code>. Testing this in the shell with <code>0000-01-01</code> we get this (somewhat amusing, but also painful) result</p>
+<div class="highlight"><pre><span></span><code>date -d&quot;$KBUILD_BUILD_TIMESTAMP&quot; +%s
+-62167255492
+</code></pre></div>
+
+<p>This timestamp is then passed to a C program that assigns it to a variable <code>default_mtime</code>. Looking over the source, it seems this variable is used to set the <code>mtime</code> field on the files in the CPIO archive. The timestamp is stored as a <code>time_t</code>, which is an alias for <code>int64_t</code>. That's 64 bits of data, up to 16 hexadecimal characters. And yes, that's relevant: CPIO stores the <code>mtime</code> (and all other numerical fields) as 32 bit unsigned integers represented by ASCII hexadecimal characters. The <code>sprintf()</code> call that ultimately embeds the timestamp uses the <code>%08lX</code> format specifier. This formats a <code>long</code> as hexadecimal, padded to at least 8 characters. Hang on... <strong><em>at least</em></strong> 8 characters? What if our timestamp happens to be more?</p>
+<p>It turns out that large timestamps are already guarded against. The program will error during build if the date is later than 2106-02-07 (maximum unsigned 8 hex digit timestamp).</p>
+<div class="highlight"><pre><span></span><code><span class="cm">/*</span>
+<span class="cm"> * Timestamps after 2106-02-07 06:28:15 UTC have an ascii hex time_t</span>
+<span class="cm"> * representation that exceeds 8 chars and breaks the cpio header</span>
+<span class="cm"> * specification.</span>
+<span class="cm"> */</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">default_mtime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mh">0xffffffff</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ERROR: Timestamp too large for cpio format</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>But we are using an <code>int64_t</code>. What would happen if one were to provide a negative timestamp?</p>
+<p>Well, <code>sprintf()</code> happily spits out <code>FFFFFFF1868AF63C</code> when we pass in our negative timestamp representing <code>0000-01-01</code>. That's 16 characters, 8 too many for the CPIO header<sup id="fnref:3"><a class="footnote-ref" href="#fn:3">3</a></sup>.</p>
+<p>So at last we've found the cause of the panic: the timestamp is being formatted too long, which breaks the CPIO header and the kernel doesn't create an initial filesystem correctly. This includes the <code>/dev</code> folder (which surprisingly is not hardcoded into kernel, but must be declared by the initramfs). So when the root disk mounter tries to open <code>/dev/vda2</code>, it correctly complains that it failed to create a device in the non-existent <code>/dev</code>.</p>
+<h2>Postmortem</h2>
+<p>After discovering all this, I sent in a couple of patches to fix <a href="https://lore.kernel.org/all/20230320040839.660475-1-bgray@linux.ibm.com/">the CPIO generation</a> and <a href="https://lore.kernel.org/all/20230320040839.660475-2-bgray@linux.ibm.com/">rebuild logic</a>. They were not complicated fixes, but wow were they time consuming to track down. I didn't see the error initially because I typically only boot with my own initramfs over the embedded one, and not with the intent to load a root disk. Then the panic itself was quite far away from the real issue, and there were many dead ends to explore.</p>
+<p>I also got curious as to why the kernel didn't complain about a corrupt initramfs earlier. A brief investigation showed a streaming parser that is <em>extremely</em> fault tolerant, silently skipping invalid entries (like ones missing or having too long a name). The corrupted header was being interpreted as an entry with an empty name and 2 gigabyte body contents, which meant that (1) the kernel skipped inserting it due to the empty name, and (2) the kernel skipped the rest of the initramfs because it thought that up to 2 GB of the remaining content was part of that first entry.</p>
+<p>Perhaps this could be improved to require that all input is consumed without unexpected EOF, such as how the userspace <code>cpio</code> tool works (which, by the way, recognises the corrupt archive as such and refuses to decompress it). The parsing logic is mostly from the before-times though (i.e., pre initial git commit), so it's difficult to distinguish intentional leniency and bugs.</p>
+<h2>Afterword</h2>
+<p>Incidentally, in investigating this I came across another bug. There is a helper function <code>panic_show_mem()</code> in the initramfs that's meant to dump memory information and then call <code>panic()</code>. It takes in standard <code>printf()</code> style format string and arguments, and tries to forward them to <code>panic()</code> which ultimately prints them.</p>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">panic_show_mem</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">show_mem</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">panic</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">panic</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span><span class="w"></span>
+</code></pre></div>
+
+<p>But variadic arguments don't quite work this way: instead of forwarding the list <code>args</code> as intended, <code>panic()</code> will instead interpret <code>args</code> as a single argument for the format string <code>fmt</code>. Standard library functions address this by providing <code>v*</code> variants of <code>printf()</code> and friends. For example,</p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">printf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span><span class="w"></span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">vprintf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+</code></pre></div>
+
+<p>We might create a <code>vpanic()</code> function in the kernel that follows this style, but it seems easier to just make <code>panic_show_mem()</code> a macro and 'forward' the arguments in the source code</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#define panic_show_mem(fmt, ...) \</span>
+<span class="cp">    ({ show_mem(0, NULL); panic(fmt, ##__VA_ARGS__); })</span>
+</code></pre></div>
+
+<p><a href="https://lore.kernel.org/all/20230320230534.50174-1-bgray@linux.ibm.com/">Patch sent</a>.</p>
+<p>And that's where I've left things. Big thanks to Joel and Andrew for helping me with this bug. It was certainly a trip.</p>
+<div class="footnote">
+<hr>
+<ol>
+<li id="fn:1">
+<p>initramfs, or initrd for the older format, are specific kinds of CPIO archives. The initramfs is intended to be loaded as the initial filesystem of a booted kernel, typically in preparation for loading your normal root filesystem. It might contain modules necessary to mount the disk for example.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+<li id="fn:2">
+<p>Hindsight again would suggest it was obvious to look here because it shows up when searching for <code>KBUILD_BUILD_TIMESTAMP</code>. I unfortunately wasn't familiar with the <code>usr/</code> source folder initially, and focused on the core kernel components too much earlier. Oh well, we found it eventually.&#160;<a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+</li>
+<li id="fn:3">
+<p>I almost missed this initially. Thanks to the ASCII header format, <code>strings</code> was able to print the headers without any CPIO specific tooling. I did a double take when I noticed the headers for the broken CPIO were a little longer than the headers in the working one.&#160;<a class="footnote-backref" href="#fnref:3" title="Jump back to footnote 3 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </h1>
     <p class="meta">
@@ -200,11 +446,11 @@ logic, fonts, graphics, partition tables, filesystems and so on - just not
 platform specific driver code or the ability to actually load and boot a kernel.</p>
 <p>Previously, we talked about some issues building grub with AFL++'s
 instrumentation:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
-.<span class="o">/</span><span class="nv">configure</span> <span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span> <span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span> <span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
-...
-<span class="nv">checking</span> <span class="nv">whether</span> <span class="nv">target</span> <span class="nv">compiler</span> <span class="nv">is</span> <span class="nv">working</span>... <span class="nv">no</span>
-<span class="nv">configure</span>: <span class="nv">error</span>: <span class="nv">cannot</span> <span class="nv">compile</span> <span class="k">for</span> <span class="nv">the</span> <span class="nv">target</span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
+...<span class="w"></span>
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
@@ -458,11 +704,11 @@ for now.</p>
 <p>At this point in building a fuzzing target, we'd normally try to configure with
 <code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
 grub configure script is not a fan:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
-.<span class="o">/</span><span class="nv">configure</span> <span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span> <span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span> <span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
-...
-<span class="nv">checking</span> <span class="nv">whether</span> <span class="nv">target</span> <span class="nv">compiler</span> <span class="nv">is</span> <span class="nv">working</span>... <span class="nv">no</span>
-<span class="nv">configure</span>: <span class="nv">error</span>: <span class="nv">cannot</span> <span class="nv">compile</span> <span class="k">for</span> <span class="nv">the</span> <span class="nv">target</span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
+...<span class="w"></span>
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
@@ -511,17 +757,17 @@ running the config file, but if you pipe it through <code>less</code> or somethi
 see it.</p>
 <h1>Running the fuzzer</h1>
 <p>So, that seems to work - let's create a test input and try fuzzing:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span>
-<span class="nv">cd</span> ..
-<span class="nv">mkdir</span> <span class="nv">in</span>
-<span class="nv">echo</span> <span class="s2">&quot;</span><span class="s">echo hi</span><span class="s2">&quot;</span> <span class="o">&gt;</span> <span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span><span class="w"></span>
+<span class="nv">cd</span><span class="w"> </span>..<span class="w"></span>
+<span class="nv">mkdir</span><span class="w"> </span><span class="nv">in</span><span class="w"></span>
+<span class="nv">echo</span><span class="w"> </span><span class="s2">&quot;echo hi&quot;</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span><span class="w"></span>
 
-<span class="nv">cd</span> <span class="nv">stage</span>
-# <span class="o">-</span><span class="nv">Q</span> <span class="nv">qemu</span> <span class="nv">mode</span>
-# <span class="o">-</span><span class="nv">M</span> <span class="nv">main</span> <span class="nv">fuzzer</span>
-# <span class="o">-</span><span class="nv">d</span> <span class="nv">don</span><span class="s1">&#39;</span><span class="s">t do deterministic steps (too slow for a text format)</span>
-# <span class="o">-</span><span class="nv">f</span> <span class="nv">create</span> <span class="nv">file</span> <span class="nv">grub</span>.<span class="nv">cfg</span>
-<span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">fuzz</span> <span class="o">-</span><span class="nv">Q</span> <span class="o">-</span><span class="nv">i</span> ..<span class="o">/</span><span class="nv">in</span> <span class="o">-</span><span class="nv">o</span> ..<span class="o">/</span><span class="nv">out</span> <span class="o">-</span><span class="nv">M</span> <span class="nv">main</span> <span class="o">-</span><span class="nv">d</span> <span class="o">--</span> ..<span class="o">/</span><span class="nv">grub</span><span class="o">-</span><span class="nv">core</span><span class="o">/</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span> <span class="o">-</span><span class="nv">d</span> .
+<span class="nv">cd</span><span class="w"> </span><span class="nv">stage</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">Q</span><span class="w"> </span><span class="nv">qemu</span><span class="w"> </span><span class="nv">mode</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">M</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="nv">fuzzer</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">d</span><span class="w"> </span><span class="nv">don</span><span class="err">&#39;t do deterministic steps (too slow for a text format)</span>
+<span class="err"># -f create file grub.cfg</span>
+<span class="err">$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .</span><span class="w"></span>
 </code></pre></div>
 
 <p>Sadly:</p>
@@ -586,98 +832,6 @@ gzip: thefile: invalid compressed data--format violated
 <p>That wraps up part 1. Eventually I'll be back with part 2, where I explain the
 hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
-      </h1>
-    <p class="meta">
-<time datetime="2020-01-22T16:00:00+11:00" pubdate>Wed 22 January 2020</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
-    </span>
-  </span>
-<time datetime="2020-01-22T16:00:00+11:00" pubdate>Wed 22 January 2020</time></div>
-
-  <div class="entry-content"><p>It's that time of year again. Most of OzLabs headed up to the Gold Coast for linux.conf.au 2020.</p>
-<p>linux.conf.au is one of the longest-running community-led Linux and Free Software events in the world, and attracts a crowd from Australia, New Zealand and much further afield. OzLabbers have been involved in LCA since the very beginning and this year was no exception with myself running the Kernel Miniconf and several others speaking.</p>
-<p>The list below contains some of our highlights that we think you should check out. This is just a few of the talks that we managed to make it to - there's plenty more worthwhile stuff on the <a href="https://www.youtube.com/user/linuxconfau2019/featured">linux.conf.au YouTube channel</a>.</p>
-<p>We'll see you all at LCA2021 right here in Canberra...</p>
-<h1>Keynotes</h1>
-<p>A couple of the keynotes really stood out:</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=Yv4tI6939q0">Sean Brady - Drop Your Tools - Does Expertise have a Dark Side?</a></li>
-</ul>
-<p>Sean is a forensic structural engineer who shows us a variety of examples, from structural collapses and firefighting disasters, where trained professionals were blinded by their expertise and couldn't bring themselves to do things that were obvious.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=xfpy5c3thQo">Vanessa Teague - Who cares about Democracy?</a></li>
-</ul>
-<p>There's nothing quite like cryptography proofs presented to a keynote audience at 9:30 in the morning. Vanessa goes over the issues with electronic voting systems in Australia, and especially internet voting as used in NSW, including flaws in their implementation of cryptographic algorithms. There continues to be no good way to do internet voting, but with developments in methodologies like risk-limiting audits there may be reasonably safe ways to do in-person electronic voting.</p>
-<h1>OpenPOWER</h1>
-<p>There was an OpenISA miniconf, co-organised by none other than Hugh Blemings of the OpenPOWER Foundation.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=RU6RPYAqFzE">Michael Neuling / Anton Blanchard - Power OpenISA and Microwatt Introduction</a></li>
-</ul>
-<p>Anton (on Mikey's behalf) introduces the Power OpenISA and the Microwatt FPGA core which has been released to go with it.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=g3slH03MCmo">Anton Blanchard - Build your own Open Hardware CPU in 25 minutes or less</a></li>
-</ul>
-<p>Anton live demos Microwatt in simulation, and also tries to synthesise it for his FPGA but runs out of time...</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=JkDx_y0onSk">Paul Mackerras - Microwatt Microarchitecture</a></li>
-</ul>
-<p>Paul presents an in-depth overview of the design of the Microwatt core.</p>
-<h1>Kernel</h1>
-<p>There were quite a few kernel talks, both in the <a href="http://lca-kernel.ozlabs.org">Kernel Miniconf</a> and throughout the main conference. These are just some of them:</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=ggD-eb3yPVs">Aleksa Sarai - Designing Extensible Syscalls</a></li>
-</ul>
-<p>There's been many cases where we've introduced a syscall only to find out later on that we need to add some new parameters - how do we make our syscalls extensible so we can add new parameters later on without needing to define a whole new syscall, while maintaining both forward and backward compatibility? It turns out it's pretty simple but needs a few more kernel helpers.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=heib48KG-YQ">Russell Currey - Kernel hacking like it's 2020</a></li>
-</ul>
-<p>There are a bunch of tools out there which you can use to make your kernel hacking experience much more pleasant. You should use them.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=tGseJW_uBB8">Aleksa Sarai - Securing Container Runtimes - How Hard Can It Be?</a></li>
-</ul>
-<p>Among other security issues with container runtimes, using procfs to setup security controls during the startup of a container is fraught with hilarious problems, because procfs and the Linux filesystem API aren't really designed to do this safely, and also have a bunch of amusing bugs.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=0Bj6W7qrOOI">Kees Cook - Control Flow Integrity in the Linux Kernel</a></li>
-</ul>
-<p>Control Flow Integrity is a technique for restricting exploit techniques that hijack a program's control flow (e.g. by overwriting a return address on the stack (ROP), or overwriting a function pointer that's used in an indirect jump). Kees goes through the current state of CFI supporting features in hardware and what is currently available to enable CFI in the kernel.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=p5u-vbwu3Fs">Matthew Wilcox - Large Pages in Linux</a></li>
-</ul>
-<p>Linux has supported huge pages for many years, which has significantly improved CPU performance. However, the huge page mechanism was driven by hardware advancements and is somewhat inflexible, and it's just as important to consider software overhead. Matthew has been working on supporting more flexible "large pages" in the page cache to do just that.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=9Fzd6MapG3Y">Russell Currey - The magical fantasy land of Linux kernel testing</a></li>
-</ul>
-<p>Spoiler: the magical fantasy land is a trap.</p>
-<h1>Community</h1>
-<p>Lots of community and ethics discussion this year - one talk which stood out to me:</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=n55WClalwHo">Bradley M. Kuhn / Karen Sandler - Open Source Won, but Software Freedom Hasn't Yet: A Guide &amp; Commisseration Session for FOSS activists</a></li>
-</ul>
-<p>Bradley and Karen argue that while open source has "won", software freedom has regressed in recent years, and present their vision for what modern, pragmatic Free Software activism should look like.</p>
-<h1>Other</h1>
-<p>Among the variety of other technical talks at LCA...</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=L2P501Iy6J8">Matthew Treinish - Building a Compiler for Quantum Computers</a></li>
-</ul>
-<p>Quantum compilers are not really like regular classical compilers (indeed, they're really closer to FPGA synthesis tools). Matthew talks through how quantum compilers map a program on to IBM's quantum hardware and the types of optimisations they apply.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=Dk6ZuydQt9I">Fraser Tweedale - Clevis and Tang: securing your secrets at rest</a></li>
-</ul>
-<p>Clevis and Tang provide an implementation of "network bound encryption", allowing you to magically decrypt your secrets when you are on a secure network with access to the appropriate Tang servers. This talk outlines use cases and provides a demonstration.</p>
-<ul>
-<li><a href="https://www.youtube.com/watch?v=uBBaVtHkiOI">Christoph Lameter - How to capture 100G Ethernet traffic at wire speed to local disk</a></li>
-</ul>
-<p>Christoph discusses how to deal with the hardware and software limitations that make it difficult to capture traffic at wire speed on fast fibre networks.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index2.html">&larr; Older</a>
 
@@ -687,6 +841,9 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
@@ -698,9 +855,6 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -729,6 +883,7 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -768,7 +923,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
 </body>

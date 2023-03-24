@@ -273,13 +273,13 @@
 &lt;h2&gt;Kconfig&lt;/h2&gt;
 &lt;p&gt;The final piece of the puzzle is building our new code into the kernel image.&lt;/p&gt;
 &lt;p&gt;To allow us to switch this important functionality on and off, I added a config option to &lt;code&gt;fs/Kconfig&lt;/code&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="nv"&gt;config&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;
-        &lt;span class="nv"&gt;bool&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;Andrew&amp;#39;s dumb SSH key hack&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
-        &lt;span class="nv"&gt;default&lt;/span&gt; &lt;span class="nv"&gt;y&lt;/span&gt;
-        &lt;span class="nv"&gt;help&lt;/span&gt;
-          &lt;span class="nv"&gt;Hardcode&lt;/span&gt; &lt;span class="nv"&gt;an&lt;/span&gt; &lt;span class="nv"&gt;SSH&lt;/span&gt; &lt;span class="nv"&gt;key&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="nv"&gt;config&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nv"&gt;bool&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;Andrew&amp;#39;s dumb SSH key hack&amp;quot;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nv"&gt;default&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;y&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nv"&gt;help&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;          &lt;/span&gt;&lt;span class="nv"&gt;Hardcode&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;an&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;SSH&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;key&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;for&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.&lt;span class="w"&gt;&lt;/span&gt;
 
-          &lt;span class="nv"&gt;This&lt;/span&gt; &lt;span class="nv"&gt;is&lt;/span&gt; &lt;span class="nv"&gt;a&lt;/span&gt; &lt;span class="nv"&gt;stupid&lt;/span&gt; &lt;span class="nv"&gt;idea&lt;/span&gt;. &lt;span class="k"&gt;If&lt;/span&gt; &lt;span class="nv"&gt;unsure&lt;/span&gt;, &lt;span class="nv"&gt;say&lt;/span&gt; &lt;span class="nv"&gt;N&lt;/span&gt;.
+&lt;span class="w"&gt;          &lt;/span&gt;&lt;span class="nv"&gt;This&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;is&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;a&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;stupid&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;idea&lt;/span&gt;.&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;If&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;unsure&lt;/span&gt;,&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;say&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;N&lt;/span&gt;.&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;This will show up in &lt;code&gt;make menuconfig&lt;/code&gt; under the &lt;code&gt;File systems&lt;/code&gt; menu.&lt;/p&gt;
@@ -289,11 +289,11 @@
 
 &lt;p&gt;If &lt;code&gt;CONFIG_SSH_KEY&lt;/code&gt; is set to &lt;code&gt;y&lt;/code&gt;, &lt;code&gt;obj-$(CONFIG_SSH_KEY)&lt;/code&gt; evaluates to &lt;code&gt;obj-y&lt;/code&gt; and thus &lt;code&gt;ssh-key.o&lt;/code&gt; gets compiled. Conversely, &lt;code&gt;obj-n&lt;/code&gt; is completely ignored by the build system.&lt;/p&gt;
 &lt;p&gt;I thought I was all done... then &lt;a href="https://twitter.com/mramboar"&gt;Andrew&lt;/a&gt; suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="nv"&gt;config&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY_VALUE&lt;/span&gt;
-        &lt;span class="nv"&gt;string&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="s"&gt;Value for SSH key&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
-        &lt;span class="nv"&gt;depends&lt;/span&gt; &lt;span class="nv"&gt;on&lt;/span&gt; &lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;
-        &lt;span class="nv"&gt;help&lt;/span&gt;
-          &lt;span class="nv"&gt;Enter&lt;/span&gt; &lt;span class="nv"&gt;in&lt;/span&gt; &lt;span class="nv"&gt;the&lt;/span&gt; &lt;span class="nv"&gt;content&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="nv"&gt;config&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;SSH_KEY_VALUE&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nv"&gt;string&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;Value for SSH key&amp;quot;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nv"&gt;depends&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;on&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;SSH_KEY&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nv"&gt;help&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;          &lt;/span&gt;&lt;span class="nv"&gt;Enter&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;in&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;the&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;content&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;for&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;.&lt;span class="nv"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nv"&gt;authorized_keys&lt;/span&gt;.&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Including the string in the C file is as simple as:&lt;/p&gt;

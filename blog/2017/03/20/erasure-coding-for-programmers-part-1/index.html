@@ -335,15 +335,15 @@ cc = (c &lt;&lt; 1) ^ ((c &amp; 0x80) ? 0x1d : 0);
 <p>If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.</p>
 <p>We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)</p>
 <p>So, back to the original statement:</p>
-<div class="highlight"><pre><span></span><code><span class="ss">(</span><span class="nv">c</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="ss">)</span> <span class="o">^</span> <span class="ss">((</span><span class="nv">c</span> <span class="o">&amp;</span> <span class="mi">0</span><span class="nv">x80</span><span class="ss">)</span> ? <span class="mi">0</span><span class="nv">x1d</span> : <span class="mi">0</span><span class="ss">)</span>
-    <span class="o">|</span>          <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
-    <span class="o">&gt;</span> <span class="nv">multiply</span> <span class="nv">by</span> <span class="mi">2</span>       <span class="o">|</span>     <span class="o">|</span>
-               <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
-               <span class="o">&gt;</span> <span class="nv">is</span> <span class="nv">the</span> <span class="nv">high</span> <span class="nv">bit</span> <span class="nv">set</span> <span class="o">-</span> <span class="nv">will</span> <span class="nv">the</span> <span class="nv">product</span> <span class="nv">have</span> <span class="nv">an</span> <span class="nv">x</span><span class="o">^</span><span class="mi">8</span> <span class="nv">term</span>?
-                          <span class="o">|</span>     <span class="o">|</span>
-                          <span class="o">&gt;</span> <span class="k">if</span> <span class="nv">so</span>, <span class="nv">reduce</span> <span class="nv">by</span> <span class="nv">the</span> <span class="nv">polynomial</span>
-                                <span class="o">|</span>
-                                <span class="o">&gt;</span> <span class="nv">otherwise</span>, <span class="nv">leave</span> <span class="nv">alone</span>
+<div class="highlight"><pre><span></span><code><span class="ss">(</span><span class="nv">c</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="ss">)</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="ss">((</span><span class="nv">c</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mi">0</span><span class="nv">x80</span><span class="ss">)</span><span class="w"> </span>?<span class="w"> </span><span class="mi">0</span><span class="nv">x1d</span><span class="w"> </span>:<span class="w"> </span><span class="mi">0</span><span class="ss">)</span><span class="w"></span>
+<span class="w">    </span><span class="o">|</span><span class="w">          </span><span class="o">|</span><span class="w">          </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">    </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">multiply</span><span class="w"> </span><span class="nv">by</span><span class="w"> </span><span class="mi">2</span><span class="w">       </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">               </span><span class="o">|</span><span class="w">          </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">               </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">high</span><span class="w"> </span><span class="nv">bit</span><span class="w"> </span><span class="nv">set</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nv">will</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">product</span><span class="w"> </span><span class="nv">have</span><span class="w"> </span><span class="nv">an</span><span class="w"> </span><span class="nv">x</span><span class="o">^</span><span class="mi">8</span><span class="w"> </span><span class="nv">term</span>?<span class="w"></span>
+<span class="w">                          </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">                          </span><span class="o">&gt;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nv">so</span>,<span class="w"> </span><span class="nv">reduce</span><span class="w"> </span><span class="nv">by</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">polynomial</span><span class="w"></span>
+<span class="w">                                </span><span class="o">|</span><span class="w"></span>
+<span class="w">                                </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">otherwise</span>,<span class="w"> </span><span class="nv">leave</span><span class="w"> </span><span class="nv">alone</span><span class="w"></span>
 </code></pre></div>
 
 <p>Hopefully that makes sense.</p>
@@ -507,6 +507,9 @@ vxor v1, v2, v1
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
       <li class="post">
@@ -517,9 +520,6 @@ vxor v1, v2, v1
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -548,6 +548,7 @@ vxor v1, v2, v1
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -587,7 +588,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">

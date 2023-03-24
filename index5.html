@@ -102,6 +102,136 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/07/17/xdp-on-power/">XDP on Power</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-07-17T10:08:00+10:00" pubdate>Mon 17 July 2017</time></div>
+
+  <div class="entry-content"><p>This post is a bit of a break from the standard IBM fare of this blog,
+as I now work for Canonical. But I have a soft spot for Power from my
+time at IBM - and Canonical officially supports 64-bit, little-endian
+Power - so when I get a spare moment I try to make sure that cool,
+officially-supported technologies work on Power <em>before</em> we end up
+with a customer emergency! So, without further ado, this is the story
+of XDP on Power.</p>
+<h2>XDP</h2>
+<p>eXpress Data Path (XDP) is a cool Linux technology to allow really
+fast processing of network packets.</p>
+<p>Normally in Linux, a packet is received by the network card, an SKB
+(<a href="http://vger.kernel.org/~davem/skb.html">socket buffer</a>) is
+allocated, and the packet is passed up through the networking stack.</p>
+<p>This introduces an inescapable latency penalty: we have to allocate
+some memory and copy stuff around. XDP allows some network cards and
+drivers to process packets early - even before the allocation of the
+SKB. This is much faster, and so has applications in DDOS mitigation
+and other high-speed networking use-cases. The IOVisor project has
+<a href="https://www.iovisor.org/technology/xdp">much more information</a> if you
+want to learn more.</p>
+<h2>eBPF</h2>
+<p>XDP processing is done by an eBPF program. eBPF - the extended
+Berkeley Packet Filter - is an in-kernel virtual machine with a
+limited set of instructions. The kernel can statically validate eBPF
+programs to ensure that they terminate and are memory safe. From this
+it follows that the programs cannot be Turing-complete: they do not
+have backward branches, so they cannot do fancy things like
+loops. Nonetheless, they're surprisingly powerful for packet
+processing and tracing. eBPF programs are translated into efficient
+machine code using in-kernel JIT compilers on many platforms, and
+interpreted on platforms that do not have a JIT. (Yes, there are
+multiple JIT implementations in the kernel. I find this a terrifying
+thought.)</p>
+<p>Rather than requiring people to write raw eBPF programs, you can write
+them in a somewhat-restricted subset of C, and use Clang's eBPF target
+to translate them. This is super handy, as it gives you access to the
+kernel headers - which define a number of useful data structures like
+headers for various network protocols.</p>
+<h2>Trying it</h2>
+<p>There are a few really interesting project that are already up and
+running that allow you to explore XDP without learning the innards of
+both eBPF and the kernel networking stack. I explored the samples in
+the <a href="https://github.com/iovisor/bcc">bcc compiler collection</a> and also
+the samples from the <a href="https://github.com/netoptimizer/prototype-kernel/">netoptimizer/prototype-kernel repository</a>.</p>
+<p>The easiest way to get started with these is with a virtual machine,
+as recent virtio network drivers support XDP. If you are using Ubuntu,
+you can use the <a href="https://help.ubuntu.com/lts/serverguide/cloud-images-and-uvtool.html">uvt-kvm
+tooling</a>
+to trivially set up a VM running Ubuntu Zesty on your local machine.</p>
+<p>Once your VM is installed, you need to shut it down and edit the virsh XML. </p>
+<p>You need 2 vCPUs (or more) and a virtio+vhost network card. You also
+need to edit the 'interface' section and add the following snippet
+(with thanks to the <a href="https://www.spinics.net/lists/xdp-newbies/msg00029.html">xdp-newbies
+list</a>):</p>
+<div class="highlight"><pre><span></span><code><span class="nt">&lt;driver</span> <span class="na">name=</span><span class="s">&#39;vhost&#39;</span> <span class="na">queues=</span><span class="s">&#39;4&#39;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;host</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;guest</span> <span class="na">tso4=</span><span class="s">&#39;off&#39;</span> <span class="na">tso6=</span><span class="s">&#39;off&#39;</span> <span class="na">ecn=</span><span class="s">&#39;off&#39;</span> <span class="na">ufo=</span><span class="s">&#39;off&#39;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/driver&gt;</span>
+</code></pre></div>
+
+<p>(If you have more than 2 vCPUs, set the queues parameter to 2x the
+number of vCPUs.)</p>
+<p>Then, install a modern clang (we've had issues with 3.8 - I recommend
+v4+), and the usual build tools.</p>
+<p>I recommend testing with the prototype-kernel tools - the DDOS
+prevention tool is a good demo. Then - on x86 - you just follow their
+instructions. I'm not going to repeat that here.</p>
+<h2>POWERful XDP</h2>
+<p>What happens when you try this on Power? Regular readers of my posts
+will know to expect some
+<a href="https://sthbrx.github.io/blog/2017/02/13/high-power-lustre/">minor</a>
+<a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">hitches</a>.</p>
+<p>XDP does not disappoint.</p>
+<p>Firstly, the prototype-kernel repository <a href="https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/Makefile#L92">hard codes x86</a>
+as the architecture for kernel headers. You need to change it for
+powerpc.</p>
+<p>Then, once you get the stuff compiled, and try to run it on a
+current-at-time-of-writing Zesty kernel, you'll hit a massive debug
+splat ending in:</p>
+<div class="highlight"><pre><span></span><code><span class="mi">32</span><span class="p">:</span><span class="w"> </span><span class="p">(</span><span class="mi">61</span><span class="p">)</span><span class="w"> </span><span class="n">r1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="n">u32</span><span class="w"> </span><span class="o">*</span><span class="p">)(</span><span class="n">r8</span><span class="w"> </span><span class="o">+</span><span class="mi">12</span><span class="p">)</span><span class="w"></span>
+<span class="n">misaligned</span><span class="w"> </span><span class="n">packet</span><span class="w"> </span><span class="n">access</span><span class="w"> </span><span class="n">off</span><span class="w"> </span><span class="mi">0</span><span class="o">+</span><span class="mi">18</span><span class="o">+</span><span class="mi">12</span><span class="w"> </span><span class="n">size</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="n">load_bpf_file</span><span class="p">:</span><span class="w"> </span><span class="n">Permission</span><span class="w"> </span><span class="n">denied</span><span class="w"></span>
+</code></pre></div>
+
+<p>It turns out this is because in Ubuntu's Zesty kernel,
+CONFIG_HAS_EFFICIENT_UNALIGNED_ACCESS is not set on ppc64el. Because
+of that, the eBPF verifier will check that all loads are aligned - and
+this load (part of checking some packet header) is not, and so the
+verifier rejects the program. Unaligned access is not enabled because
+the Zesty kernel is being compiled for CPU_POWER7 instead of
+CPU_POWER8, and we don't have efficient unaligned access on POWER7.</p>
+<p>As it turns out, IBM never released any officially supported Power7 LE
+systems - LE was only ever supported on Power8. So, I <a href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699627">filed a bug</a> and
+<a href="https://lists.ubuntu.com/archives/kernel-team/2017-June/085074.html">sent a patch</a>
+to build Zesty kernels for POWER8 instead, and that has been accepted
+and will be part of the next stable update due real soon now.</p>
+<p>Sure enough, if you install a kernel with that config change, you can
+verify the XDP program and load it into the kernel!</p>
+<p>If you have real powerpc hardware, that's enough to use XDP on Power!
+Thanks to <a href="http://michael.ellerman.id.au/">Michael Ellerman</a>,
+maintainer extraordinaire, for verifying this for me.</p>
+<p>If - like me - you don't have ready access to Power hardware, you're
+stuffed. You can't use qemu in TCG mode: to use XDP with a VM, you
+need multi-queue support, which only exists in the vhost driver, which
+is only available for KVM guests. Maybe IBM should release a developer
+workstation. (Hint, hint!)</p>
+<p>Overall, I was pleasantly surprised by how easy things were for people
+with real ppc hardware - it's encouraging to see something not require
+kernel changes!</p>
+<p>eBPF and XDP are definitely growing technologies - as <a href="https://twitter.com/brendangregg/status/866078955530444800">Brendan Gregg notes</a>,
+now is a good time to learn them! (And those on Power have no excuse
+either!)</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
       </h1>
     <p class="meta">
@@ -156,12 +286,12 @@ upon which which this is based:
 <ul>
 <li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><code>    <span class="nv">mkdir</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
-    <span class="nv">cd</span> $<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
-    <span class="nv">git</span> <span class="nv">clone</span> <span class="o">--</span><span class="nv">recursive</span> <span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span>  # <span class="nv">This</span> <span class="nv">may</span> <span class="nv">take</span> <span class="nv">a</span> <span class="k">while</span>
-    <span class="nv">cd</span> <span class="nv">ceph</span>
-    <span class="nv">git</span> <span class="nv">checkout</span> <span class="nv">master</span>
-    <span class="nv">git</span> <span class="nv">submodule</span> <span class="nv">update</span> <span class="o">--</span><span class="nv">force</span> <span class="o">--</span><span class="nv">init</span> <span class="o">--</span><span class="nv">recursive</span>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nv">mkdir</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
+<span class="w">    </span><span class="nv">cd</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
+<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">clone</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"> </span><span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span><span class="w">  </span>#<span class="w"> </span><span class="nv">This</span><span class="w"> </span><span class="nv">may</span><span class="w"> </span><span class="nv">take</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="k">while</span><span class="w"></span>
+<span class="w">    </span><span class="nv">cd</span><span class="w"> </span><span class="nv">ceph</span><span class="w"></span>
+<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">checkout</span><span class="w"> </span><span class="nv">master</span><span class="w"></span>
+<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">submodule</span><span class="w"> </span><span class="nv">update</span><span class="w"> </span><span class="o">--</span><span class="nv">force</span><span class="w"> </span><span class="o">--</span><span class="nv">init</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"></span>
 </code></pre></div>
 
 <ul>
@@ -309,38 +439,38 @@ upon which which this is based:
 </code></pre></div>
 
 <p>Here's how you would do it in C:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">void</span> <span class="nv">gf_vect_mul_v2</span><span class="ss">(</span><span class="nv">size_t</span> <span class="nv">len</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">table</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">src</span>, <span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span> <span class="nv">dest</span><span class="ss">)</span> {
-        <span class="nv">vector</span> <span class="nv">unsigned</span> <span class="nv">char</span> <span class="nv">tbl1</span>, <span class="nv">tbl2</span>, <span class="nv">in</span>, <span class="nv">out</span><span class="c1">;</span>
-        <span class="nv">size_t</span> <span class="nv">i</span><span class="c1">;</span>
+<div class="highlight"><pre><span></span><code><span class="nv">void</span><span class="w"> </span><span class="nv">gf_vect_mul_v2</span><span class="ss">(</span><span class="nv">size_t</span><span class="w"> </span><span class="nv">len</span>,<span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">table</span>,<span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">src</span>,<span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">dest</span><span class="ss">)</span><span class="w"> </span>{<span class="w"></span>
+<span class="w">        </span><span class="nv">vector</span><span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="nv">tbl1</span>,<span class="w"> </span><span class="nv">tbl2</span>,<span class="w"> </span><span class="nv">in</span>,<span class="w"> </span><span class="nv">out</span><span class="c1">;</span><span class="w"></span>
+<span class="w">        </span><span class="nv">size_t</span><span class="w"> </span><span class="nv">i</span><span class="c1">;</span><span class="w"></span>
 
-        <span class="cm">/* Assume table, src, dest are aligned and len is a multiple of 16 */</span>
+<span class="w">        </span><span class="cm">/* Assume table, src, dest are aligned and len is a multiple of 16 */</span><span class="w"></span>
 
-        <span class="nv">tbl1</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">16</span>, <span class="nv">table</span><span class="ss">)</span><span class="c1">;</span>
-        <span class="nv">tbl2</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">0</span>, <span class="nv">table</span><span class="ss">)</span><span class="c1">;</span>
-        <span class="k">for</span> <span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;len; i+=16) {</span>
-            <span class="nv">in</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in</span><span class="ss">)</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out</span>, <span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-        }
-}
+<span class="w">        </span><span class="nv">tbl1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">16</span>,<span class="w"> </span><span class="nv">table</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">        </span><span class="nv">tbl2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">0</span>,<span class="w"> </span><span class="nv">table</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;len; i+=16) {</span><span class="w"></span>
+<span class="w">            </span><span class="nv">in</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in</span><span class="ss">)</span><span class="w"></span>
+<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out</span>,<span class="w"> </span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">        </span>}<span class="w"></span>
+}<span class="w"></span>
 </code></pre></div>
 
 <p>There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.</p>
 <p>We can go a bit faster by doing larger chunks at a time:</p>
-<div class="highlight"><pre><span></span><code>    <span class="k">for</span> <span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;vlen; i+=64) {</span>
-            <span class="nv">in1</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">in2</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">16</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">in3</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">32</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">in4</span> <span class="o">=</span> <span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">48</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out1</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in1</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out2</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in2</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out3</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in3</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;</span><span class="s">vpermxor %0, %1, %2, %3</span><span class="s2">&quot;</span> : <span class="s2">&quot;</span><span class="s">=v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">out4</span><span class="ss">)</span> : <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>, <span class="s2">&quot;</span><span class="s">v</span><span class="s2">&quot;</span><span class="ss">(</span><span class="nv">in4</span><span class="ss">))</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out1</span>, <span class="nv">i</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out2</span>, <span class="nv">i</span><span class="o">+</span><span class="mi">16</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out3</span>, <span class="nv">i</span><span class="o">+</span><span class="mi">32</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-            <span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out4</span>, <span class="nv">i</span><span class="o">+</span><span class="mi">48</span>, <span class="ss">(</span><span class="nv">unsigned</span> <span class="nv">char</span> <span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span>
-    }
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;vlen; i+=64) {</span><span class="w"></span>
+<span class="w">            </span><span class="nv">in1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">in2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">16</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">in3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">32</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">in4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">48</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out1</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in1</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out2</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in2</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out3</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in3</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out4</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in4</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out1</span>,<span class="w"> </span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out2</span>,<span class="w"> </span><span class="nv">i</span><span class="o">+</span><span class="mi">16</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out3</span>,<span class="w"> </span><span class="nv">i</span><span class="o">+</span><span class="mi">32</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out4</span>,<span class="w"> </span><span class="nv">i</span><span class="o">+</span><span class="mi">48</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
+<span class="w">    </span>}<span class="w"></span>
 </code></pre></div>
 
 <p>This goes at about 23.5 GB/s.</p>
@@ -677,15 +807,15 @@ cc = (c &lt;&lt; 1) ^ ((c &amp; 0x80) ? 0x1d : 0);
 <p>If your leading bit is 1 however, your product is x^8 + something, which does need to be reduced. Fortunately, because we took an 8 bit number and multiplied it by 2, the largest term is x^8, so we only need to reduce it once. So we xor our number with our polynomial to subtract it.</p>
 <p>We implement this by letting the top bit overflow out and then xoring the lower 8 bits with the low 8 bits of the polynomial (0x1d)</p>
 <p>So, back to the original statement:</p>
-<div class="highlight"><pre><span></span><code><span class="ss">(</span><span class="nv">c</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="ss">)</span> <span class="o">^</span> <span class="ss">((</span><span class="nv">c</span> <span class="o">&amp;</span> <span class="mi">0</span><span class="nv">x80</span><span class="ss">)</span> ? <span class="mi">0</span><span class="nv">x1d</span> : <span class="mi">0</span><span class="ss">)</span>
-    <span class="o">|</span>          <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
-    <span class="o">&gt;</span> <span class="nv">multiply</span> <span class="nv">by</span> <span class="mi">2</span>       <span class="o">|</span>     <span class="o">|</span>
-               <span class="o">|</span>          <span class="o">|</span>     <span class="o">|</span>
-               <span class="o">&gt;</span> <span class="nv">is</span> <span class="nv">the</span> <span class="nv">high</span> <span class="nv">bit</span> <span class="nv">set</span> <span class="o">-</span> <span class="nv">will</span> <span class="nv">the</span> <span class="nv">product</span> <span class="nv">have</span> <span class="nv">an</span> <span class="nv">x</span><span class="o">^</span><span class="mi">8</span> <span class="nv">term</span>?
-                          <span class="o">|</span>     <span class="o">|</span>
-                          <span class="o">&gt;</span> <span class="k">if</span> <span class="nv">so</span>, <span class="nv">reduce</span> <span class="nv">by</span> <span class="nv">the</span> <span class="nv">polynomial</span>
-                                <span class="o">|</span>
-                                <span class="o">&gt;</span> <span class="nv">otherwise</span>, <span class="nv">leave</span> <span class="nv">alone</span>
+<div class="highlight"><pre><span></span><code><span class="ss">(</span><span class="nv">c</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="ss">)</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="ss">((</span><span class="nv">c</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mi">0</span><span class="nv">x80</span><span class="ss">)</span><span class="w"> </span>?<span class="w"> </span><span class="mi">0</span><span class="nv">x1d</span><span class="w"> </span>:<span class="w"> </span><span class="mi">0</span><span class="ss">)</span><span class="w"></span>
+<span class="w">    </span><span class="o">|</span><span class="w">          </span><span class="o">|</span><span class="w">          </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">    </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">multiply</span><span class="w"> </span><span class="nv">by</span><span class="w"> </span><span class="mi">2</span><span class="w">       </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">               </span><span class="o">|</span><span class="w">          </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">               </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">high</span><span class="w"> </span><span class="nv">bit</span><span class="w"> </span><span class="nv">set</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nv">will</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">product</span><span class="w"> </span><span class="nv">have</span><span class="w"> </span><span class="nv">an</span><span class="w"> </span><span class="nv">x</span><span class="o">^</span><span class="mi">8</span><span class="w"> </span><span class="nv">term</span>?<span class="w"></span>
+<span class="w">                          </span><span class="o">|</span><span class="w">     </span><span class="o">|</span><span class="w"></span>
+<span class="w">                          </span><span class="o">&gt;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nv">so</span>,<span class="w"> </span><span class="nv">reduce</span><span class="w"> </span><span class="nv">by</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">polynomial</span><span class="w"></span>
+<span class="w">                                </span><span class="o">|</span><span class="w"></span>
+<span class="w">                                </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">otherwise</span>,<span class="w"> </span><span class="nv">leave</span><span class="w"> </span><span class="nv">alone</span><span class="w"></span>
 </code></pre></div>
 
 <p>Hopefully that makes sense.</p>
@@ -948,10 +1078,10 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 </code></pre></div>
 
 <p>Even this wasn't enough: I got the following errors:</p>
-<div class="highlight"><pre><span></span><code><span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">error</span>: <span class="nv">initialization</span> <span class="nv">from</span> <span class="nv">incompatible</span> <span class="nv">pointer</span> <span class="nv">type</span> [<span class="o">-</span><span class="nv">Werror</span><span class="o">=</span><span class="nv">incompatible</span><span class="o">-</span><span class="nv">pointer</span><span class="o">-</span><span class="nv">types</span>]
-         .<span class="nv">d_compare</span> <span class="o">=</span> <span class="nv">ll_dcompare</span>,
-                  <span class="o">^~~~~~~~~~~</span>
-<span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">note</span>: <span class="ss">(</span><span class="nv">near</span> <span class="nv">initialization</span> <span class="k">for</span> ‘<span class="nv">ll_d_ops</span>.<span class="nv">d_compare</span>’<span class="ss">)</span>
+<div class="highlight"><pre><span></span><code><span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">initialization</span><span class="w"> </span><span class="nv">from</span><span class="w"> </span><span class="nv">incompatible</span><span class="w"> </span><span class="nv">pointer</span><span class="w"> </span><span class="nv">type</span><span class="w"> </span>[<span class="o">-</span><span class="nv">Werror</span><span class="o">=</span><span class="nv">incompatible</span><span class="o">-</span><span class="nv">pointer</span><span class="o">-</span><span class="nv">types</span>]<span class="w"></span>
+<span class="w">         </span>.<span class="nv">d_compare</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ll_dcompare</span>,<span class="w"></span>
+<span class="w">                  </span><span class="o">^~~~~~~~~~~</span><span class="w"></span>
+<span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>:<span class="w"> </span><span class="nv">note</span>:<span class="w"> </span><span class="ss">(</span><span class="nv">near</span><span class="w"> </span><span class="nv">initialization</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>‘<span class="nv">ll_d_ops</span>.<span class="nv">d_compare</span>’<span class="ss">)</span><span class="w"></span>
 </code></pre></div>
 
 <p>I figured this was probably because Ubuntu 16.10 has a 4.8 kernel, and Ubuntu 16.04 has a 4.4 kernel. Work on supporting 4.8 <a href="https://jira.hpdd.intel.com/browse/LU-9003">is ongoing</a>.</p>
@@ -968,96 +1098,6 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 <p>In the long run, we'd like to make Lustre on Power just as easy as Lustre on x86. (And, of course, more performant!) We'll keep you up to date!</p>
 <p>(Thanks to fellow bloggers Daniel Black and Andrew Donnellan for useful feedback on this post.)</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/02/01/namd-on-nvlink/">NAMD on NVLink</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>,
-          <a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a>,
-          <a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a>
-    </span>
-  </span>
-<time datetime="2017-02-01T08:32:00+11:00" pubdate>Wed 01 February 2017</time></div>
-
-  <div class="entry-content"><p>NAMD is a molecular dynamics program that can use GPU acceleration to speed up its calculations. Recent OpenPOWER machines like the IBM Power Systems S822LC for High Performance Computing (Minsky) come with a new interconnect for GPUs called NVLink, which offers extremely high bandwidth to a number of very powerful Nvidia Pascal P100 GPUs. So they're ideal machines for this sort of workload.</p>
-<p>Here's how to set up NAMD 2.12 on your Minsky, and how to debug some common issues. We've targeted this script for CentOS, but we've successfully compiled NAMD on Ubuntu as well.</p>
-<h2>Prerequisites</h2>
-<h3>GPU Drivers and CUDA</h3>
-<p>Firstly, you'll need CUDA and the NVidia drivers.</p>
-<p>You can install CUDA by following the instructions on NVidia's <a href="https://developer.nvidia.com/cuda-downloads">CUDA Downloads</a> page.</p>
-<div class="highlight"><pre><span></span><code><span class="n">yum</span><span class="w"> </span><span class="n">install</span><span class="w"> </span><span class="n">epel</span><span class="o">-</span><span class="n">release</span><span class="w"></span>
-<span class="n">yum</span><span class="w"> </span><span class="n">install</span><span class="w"> </span><span class="n">dkms</span><span class="w"></span>
-<span class="c1"># download the rpm from the NVidia website</span><span class="w"></span>
-<span class="n">rpm</span><span class="w"> </span><span class="o">-</span><span class="n">i</span><span class="w"> </span><span class="n">cuda</span><span class="o">-</span><span class="n">repo</span><span class="o">-</span><span class="n">rhel7</span><span class="o">-</span><span class="mi">8</span><span class="o">-</span><span class="mi">0</span><span class="o">-</span><span class="n">local</span><span class="o">-</span><span class="n">ga2</span><span class="o">-</span><span class="mf">8.0</span><span class="o">.</span><span class="mi">54</span><span class="o">-</span><span class="mf">1.</span><span class="n">ppc64le</span><span class="o">.</span><span class="n">rpm</span><span class="w"></span>
-<span class="n">yum</span><span class="w"> </span><span class="n">clean</span><span class="w"> </span><span class="n">expire</span><span class="o">-</span><span class="n">cache</span><span class="w"></span>
-<span class="n">yum</span><span class="w"> </span><span class="n">install</span><span class="w"> </span><span class="n">cuda</span><span class="w"></span>
-<span class="c1"># this will take a while...</span><span class="w"></span>
-</code></pre></div>
-
-<p>Then, we set up a profile file to automatically load CUDA into our path:</p>
-<div class="highlight"><pre><span></span><code><span class="n">cat</span><span class="w"> </span><span class="o">&gt;</span><span class="w">  </span><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">profile</span><span class="o">.</span><span class="n">d</span><span class="o">/</span><span class="n">cuda_path</span><span class="o">.</span><span class="n">sh</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="n">EOF</span><span class="w"></span>
-<span class="c1"># From http://developer.download.nvidia.com/compute/cuda/8.0/secure/prod/docs/sidebar/CUDA_Quick_Start_Guide.pdf - 4.4.2.1</span><span class="w"></span>
-<span class="k">export</span><span class="w"> </span><span class="n">PATH</span><span class="o">=/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="n">cuda</span><span class="o">-</span><span class="mf">8.0</span><span class="o">/</span><span class="n">bin</span><span class="o">$</span><span class="p">{</span><span class="n">PATH</span><span class="p">:</span><span class="o">+</span><span class="p">:</span><span class="o">$</span><span class="p">{</span><span class="n">PATH</span><span class="p">}}</span><span class="w"></span>
-<span class="k">export</span><span class="w"> </span><span class="n">LD_LIBRARY_PATH</span><span class="o">=/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="n">cuda</span><span class="o">-</span><span class="mf">8.0</span><span class="o">/</span><span class="n">lib64</span><span class="o">$</span><span class="p">{</span><span class="n">LD_LIBRARY_PATH</span><span class="p">:</span><span class="o">+</span><span class="p">:</span><span class="o">$</span><span class="p">{</span><span class="n">LD_LIBRARY_PATH</span><span class="p">}}</span><span class="w"></span>
-<span class="n">EOF</span><span class="w"></span>
-</code></pre></div>
-
-<p>Now, open a new terminal session and check to see if it works:</p>
-<div class="highlight"><pre><span></span><code>cuda-install-samples-8.0.sh ~
-cd ~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest
-make &amp;&amp; ./bandwidthTest
-</code></pre></div>
-
-<p>If you see a figure of ~32GB/s, that means NVLink is working as expected. A figure of ~7-8GB indicates that only PCI is working, and more debugging is required.</p>
-<h3>Compilers</h3>
-<p>You need a c++ compiler:</p>
-<div class="highlight"><pre><span></span><code>yum install gcc-c++
-</code></pre></div>
-
-<h2>Building NAMD</h2>
-<p>Once CUDA and the compilers are installed, building NAMD is reasonably straightforward. The one hitch is that because we're using CUDA 8.0, and the NAMD build scripts assume CUDA 7.5, we need to supply an updated <a href="/images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a>. (We also enable code generation for the Pascal in this file.)</p>
-<p>We've documented the entire process as a script which you can <a href="/images/namd/install-namd.sh">download</a>. We'd recommend executing the commands one by one, but if you're brave you can run the script directly.</p>
-<p>The script will fetch NAMD 2.12 and build it for you, but won't install it. It will look for the CUDA override file in the directory you are running the script from, and will automatically move it into the correct place so it is picked up by the build system..</p>
-<p>The script compiles for a single multicore machine setup, rather than for a cluster. However, it should be a good start for an Ethernet or Infiniband setup.</p>
-<p>If you're doing things by hand, you may see some errors during the compilation of charm - as long as you get <code>charm++ built successfully.</code> at the end, you should be OK.</p>
-<h2>Testing NAMD</h2>
-<p>We have been testing NAMD using the STMV files available from the <a href="http://www.ks.uiuc.edu/Research/namd/utilities/">NAMD website</a>:</p>
-<div class="highlight"><pre><span></span><code>cd NAMD_2.12_Source/Linux-POWER-g++
-wget http://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
-tar -xf stmv.tar.gz
-sudo ./charmrun +p80 ./namd2 +pemap 0-159:2 +idlepoll +commthread stmv/stmv.namd
-</code></pre></div>
-
-<p>This binds a namd worker thread to every second hardware thread. This is because hardware threads share resources, so using every hardware thread costs overhead and doesn't give us access to any more physical resources.</p>
-<p>You should see messages about finding and using GPUs:</p>
-<div class="highlight"><pre><span></span><code>Pe 0 physical rank 0 binding to CUDA device 0 on &lt;hostname&gt;: &#39;Graphics Device&#39;  Mem: 4042MB  Rev: 6.0
-</code></pre></div>
-
-<p>This should be <em>significantly</em> faster than on non-NVLink machines - we saw a gain of about 2x in speed going from a machine with Nvidia K80s to a Minsky. If things aren't faster for you, let us know!</p>
-<h2>Downloads</h2>
-<ul>
-<li><a href="/images/namd/install-namd.sh">Install script for CentOS</a></li>
-<li><a href="/images/namd/Linux-POWER.cuda">Linux-POWER.cuda file</a></li>
-</ul>
-<h2>Other notes</h2>
-<p>Namd requires some libraries, some of which they supply as binary downloads on <a href="http://www.ks.uiuc.edu/Research/namd/libraries/">their website</a>.
-Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll get errors like:</p>
-<div class="highlight"><pre><span></span><code><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">failed</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">merge</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="n">specific</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="p">.</span><span class="n">rootdir</span><span class="o">/</span><span class="n">tcl</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libtcl8</span><span class="mf">.5</span><span class="p">.</span><span class="n">a</span><span class="p">(</span><span class="n">regfree</span><span class="p">.</span><span class="n">o</span><span class="p">)</span><span class="w"></span>
-<span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="p">.</span><span class="n">rootdir</span><span class="o">/</span><span class="n">tcl</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libtcl8</span><span class="mf">.5</span><span class="p">.</span><span class="n">a</span><span class="p">(</span><span class="n">regerror</span><span class="p">.</span><span class="n">o</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">compiled</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">big</span><span class="w"> </span><span class="n">endian</span><span class="w"> </span><span class="n">system</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">little</span><span class="w"> </span><span class="n">endian</span><span class="w"></span>
-<span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">failed</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">merge</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="n">specific</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="p">.</span><span class="n">rootdir</span><span class="o">/</span><span class="n">tcl</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libtcl8</span><span class="mf">.5</span><span class="p">.</span><span class="n">a</span><span class="p">(</span><span class="n">regerror</span><span class="p">.</span><span class="n">o</span><span class="p">)</span><span class="w"></span>
-<span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="p">.</span><span class="n">rootdir</span><span class="o">/</span><span class="n">tcl</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libtcl8</span><span class="mf">.5</span><span class="p">.</span><span class="n">a</span><span class="p">(</span><span class="n">tclAlloc</span><span class="p">.</span><span class="n">o</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">compiled</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">big</span><span class="w"> </span><span class="n">endian</span><span class="w"> </span><span class="n">system</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">little</span><span class="w"> </span><span class="n">endian</span><span class="w"></span>
-</code></pre></div>
-
-<p>The script we supply should get these right automatically.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index6.html">&larr; Older</a>
 
@@ -1069,6 +1109,9 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
       <li class="post">
@@ -1079,9 +1122,6 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -1110,6 +1150,7 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -1149,7 +1190,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
 </body>

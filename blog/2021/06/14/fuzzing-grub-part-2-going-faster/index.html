@@ -139,11 +139,11 @@ logic, fonts, graphics, partition tables, filesystems and so on - just not
 platform specific driver code or the ability to actually load and boot a kernel.</p>
 <p>Previously, we talked about some issues building grub with AFL++'s
 instrumentation:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
-.<span class="o">/</span><span class="nv">configure</span> <span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span> <span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span> <span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
-...
-<span class="nv">checking</span> <span class="nv">whether</span> <span class="nv">target</span> <span class="nv">compiler</span> <span class="nv">is</span> <span class="nv">working</span>... <span class="nv">no</span>
-<span class="nv">configure</span>: <span class="nv">error</span>: <span class="nv">cannot</span> <span class="nv">compile</span> <span class="k">for</span> <span class="nv">the</span> <span class="nv">target</span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
+...<span class="w"></span>
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
@@ -328,6 +328,9 @@ than there was between part 1 and part 2!</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
       <li class="post">
@@ -338,9 +341,6 @@ than there was between part 1 and part 2!</p></div>
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -369,6 +369,7 @@ than there was between part 1 and part 2!</p></div>
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -408,7 +409,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">

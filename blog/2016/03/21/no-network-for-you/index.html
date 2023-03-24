@@ -138,38 +138,38 @@ document.addEventListener('DOMContentLoaded', function() {
 </code></pre></div>
 
 <p>Horrific right? In the near future the Petitboot tree will include a helper program to format this request for you, but in the meantime (and for future reference), lets lay out how to put this together:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">Specify</span> <span class="nv">the</span> <span class="s2">&quot;</span><span class="s">chassis bootdev</span><span class="s2">&quot;</span> <span class="nv">command</span>, <span class="nv">field</span> <span class="mi">96</span>, <span class="nv">data</span> <span class="nv">field</span> <span class="mi">1</span>:
-    <span class="mi">0</span><span class="nv">x00</span> <span class="mi">0</span><span class="nv">x08</span> <span class="mi">0</span><span class="nv">x61</span> <span class="mi">0</span><span class="nv">x80</span>
+<div class="highlight"><pre><span></span><code><span class="nv">Specify</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="s2">&quot;chassis bootdev&quot;</span><span class="w"> </span><span class="nv">command</span>,<span class="w"> </span><span class="nv">field</span><span class="w"> </span><span class="mi">96</span>,<span class="w"> </span><span class="nv">data</span><span class="w"> </span><span class="nv">field</span><span class="w"> </span><span class="mi">1</span>:<span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x00</span><span class="w"> </span><span class="mi">0</span><span class="nv">x08</span><span class="w"> </span><span class="mi">0</span><span class="nv">x61</span><span class="w"> </span><span class="mi">0</span><span class="nv">x80</span><span class="w"></span>
 
-<span class="nv">Unique</span> <span class="nv">value</span> <span class="nv">that</span> <span class="nv">Petitboot</span> <span class="nv">recognises</span>:
-    <span class="mi">0</span><span class="nv">x21</span> <span class="mi">0</span><span class="nv">x70</span> <span class="mi">0</span><span class="nv">x62</span> <span class="mi">0</span><span class="nv">x21</span>
+<span class="nv">Unique</span><span class="w"> </span><span class="nv">value</span><span class="w"> </span><span class="nv">that</span><span class="w"> </span><span class="nv">Petitboot</span><span class="w"> </span><span class="nv">recognises</span>:<span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x21</span><span class="w"> </span><span class="mi">0</span><span class="nv">x70</span><span class="w"> </span><span class="mi">0</span><span class="nv">x62</span><span class="w"> </span><span class="mi">0</span><span class="nv">x21</span><span class="w"></span>
 
-<span class="nv">Version</span> <span class="nv">field</span> <span class="ss">(</span><span class="mi">1</span><span class="ss">)</span>
-    <span class="mi">0</span><span class="nv">x00</span> <span class="mi">0</span><span class="nv">x01</span> ..   ..
+<span class="nv">Version</span><span class="w"> </span><span class="nv">field</span><span class="w"> </span><span class="ss">(</span><span class="mi">1</span><span class="ss">)</span><span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x00</span><span class="w"> </span><span class="mi">0</span><span class="nv">x01</span><span class="w"> </span>..<span class="w">   </span>..<span class="w"></span>
 
-<span class="nv">Size</span> <span class="nv">of</span> <span class="nv">the</span> <span class="nv">hardware</span> <span class="nv">address</span> <span class="ss">(</span><span class="mi">6</span><span class="ss">)</span>:
-    ..   ..   <span class="mi">0</span><span class="nv">x06</span> ..
+<span class="nv">Size</span><span class="w"> </span><span class="nv">of</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">hardware</span><span class="w"> </span><span class="nv">address</span><span class="w"> </span><span class="ss">(</span><span class="mi">6</span><span class="ss">)</span>:<span class="w"></span>
+<span class="w">    </span>..<span class="w">   </span>..<span class="w">   </span><span class="mi">0</span><span class="nv">x06</span><span class="w"> </span>..<span class="w"></span>
 
-<span class="nv">Size</span> <span class="nv">of</span> <span class="nv">the</span> <span class="nv">IP</span> <span class="nv">address</span> <span class="ss">(</span><span class="nv">IPv4</span><span class="o">/</span><span class="nv">IPv6</span><span class="ss">)</span>:
-    ..   ..   ..   <span class="mi">0</span><span class="nv">x04</span>
+<span class="nv">Size</span><span class="w"> </span><span class="nv">of</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">IP</span><span class="w"> </span><span class="nv">address</span><span class="w"> </span><span class="ss">(</span><span class="nv">IPv4</span><span class="o">/</span><span class="nv">IPv6</span><span class="ss">)</span>:<span class="w"></span>
+<span class="w">    </span>..<span class="w">   </span>..<span class="w">   </span>..<span class="w">   </span><span class="mi">0</span><span class="nv">x04</span><span class="w"></span>
 
-<span class="nv">Hardware</span> <span class="ss">(</span><span class="nv">MAC</span><span class="ss">)</span> <span class="nv">address</span>:
-    <span class="mi">0</span><span class="nv">xf4</span> <span class="mi">0</span><span class="nv">x52</span> <span class="mi">0</span><span class="nv">x14</span> <span class="mi">0</span><span class="nv">xf3</span>
-    <span class="mi">0</span><span class="nv">x01</span> <span class="mi">0</span><span class="nv">xdf</span> ..   ..
+<span class="nv">Hardware</span><span class="w"> </span><span class="ss">(</span><span class="nv">MAC</span><span class="ss">)</span><span class="w"> </span><span class="nv">address</span>:<span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">xf4</span><span class="w"> </span><span class="mi">0</span><span class="nv">x52</span><span class="w"> </span><span class="mi">0</span><span class="nv">x14</span><span class="w"> </span><span class="mi">0</span><span class="nv">xf3</span><span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x01</span><span class="w"> </span><span class="mi">0</span><span class="nv">xdf</span><span class="w"> </span>..<span class="w">   </span>..<span class="w"></span>
 
-<span class="s1">&#39;</span><span class="s">Ignore flag</span><span class="s1">&#39;</span> <span class="nv">and</span> <span class="nv">DHCP</span><span class="o">/</span><span class="nv">Static</span> <span class="nv">flag</span> <span class="ss">(</span><span class="nv">DHCP</span> <span class="nv">is</span> <span class="mi">0</span><span class="ss">)</span>
-    ..   ..   <span class="mi">0</span><span class="nv">x00</span> <span class="mi">0</span><span class="nv">x01</span>
+<span class="s1">&#39;Ignore flag&#39;</span><span class="w"> </span><span class="nv">and</span><span class="w"> </span><span class="nv">DHCP</span><span class="o">/</span><span class="nv">Static</span><span class="w"> </span><span class="nv">flag</span><span class="w"> </span><span class="ss">(</span><span class="nv">DHCP</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="mi">0</span><span class="ss">)</span><span class="w"></span>
+<span class="w">    </span>..<span class="w">   </span>..<span class="w">   </span><span class="mi">0</span><span class="nv">x00</span><span class="w"> </span><span class="mi">0</span><span class="nv">x01</span><span class="w"></span>
 
-<span class="ss">(</span><span class="nv">Below</span> <span class="nv">fields</span> <span class="nv">only</span> <span class="nv">required</span> <span class="k">if</span> <span class="nv">setting</span> <span class="nv">a</span> <span class="nv">static</span> <span class="nv">IP</span><span class="ss">)</span>
+<span class="ss">(</span><span class="nv">Below</span><span class="w"> </span><span class="nv">fields</span><span class="w"> </span><span class="nv">only</span><span class="w"> </span><span class="nv">required</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nv">setting</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="nv">static</span><span class="w"> </span><span class="nv">IP</span><span class="ss">)</span><span class="w"></span>
 
-<span class="nv">IP</span> <span class="nv">Address</span>:
-    <span class="mi">0</span><span class="nv">x0a</span> <span class="mi">0</span><span class="nv">x3d</span> <span class="mi">0</span><span class="nv">xa1</span> <span class="mi">0</span><span class="nv">x42</span>
+<span class="nv">IP</span><span class="w"> </span><span class="nv">Address</span>:<span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x0a</span><span class="w"> </span><span class="mi">0</span><span class="nv">x3d</span><span class="w"> </span><span class="mi">0</span><span class="nv">xa1</span><span class="w"> </span><span class="mi">0</span><span class="nv">x42</span><span class="w"></span>
 
-<span class="nv">Subnet</span> <span class="nv">Mask</span> <span class="ss">(</span><span class="nv">eg</span>, <span class="o">/</span><span class="mi">16</span><span class="ss">)</span>:
-    <span class="mi">0</span><span class="nv">x10</span> ..   ..   ..
-<span class="nv">Gateway</span> <span class="nv">IP</span> <span class="nv">Address</span>:
-    ..   <span class="mi">0</span><span class="nv">x0a</span> <span class="mi">0</span><span class="nv">x3d</span> <span class="mi">0</span><span class="nv">x02</span>
-    <span class="mi">0</span><span class="nv">x01</span>
+<span class="nv">Subnet</span><span class="w"> </span><span class="nv">Mask</span><span class="w"> </span><span class="ss">(</span><span class="nv">eg</span>,<span class="w"> </span><span class="o">/</span><span class="mi">16</span><span class="ss">)</span>:<span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x10</span><span class="w"> </span>..<span class="w">   </span>..<span class="w">   </span>..<span class="w"></span>
+<span class="nv">Gateway</span><span class="w"> </span><span class="nv">IP</span><span class="w"> </span><span class="nv">Address</span>:<span class="w"></span>
+<span class="w">    </span>..<span class="w">   </span><span class="mi">0</span><span class="nv">x0a</span><span class="w"> </span><span class="mi">0</span><span class="nv">x3d</span><span class="w"> </span><span class="mi">0</span><span class="nv">x02</span><span class="w"></span>
+<span class="w">    </span><span class="mi">0</span><span class="nv">x01</span><span class="w"></span>
 </code></pre></div>
 
 <p>Clearing a network override is as simple as making a request empty aside from the header:</p>
@@ -197,6 +197,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
       <li class="post">
@@ -207,9 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -238,6 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -277,7 +278,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">

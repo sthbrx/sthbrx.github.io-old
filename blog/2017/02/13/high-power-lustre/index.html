@@ -217,10 +217,10 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
 </code></pre></div>
 
 <p>Even this wasn't enough: I got the following errors:</p>
-<div class="highlight"><pre><span></span><code><span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">error</span>: <span class="nv">initialization</span> <span class="nv">from</span> <span class="nv">incompatible</span> <span class="nv">pointer</span> <span class="nv">type</span> [<span class="o">-</span><span class="nv">Werror</span><span class="o">=</span><span class="nv">incompatible</span><span class="o">-</span><span class="nv">pointer</span><span class="o">-</span><span class="nv">types</span>]
-         .<span class="nv">d_compare</span> <span class="o">=</span> <span class="nv">ll_dcompare</span>,
-                  <span class="o">^~~~~~~~~~~</span>
-<span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>: <span class="nv">note</span>: <span class="ss">(</span><span class="nv">near</span> <span class="nv">initialization</span> <span class="k">for</span> ‘<span class="nv">ll_d_ops</span>.<span class="nv">d_compare</span>’<span class="ss">)</span>
+<div class="highlight"><pre><span></span><code><span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">initialization</span><span class="w"> </span><span class="nv">from</span><span class="w"> </span><span class="nv">incompatible</span><span class="w"> </span><span class="nv">pointer</span><span class="w"> </span><span class="nv">type</span><span class="w"> </span>[<span class="o">-</span><span class="nv">Werror</span><span class="o">=</span><span class="nv">incompatible</span><span class="o">-</span><span class="nv">pointer</span><span class="o">-</span><span class="nv">types</span>]<span class="w"></span>
+<span class="w">         </span>.<span class="nv">d_compare</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ll_dcompare</span>,<span class="w"></span>
+<span class="w">                  </span><span class="o">^~~~~~~~~~~</span><span class="w"></span>
+<span class="o">/</span><span class="nv">home</span><span class="o">/</span><span class="nv">dja</span><span class="o">/</span><span class="nv">dev</span><span class="o">/</span><span class="nv">lustre</span><span class="o">-</span><span class="nv">release</span><span class="o">/</span><span class="nv">debian</span><span class="o">/</span><span class="nv">tmp</span><span class="o">/</span><span class="nv">modules</span><span class="o">-</span><span class="nv">deb</span><span class="o">/</span><span class="nv">usr_src</span><span class="o">/</span><span class="nv">modules</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">lustre</span><span class="o">/</span><span class="nv">llite</span><span class="o">/</span><span class="nv">dcache</span>.<span class="nv">c</span>:<span class="mi">387</span>:<span class="mi">22</span>:<span class="w"> </span><span class="nv">note</span>:<span class="w"> </span><span class="ss">(</span><span class="nv">near</span><span class="w"> </span><span class="nv">initialization</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>‘<span class="nv">ll_d_ops</span>.<span class="nv">d_compare</span>’<span class="ss">)</span><span class="w"></span>
 </code></pre></div>
 
 <p>I figured this was probably because Ubuntu 16.10 has a 4.8 kernel, and Ubuntu 16.04 has a 4.4 kernel. Work on supporting 4.8 <a href="https://jira.hpdd.intel.com/browse/LU-9003">is ongoing</a>.</p>
@@ -251,6 +251,9 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
       <li class="post">
@@ -261,9 +264,6 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -292,6 +292,7 @@ liblustreapi.c:1201:3: error: ‘readdir_r’ is deprecated [-Werror=deprecated-
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -331,7 +332,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">

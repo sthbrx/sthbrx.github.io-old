@@ -187,11 +187,11 @@ for now.</p>
 <p>At this point in building a fuzzing target, we'd normally try to configure with
 <code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
 grub configure script is not a fan:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
-.<span class="o">/</span><span class="nv">configure</span> <span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span> <span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span> <span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
-...
-<span class="nv">checking</span> <span class="nv">whether</span> <span class="nv">target</span> <span class="nv">compiler</span> <span class="nv">is</span> <span class="nv">working</span>... <span class="nv">no</span>
-<span class="nv">configure</span>: <span class="nv">error</span>: <span class="nv">cannot</span> <span class="nv">compile</span> <span class="k">for</span> <span class="nv">the</span> <span class="nv">target</span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
+...<span class="w"></span>
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
@@ -240,17 +240,17 @@ running the config file, but if you pipe it through <code>less</code> or somethi
 see it.</p>
 <h1>Running the fuzzer</h1>
 <p>So, that seems to work - let's create a test input and try fuzzing:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span>
-<span class="nv">cd</span> ..
-<span class="nv">mkdir</span> <span class="nv">in</span>
-<span class="nv">echo</span> <span class="s2">&quot;</span><span class="s">echo hi</span><span class="s2">&quot;</span> <span class="o">&gt;</span> <span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span><span class="w"></span>
+<span class="nv">cd</span><span class="w"> </span>..<span class="w"></span>
+<span class="nv">mkdir</span><span class="w"> </span><span class="nv">in</span><span class="w"></span>
+<span class="nv">echo</span><span class="w"> </span><span class="s2">&quot;echo hi&quot;</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span><span class="w"></span>
 
-<span class="nv">cd</span> <span class="nv">stage</span>
-# <span class="o">-</span><span class="nv">Q</span> <span class="nv">qemu</span> <span class="nv">mode</span>
-# <span class="o">-</span><span class="nv">M</span> <span class="nv">main</span> <span class="nv">fuzzer</span>
-# <span class="o">-</span><span class="nv">d</span> <span class="nv">don</span><span class="s1">&#39;</span><span class="s">t do deterministic steps (too slow for a text format)</span>
-# <span class="o">-</span><span class="nv">f</span> <span class="nv">create</span> <span class="nv">file</span> <span class="nv">grub</span>.<span class="nv">cfg</span>
-<span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">fuzz</span> <span class="o">-</span><span class="nv">Q</span> <span class="o">-</span><span class="nv">i</span> ..<span class="o">/</span><span class="nv">in</span> <span class="o">-</span><span class="nv">o</span> ..<span class="o">/</span><span class="nv">out</span> <span class="o">-</span><span class="nv">M</span> <span class="nv">main</span> <span class="o">-</span><span class="nv">d</span> <span class="o">--</span> ..<span class="o">/</span><span class="nv">grub</span><span class="o">-</span><span class="nv">core</span><span class="o">/</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span> <span class="o">-</span><span class="nv">d</span> .
+<span class="nv">cd</span><span class="w"> </span><span class="nv">stage</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">Q</span><span class="w"> </span><span class="nv">qemu</span><span class="w"> </span><span class="nv">mode</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">M</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="nv">fuzzer</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">d</span><span class="w"> </span><span class="nv">don</span><span class="err">&#39;t do deterministic steps (too slow for a text format)</span>
+<span class="err"># -f create file grub.cfg</span>
+<span class="err">$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .</span><span class="w"></span>
 </code></pre></div>
 
 <p>Sadly:</p>
@@ -329,6 +329,9 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
       </li>
       <li class="post">
@@ -339,9 +342,6 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </li>
     </ul>
   </section>
@@ -370,6 +370,7 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
         <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
         <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
         <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
         <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
         <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
         <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
@@ -409,7 +410,7 @@ This blog represents the views of the individual authors, and doesn't necessaril
 </aside>    </div>
   </div>
   <footer role="contentinfo"><p>
-    Copyright &copy;  2015&ndash;2022  OzLabs &mdash;
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
   <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
 </p></footer>
   <script type="text/javascript">
