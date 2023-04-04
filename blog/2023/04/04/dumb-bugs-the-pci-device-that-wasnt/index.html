@@ -341,7 +341,7 @@ pci_notify
 <span class="w"> </span>        return 0;<span class="w"></span>
 </code></pre></div>
 
-<p>Easy!  Problem solved.  The <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=d6b9a81b2a45">commit that introduced this bug back in 2012</a> was written by the legendary <a href="https://antonblanchardfacts.com">Anton Blanchard</a>, so it's always a treat to discover an Anton bug.  Ultimately this bug is of little consequence, but it's always fun to catch dormant issues with powerful tools like KASAN.</p>
+<p>Easy!  Problem solved.  The <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=d6b9a81b2a45">commit that introduced this bug back in 2012</a> was written by the legendary <a href="http://antonblanchardfacts.com">Anton Blanchard</a>, so it's always a treat to discover an Anton bug.  Ultimately this bug is of little consequence, but it's always fun to catch dormant issues with powerful tools like KASAN.</p>
 <h2>In conclusion</h2>
 <p>I think this bug provides a nice window into what kernel debugging can be like.  Thankfully, things are made easier by not dealing with any specific hardware and being easily reproducible in QEMU.</p>
 <p>Bugs like this have an absurd amount of underlying complexity, but you rarely need to understand all of it to comprehend the situation and discover the issue.  I spent way too much time digging into device subsystem internals, when the odds of the issue lying within were quite low - the combination of IBM VIO devices and VGA arbitration isn't exactly common, so searching for potential issues within the guts of a heavily utilised subsystem isn't going to yield results very often.</p>
