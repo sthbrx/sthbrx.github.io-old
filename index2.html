@@ -102,6 +102,217 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
+      </h1>
+    <p class="meta">
+<time datetime="2021-03-04T17:10:00+11:00" pubdate>Thu 04 March 2021</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2021-03-04T17:10:00+11:00" pubdate>Thu 04 March 2021</time></div>
+
+  <div class="entry-content"><p>Recently a set of 8 vulnerabilities were disclosed for the <a href="https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021">grub bootloader</a>. I
+found 2 of them (CVE-2021-20225 and CVE-2021-20233), and contributed a number of
+other fixes for crashing bugs which we don't believe are exploitable. I found
+them by applying fuzz testing to grub. Here's how.</p>
+<p>This is a multi-part series: I think it will end up being 4 posts. I'm hoping to
+cover:</p>
+<ul>
+<li>Part 1 (this post): getting started with fuzzing grub</li>
+<li>Part 2: <a href="/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">going faster by doing lots more work</a></li>
+<li>Part 3: fuzzing filesystems and more</li>
+<li>Part 4: potential next steps and avenues for further work</li>
+</ul>
+<h1>Fuzz testing</h1>
+<p>Let's begin with part one: getting started with fuzzing grub.</p>
+<p>One of my all-time favourite techniques for testing programs, especially
+programs that handle untrusted input, and especially-especially programs written
+in C that parse untrusted input, is fuzz testing. Fuzz testing (or fuzzing) is
+the process of repeatedly throwing randomised data at your program under test
+and seeing what it does.</p>
+<p>(For the secure boot threat model, untrusted input is anything not validated by
+a cryptographic signature - so config files are untrusted for our purposes, but
+grub modules can only be loaded if they are signed, so they are trusted.)</p>
+<p>Fuzzing has a long history and has recently received a new lease on life with
+coverage-guided fuzzing tools like <a href="https://lcamtuf.coredump.cx/afl/">AFL</a> and
+more recently <a href="https://aflplus.plus/">AFL++</a>.</p>
+<h1>Building grub for AFL++</h1>
+<p>AFL++ is extremely easy to use ... if your program:</p>
+<ol>
+<li>is built as a single binary with a regular tool-chain</li>
+<li>runs as a regular user-space program on Linux</li>
+<li>reads a small input files from disk and then exits</li>
+<li>doesn't do anything fancy with threads or signals</li>
+</ol>
+<p>Beyond that, it gets a bit more complex.</p>
+<p>On the face of it, grub fails 3 of these 4 criteria:</p>
+<ul>
+<li>
+<p>grub is a highly modular program: it loads almost all of its functionality as
+   modules which are linked as separate ELF relocatable files. (Not runnable
+   programs, but not shared libraries either.)</p>
+</li>
+<li>
+<p>grub usually runs as a bootloader, not as a regular app.</p>
+</li>
+<li>
+<p>grub reads all sorts of things, ranging in size from small files to full
+   disks. After loading most things, it returns to a command prompt rather than
+   exiting.</p>
+</li>
+</ul>
+<p>Fortunately, these problems are not insurmountable.</p>
+<p>We'll start with the 'running as a bootloader' problem. Here, grub helps us out
+a bit, because it provides an 'emulator' target, which runs most of grub
+functionality as a userspace program. It doesn't support actually booting
+anything (unsurprisingly) but it does support most other modules, including
+things like the config file parser.</p>
+<p>We can configure grub to build the emulator. We disable the graphical frontend
+for now.</p>
+<div class="highlight"><pre><span></span><code>:::shell
+./bootstrap
+./configure --with-platform=emu --disable-grub-emu-sdl
+</code></pre></div>
+
+<p>At this point in building a fuzzing target, we'd normally try to configure with
+<code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
+grub configure script is not a fan:</p>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
+...<span class="w"></span>
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
+</code></pre></div>
+
+<p>It also doesn't work with <code>afl-gcc</code>.</p>
+<p>Hmm, ok, so what if we just... lie a bit?</p>
+<div class="highlight"><pre><span></span><code>:::shell
+./configure --with-platform=emu --disable-grub-emu-sdl
+make CC=&quot;$AFL_PATH/afl-gcc&quot; 
+</code></pre></div>
+
+<p>(Normally I'd use <code>CC=clang</code> and <code>afl-cc</code>, but clang support is slightly broken
+upstream at the moment.)</p>
+<p>After a small fix for gcc-10 compatibility, we get the userspace tools
+(potentially handy!) but a bunch of link errors for <code>grub-emu</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+</code></pre></div>
+
+<p>The problem is the module linkage that I talked about earlier: because there is
+a link stage of sorts for each module, some AFL support code gets linked in to
+both the grub kernel (<code>kernel.exec</code>) and each module (here <code>disk.module</code>,
+<code>regexp.module</code>, ...). The linker doesn't like it being in both, which is fair
+enough.</p>
+<p>To get started, let's instead take advantage of the smarts of AFL++ using Qemu
+mode instead. This builds a specially instrumented qemu user-mode emulator
+that's capable of doing coverage-guided fuzzing on uninstrumented binaries at
+the cost of a significant performance penalty.</p>
+<div class="highlight"><pre><span></span><code>:::shell
+make clean
+make
+</code></pre></div>
+
+<p>Now we have a grub-emu binary. If you run it directly, you'll pick up your
+system boot configuration, but the <code>-d</code> option can point it to a directory of
+your choosing. Let's set up one for fuzzing:</p>
+<div class="highlight"><pre><span></span><code>:::shell
+mkdir stage
+echo &quot;echo Hello sthbrx readers&quot; &gt; stage/grub.cfg
+cd stage
+../grub-core/grub-emu -d .
+</code></pre></div>
+
+<p>You probably won't see the message because the screen gets blanked at the end of
+running the config file, but if you pipe it through <code>less</code> or something you'll
+see it.</p>
+<h1>Running the fuzzer</h1>
+<p>So, that seems to work - let's create a test input and try fuzzing:</p>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span><span class="w"></span>
+<span class="nv">cd</span><span class="w"> </span>..<span class="w"></span>
+<span class="nv">mkdir</span><span class="w"> </span><span class="nv">in</span><span class="w"></span>
+<span class="nv">echo</span><span class="w"> </span><span class="s2">&quot;echo hi&quot;</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span><span class="w"></span>
+
+<span class="nv">cd</span><span class="w"> </span><span class="nv">stage</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">Q</span><span class="w"> </span><span class="nv">qemu</span><span class="w"> </span><span class="nv">mode</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">M</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="nv">fuzzer</span><span class="w"></span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">d</span><span class="w"> </span><span class="nv">don</span><span class="err">&#39;t do deterministic steps (too slow for a text format)</span>
+<span class="err"># -f create file grub.cfg</span>
+<span class="err">$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .</span><span class="w"></span>
+</code></pre></div>
+
+<p>Sadly:</p>
+<div class="highlight"><pre><span></span><code><span class="c">:::text</span>
+<span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> The program took more than 1000 ms to process one of the initial test cases</span><span class="nt">.</span><span class="c"></span>
+<span class="c">    This is bad news; raising the limit with the </span><span class="nb">-</span><span class="c">t option is possible</span><span class="nt">,</span><span class="c"> but</span>
+<span class="c">    will probably make the fuzzing process extremely slow</span><span class="nt">.</span><span class="c"></span>
+
+<span class="c">    If this test case is just a fluke</span><span class="nt">,</span><span class="c"> the other option is to just avoid it</span>
+<span class="c">    altogether</span><span class="nt">,</span><span class="c"> and find one that is less of a CPU hog</span><span class="nt">.</span><span class="c"></span>
+
+<span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> PROGRAM ABORT : Test case &#39;id:000000</span><span class="nt">,</span><span class="c">time:0</span><span class="nt">,</span><span class="c">orig:echo</span><span class="nb">-</span><span class="c">hi&#39; results in a timeout</span>
+<span class="c">         Location : perform_dry_run()</span><span class="nt">,</span><span class="c"> src/afl</span><span class="nb">-</span><span class="c">fuzz</span><span class="nb">-</span><span class="c">init</span><span class="nt">.</span><span class="c">c:866</span>
+</code></pre></div>
+
+<p>What we're seeing here (and indeed what you can observe if you run <code>grub-emu</code>
+directly) is that <code>grub-emu</code> isn't exiting when it's done. It's waiting for more
+input, and will keep waiting for input until it's killed by <code>afl-fuzz</code>.</p>
+<p>We need to patch grub to sort that out. It's on <a href="https://github.com/daxtens/grub/commit/ad2e84224e674eb1f9dcd8efc3d8efe78ed62bec">my GitHub</a>.</p>
+<p>Apply that, rebuild with <code>FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION</code>, and voila:</p>
+<div class="highlight"><pre><span></span><code>:::shell
+cd ..
+make CFLAGS=&quot;-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION&quot;
+cd stage
+$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -f grub.cfg -- ../grub-core/grub-emu -d .
+</code></pre></div>
+
+<p>And fuzzing is happening!</p>
+<p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt1.png"></p>
+<p>This is enough to find some of the (now-fixed) bugs in the grub config file
+parsing!</p>
+<h1>Fuzzing beyond the config file</h1>
+<p>You can also extend this to fuzzing other things that don't require the
+graphical UI, such as grub's transparent decompression support:</p>
+<div class="highlight"><pre><span></span><code>:::shell
+cd ..
+rm -rf in out stage
+mkdir in stage
+echo hi &gt; in/hi
+gzip in/hi
+cd stage
+echo &quot;cat thefile&quot; &gt; grub.cfg
+$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub-emu -d .
+</code></pre></div>
+
+<p>You should be able to find a hang pretty quickly with this, an as-yet-unfixed
+bug where grub will print output forever from a corrupt file: (your mileage may
+vary, as will the paths.)</p>
+<div class="highlight"><pre><span></span><code>:::shell
+cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
+../grub-core/grub-emu -d . | less # observe this going on forever
+</code></pre></div>
+
+<p><code>zcat</code>, on the other hand, reports it as simply corrupt:</p>
+<div class="highlight"><pre><span></span><code>:::text
+$ zcat thefile
+
+gzip: thefile: invalid compressed data--format violated
+</code></pre></div>
+
+<p>(Feel free to fix that and send a patch to the list!)</p>
+<p>That wraps up part 1. Eventually I'll be back with part 2, where I explain the
+hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2020/01/22/linuxconfau-2020-recap/">linux.conf.au 2020 recap</a>
       </h1>
     <p class="meta">
@@ -487,48 +698,6 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
 <p>That's it! These devices can't be auto-booted from at the moment since the password needs to be manually entered. The UI also doesn't have a way yet to select specific options for <code>cryptsetup</code>, but if you find yourself needing to do so you can run <code>cryptsetup</code> manually from the shell and pb-discover will recognise the new unencrypted device automatically.</p>
 <p>This is in Petitboot as of v1.10.3 so go check it out! Just make sure your image includes the kernel and cryptsetup <a href="https://github.com/open-power/op-build/pull/2840">dependencies</a>.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2019/05/07/visual-studio-code-for-linux-kernel-development/">Visual Studio Code for Linux kernel development</a>
-      </h1>
-    <p class="meta">
-<time datetime="2019-05-07T00:00:00+10:00" pubdate>Tue 07 May 2019</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
-    </span>
-  </span>
-<time datetime="2019-05-07T00:00:00+10:00" pubdate>Tue 07 May 2019</time></div>
-
-  <div class="entry-content"><p>Here we are again - back in 2016 <a href="https://sthbrx.github.io/blog/2016/06/07/using-the-atom-editor-for-linux-kernel-development/">I wrote an article on using Atom for kernel development</a>, but I didn't stay using it for too long, instead moving back to Emacs.  Atom had too many shortcomings - it had that distinctive <em>Electron feel</em>, which is a problem for a text editor - you need it to be snappy.  On top of that, vim support was mediocre at best, and even as a vim scrub I would find myself trying to do things that weren't implemented.</p>
-<p>So in the meantime I switched to <a href="http://spacemacs.org/">spacemacs</a>, which is a very well integrated "vim in Emacs" experience, with a lot of opinionated (but good) defaults.  spacemacs was pretty good to me but had some issues - disturbingly long startup times, mediocre completions and go-to-definitions, and integrating any module into spacemacs that wasn't already integrated was a big pain.</p>
-<p>After that I switched to <a href="https://github.com/hlissner/doom-emacs">Doom Emacs</a>, which is like spacemacs but faster and closer to Emacs itself.  It's very user configurable but much less user friendly, and I didn't really change much as my elisp-fu is practically non-existent.  I was decently happy with this, but there were still some issues, some of which are just inherent to Emacs itself - like no actually usable inbuilt terminal, despite having (at least) four of them.</p>
-<p>Anyway, since 2016 when I used Atom, Visual Studio Code (henceforth referred to as Code) came along and ate its lunch, using the framework (Electron) that was created for Atom.  I did try it years ago, but I was very turned off by its Microsoft-ness, it seeming lack of distinguishing features from Atom, and it didn't feel like a native editor at all.  Since it's massively grown in popularity since then, I decided I'd give it a try.</p>
-<p><img alt="Visual Studio Code" src="/images/ruscur/vscode.png"></p>
-<h3>Vim emulation</h3>
-<p>First things first for me is getting a vim mode going, and Code has a pretty good one of those.  The key feature for me is that there's <a href="https://neovim.io">Neovim</a> integration for Ex-commands, filling a lot of shortcomings that come with most attempts at vim emulation.  In any case, everything I've tried to do that I'd do in vim (or Emacs) has worked, and there are a ton of options and things to tinker with.  Obviously it's not going to do as much as you could do with Vimscript, but it's definitely not bad.</p>
-<h3>Theming and UI customisation</h3>
-<p>As far as the editor goes - it's good.  A ton of different themes, you can change the colour of pretty much everything in the config file or in the UI, including icons for the sidebar.  There's a huge sore point though, you can't customise the interface outside the editor pretty much at all.  There's an extension for loading custom CSS, but it's out of the way, finnicky, and if I wanted to write CSS I wouldn't have become a kernel developer.</p>
-<h3>Extensibility</h3>
-<p>Extensibility is definitely a strong point, the ecosystem of extensions is good.  All the language extensions I've tried have been very fully featured with a ton of different options, integration into language-specific linters and build tools.  This is probably Code's strongest feature - the breadth of the extension ecosystem and the level of quality found within.</p>
-<h3>Kernel development</h3>
-<p>Okay, let's get into the main thing that matters - how well does the thing actually edit code.  The kernel is tricky.  It's huge, it has its own build system, and in my case I build it with cross compilers for another architecture.  Also, y'know, it's all in C and built with make, not exactly great for any kind of IDE integration.</p>
-<p>The first thing I did was check out the <a href="https://github.com/amezin/vscode-linux-kernel">vscode-linux-kernel</a> project by GitHub user "amezin", which is a great starting point.  All you have to do is clone the repo, build your kernel (with a cross compiler works fine too), and run the Python script to generate the <code>compile_commands.json</code> file.  Once you've done this, go-to-definition (<code>gd</code> in vim mode) works pretty well.  It's not flawless, but it does go cross-file, and will pop up a nice UI if it can't figure out which file you're after.</p>
-<p>Code has good built-in git support, so actions like staging files for a commit can be done from within the editor.  Ctrl-P lets you quickly navigate to any file with fuzzy-matching (which is impressively fast for a project of this size), and Ctrl-Shift-P will let you search commands, which I've been using for some git stuff.</p>
-<p><img alt="git command completion in Code" src="/images/ruscur/vscode-git.png"></p>
-<p>There are some rough edges, though.  Code is set on what so many modern editors are set on, which is the "one window per project" concept - so to get things working the way you want, you would open your kernel source as the current project.  This makes it a pain to just open something else to edit, like some script, or checking the value of something in firmware, or chucking something in your bashrc.</p>
-<p>Auto-triggering builds on change isn't something that makes a ton of sense for the kernel, and it's not present here.  The kernel support in the repo above is decent, but it's not going to get you close to what more modern languages can get you in an editor like this.</p>
-<p>Oh, and it has a powerpc assembly extension, but I didn't find it anywhere near as good as the one I "wrote" for Atom (I just took the x86 one and switched the instructions), so I'd rather use the C mode.</p>
-<h3>Terminal</h3>
-<p>Code has an actually good inbuilt terminal that uses your login shell.  You can bring it up with Ctrl-`.  The biggest gripe I have always had with Emacs is that you can never have a shell that you can actually do anything in, whether it's <code>eshell</code> or <code>shell</code> or <code>term</code> or <code>ansi-term</code>, you try to do something in it and it doesn't work or clashes with some Emacs command, and then when you try to do something Emacs-y in there it doesn't work.  No such issue is present here, and it's a pleasure to use for things like triggering a remote build or doing some git operation you don't want to do with commands in the editor itself.</p>
-<p>Not the most important feature, but I do like not having to alt-tab out and lose focus.</p>
-<h3>Well...is it good?</h3>
-<p>Yeah, it is.  It has shortcomings, but installing Code and using the repo above to get started is probably the simplest way to get a competent kernel development environment going, with more features than most kernel developers (probably) have in their editors.  Code is open source and so are its extensions, and it'd be the first thing I recommend to new developers who aren't already super invested into vim or Emacs, and it's worth a try if you have gripes with your current environment.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -540,6 +709,9 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-the-pci-device-that-wasnt/">Dumb bugs: the PCI device that wasn't</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
       <li class="post">
@@ -550,9 +722,6 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
     </ul>
   </section>

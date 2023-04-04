@@ -102,6 +102,80 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2015/11/06/evolving-into-a-systems-programmer/">Evolving into a systems programmer</a>
+      </h1>
+    <p class="meta">
+<time datetime="2015-11-06T11:13:00+11:00" pubdate>Fri 06 November 2015</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a>
+    </span>
+  </span>
+<time datetime="2015-11-06T11:13:00+11:00" pubdate>Fri 06 November 2015</time></div>
+
+  <div class="entry-content"><p>In a previous life I tutored first year computing. The university I
+attended had a policy of using C to introduce first years to programming.
+One of the most rewarding aspects of teaching is opening doors of
+possibility to people by sharing my knowledge.</p>
+<p>Over the years I had a mixture of computer science or computer engineering
+students as well as other disciplines of engineering who were required to
+learn the basics (notably electrical and mechanical). Each class was
+different and the initial knowledge always varied greatly. The beauty of
+teaching C meant that there was never someone who truly knew it all, heck,
+I didn't and still don't. The other advantage of teaching C is that I could
+very quickly spot the hackers, the shy person at the back of the room who's
+eyes light up when you know you've correctly explained pointers (to them
+anyway) or when asked "What happens if you use a negative index into an
+array" and the smile they would make upon hearing "What do you think happens".</p>
+<p>Right there I would see the makings of a hacker, and this post is dedicated
+to you or to anyone who wants to be a hacker. I've been asked "What did you
+do to get where you are?", "How do I get into Linux?" (vague much) at
+careers fairs. I never quite know what to say, here goes a braindump.</p>
+<p>Start with the basics, one of the easiest way we tested the first years was
+to tell them they can't use parts of libc. That was a great exam, taking
+aside those who didn't read the question and used <code>strlen()</code> when they were
+explicitly told they couldn't <code>#include &lt;string.h&gt;</code> a true hacker doesn't
+need libc, understand it won't always be there. I thought of this example
+because only two weeks ago I was writing code in an environment where I
+didn't have libc. Ok sure, if you've got it, use it, just don't crumble
+when you don't. Oh how I wish I could have told those students who argued
+that it was a pointless question that they were objectively wrong.</p>
+<p>Be a fan of assembly, don't be afraid of it, it doesn't bite and it can be
+a lot of fun. I wouldn't encourage you to dive right into the PowerISA,
+it's intense but perhaps understand the beauty of GCC, know what it's doing
+for you. There is a variety of little 8 bit processors you can play with
+these days.</p>
+<p>At all levels of my teaching I saw almost everyone get something which
+'worked', and that's fine, it probably does but I'm here to tell you that
+it doesn't work until you know why it works. I'm all for the 'try it and
+see' approach but once you've tried it you have to explain why the
+behaviour changed otherwise you didn't fix it. As an extension to that,
+know how your tools work, I don't think anyone would expect you to be able
+to write tools to the level of complexity of GCC or GDB or Valgrind but
+have a rough idea as to how they achieve their goals.</p>
+<p>A hacker is paranoid, yes, <code>malloc()</code> fails. Linux might just decide now
+isn't a good time for you to <code>open()</code> and your <code>fopen()</code> calling function had
+better be cool with that. A hacker also doesn't rely on the kindness of the
+operating system theres an <code>munmap()</code> for a reason. Nor should you even
+completely trust it, what are you leaving around in memory?</p>
+<p>Above all do a it for the fun of it, so many of my students asked how I
+knew everything I knew (I was only a year ahead of them in my first year of
+teaching) and put simply, write code on a Saturday night.</p>
+<p>None of these things do or don't make you a hacker, being a hacker is a
+frame of mind and a way of thinking but all of the above helps.</p>
+<p>Unfortunately there isn't a single path, I might even say it is a path that
+chooses you. Odds are you're here because you approached me at some point
+and asked me one of those questions I never quite know how to answer.
+Perhaps this is the path, at the very least you're asking questions and
+approaching people. I'm hope I did on the day, but once again, all the very
+best with your endeavours into the future</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2015/11/03/what-the-hile-is-this/">What the HILE is this?</a>
       </h1>
     <p class="meta">
@@ -532,48 +606,6 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
 <p>That may be easy to fix, but again I haven't had time to trace it.</p>
 <p>All in all, it's very exciting to see something come out of the simulator and in to real hardware. Hopefully with the proliferation of OpenPOWER hardware, prices will fall and these sorts of systems will become increasingly accessible to people with cool low level projects like this!</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2015/06/02/autoboot/">Petitboot Autoboot Changes</a>
-      </h1>
-    <p class="meta">
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2015-06-02T08:11:00+10:00" pubdate>Tue 02 June 2015</time></div>
-
-  <div class="entry-content"><p>The way autoboot behaves in Petitboot has undergone some significant changes recently, so in order to ward off any angry emails lets take a quick tour of how the new system works.</p>
-<h2>Old &amp; Busted</h2>
-<p>For some context, here is the old (or current depending on what you're running) section of the configuration screen.</p>
-<p><img alt="Old Autoboot" src="/images/sammj/oldstyle.jpg"></p>
-<p>This gives you three main options: don't autoboot, autoboot from anything, or autoboot only from a specific device. For the majority of installations this is fine, such as when you have only one default option, or know exactly which device you'll be booting from.</p>
-<p>A side note about default options: it is important to note that not all boot options are valid <em>autoboot</em> options. A boot option is only considered for auto-booting if it is marked default, eg. 'set default' in GRUB and 'default' in PXE options.</p>
-<h2>New Hotness</h2>
-<p>Below is the new autoboot configuration.</p>
-<p><img alt="New Autoboot" src="/images/sammj/newstyle.jpg"></p>
-<p>The new design allows you to specify an ordered list of autoboot options.
-The last two of the three buttons are self explanatory - clear the list and autoboot any device, or clear the list completely (no autoboot).</p>
-<p>Selecting the first button, 'Add Device' brings up the following screen:</p>
-<p><img alt="Device Selection" src="/images/sammj/devices.jpg"></p>
-<p>From here you can select any device or <em>class</em> of device to add to the boot order. Once added to the boot order, the order of boot options can be changed with the left and right arrow keys, and removed from the list with the minus key ('-').</p>
-<p>This allows you to create additional autoboot configurations such as "Try to boot from sda2, otherwise boot from the network", or "Give priority to PXE options from eth0, otherwise try any other netboot option".
-You can retain the original behaviour by only putting one option into the list (either 'Any Device' or a specific device).</p>
-<p>Presently you can add any option into the list and order them how you like - which means you can do silly things like this:</p>
-<p><img alt="If you send me a bug report with this in it I may laugh at you" src="/images/sammj/redundant.jpg"></p>
-<h2>IPMI</h2>
-<p>Slightly prior to the boot order changes Petitboot also received an update to its IPMI handling. IPMI 'bootdev' commands allow you to override the current autoboot configuration remotely, either by specifying a device type to boot (eg. PXE), or by forcing Petitboot to boot into the 'setup' or 'safe' modes. IPMI overrides are either persistent or non-persistent. A non-persistent override will disappear after a successful boot - that is, a successful boot of a boot option, not booting to Petitboot itself - whereas a persistent override will, well, persist!</p>
-<p>If there is an IPMI override currently active, it will appear in the configuration screen with an option to manually clear it:</p>
-<p><img alt="IPMI Overrides" src="/images/sammj/ipmi.jpg"></p>
-<hr>
-<p>That sums up the recent changes to autoboot; a bit more flexibility in assigning priority, and options for more detailed autoboot order if you need it. New versions of Petitboot are backwards compatible and will recognise older saved settings, so updating your firmware won't cause your machines to start booting things at random.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index12.html">&larr; Older</a>
 
@@ -585,6 +617,9 @@ You can retain the original behaviour by only putting one option into the list (
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-the-pci-device-that-wasnt/">Dumb bugs: the PCI device that wasn't</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
       <li class="post">
@@ -595,9 +630,6 @@ You can retain the original behaviour by only putting one option into the list (
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </li>
     </ul>
   </section>
