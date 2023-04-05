@@ -1,5 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Tue, 04 Apr 2023 15:55:00 +1000</lastBuildDate><item><title>Dumb bugs: the PCI device that wasn't</title><link>https://sthbrx.github.io/blog/2023/04/04/dumb-bugs-the-pci-device-that-wasnt/</link><description>&lt;p&gt;I was happily minding my own business one fateful afternoon when I received the following kernel bug report:&lt;/p&gt;
+<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Wed, 05 Apr 2023 13:00:00 +1000</lastBuildDate><item><title>Detecting rootless Docker</title><link>https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/</link><description>&lt;h2&gt;Trying to do some fuzzing...&lt;/h2&gt;
+&lt;p&gt;The other day, for the first time in a while, I wanted to do something with &lt;a href="https://github.com/google/syzkaller"&gt;syzkaller&lt;/a&gt;, a system call fuzzer that has been used to find literally thousands of kernel bugs. As it turns out, since the last time I had done any work on syzkaller, I switched to a new laptop, and so I needed to set up a few things in my development environment again.&lt;/p&gt;
+&lt;p&gt;While I was doing this, I took a look at the syzkaller source again and found a neat little script called &lt;a href="https://github.com/google/syzkaller/blob/master/tools/syz-env"&gt;&lt;code&gt;syz-env&lt;/code&gt;&lt;/a&gt;, which uses a Docker image to provide you with a standardised environment that has all the necessary tools and dependencies preinstalled.&lt;/p&gt;
+&lt;p&gt;I decided to give it a go, and then realised I hadn't actually installed Docker since getting my new laptop. So I went to do that, and along the way I discovered &lt;a href="https://docs.docker.com/engine/security/rootless/"&gt;rootless mode&lt;/a&gt;, and decided to give it a try.&lt;/p&gt;
+&lt;h2&gt;What's rootless mode?&lt;/h2&gt;
+&lt;p&gt;As of relatively recently, Docker supports rootless mode, which allows you to run your &lt;code&gt;dockerd&lt;/code&gt; as a non-root user. This is helpful for security, as traditional "rootful" Docker can trivially be used to obtain root privileges outside of a container. Rootless Docker is implemented using &lt;a href="https://github.com/rootless-containers/rootlesskit"&gt;RootlessKit&lt;/a&gt; (a fancy replacement for &lt;a href="https://wiki.debian.org/FakeRoot"&gt;fakeroot&lt;/a&gt; that uses user namespaces) to create a new user namespace that maps the UID of the user running &lt;code&gt;dockerd&lt;/code&gt; to 0.&lt;/p&gt;
+&lt;p&gt;You can find more information, including details of the various restrictions that apply to rootless setups, &lt;a href="https://docs.docker.com/engine/security/rootless/"&gt;in the Docker documentation&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;The problem&lt;/h2&gt;
+&lt;p&gt;I ran &lt;code&gt;tools/syz-env make&lt;/code&gt; to test things out. It pulled the container image, then gave me some strange errors:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;ajd@jarvis-debian:~/syzkaller$ tools/syz-env make NCORES=1
+gcr.io/syzkaller/env:latest
+warning: Not a git repository. Use --no-index to compare two paths outside a working tree
+usage: git diff --no-index [&amp;lt;options&amp;gt;] &amp;lt;path&amp;gt; &amp;lt;path&amp;gt;
+
+    ...
+
+fatal: detected dubious ownership in repository at &amp;#39;/syzkaller/gopath/src/github.com/google/syzkaller&amp;#39;
+To add an exception for this directory, call:
+
+        git config --global --add safe.directory /syzkaller/gopath/src/github.com/google/syzkaller
+fatal: detected dubious ownership in repository at &amp;#39;/syzkaller/gopath/src/github.com/google/syzkaller&amp;#39;
+To add an exception for this directory, call:
+
+        git config --global --add safe.directory /syzkaller/gopath/src/github.com/google/syzkaller
+go list -f &amp;#39;{{.Stale}}&amp;#39; ./sys/syz-sysgen | grep -q false || go install ./sys/syz-sysgen
+error obtaining VCS status: exit status 128
+        Use -buildvcs=false to disable VCS stamping.
+error obtaining VCS status: exit status 128
+        Use -buildvcs=false to disable VCS stamping.
+make: *** [Makefile:155: descriptions] Error 1
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;After a bit of digging, I found that &lt;code&gt;syz-env&lt;/code&gt; mounts the syzkaller source directory inside the container as a volume. &lt;code&gt;make&lt;/code&gt; was running with UID 1000, while the files in the mounted volume appeared to be owned by root.&lt;/p&gt;
+&lt;p&gt;Reading the script, it turns out that &lt;code&gt;syz-env&lt;/code&gt; invokes &lt;code&gt;docker run&lt;/code&gt; with the &lt;code&gt;--user&lt;/code&gt; option to set the UID inside the container to match the user's UID outside the container, to ensure that file ownership and permissions behave as expected.&lt;/p&gt;
+&lt;p&gt;This works in rootful Docker, where files appear inside the container to be owned by the same UID as they are outside the container. However, it breaks in rootless mode: due to the way RootlessKit sets up the namespaces, the user's UID is mapped to 0, causing the files to appear to be owned by root.&lt;/p&gt;
+&lt;p&gt;The workaround seemed pretty obvious: just skip the &lt;code&gt;--user&lt;/code&gt; flag if running rootless.&lt;/p&gt;
+&lt;h2&gt;How can you check whether your Docker daemon is running in rootless mode?&lt;/h2&gt;
+&lt;p&gt;It took me quite a while, as a total Docker non-expert, to figure out how to definitively check whether the Docker daemon is running rootless or not. There's a variety of ways you could do this, such as checking the name of the current Docker context to see if it's called &lt;code&gt;rootless&lt;/code&gt; (as used by the Docker rootless setup scripts), but I think the approach I settled on is the most correct one.&lt;/p&gt;
+&lt;p&gt;If you want to check whether your Docker daemon is running in rootless mode, use &lt;code&gt;docker info&lt;/code&gt; to query the daemon's security options, and check for the &lt;code&gt;rootless&lt;/code&gt; option.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;docker info -f &amp;quot;{{println .SecurityOptions}}&amp;quot; | grep rootless
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;If this prints something like:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;[name=seccomp,profile=builtin name=rootless name=cgroupns]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;then you're running rootless.&lt;/p&gt;
+&lt;p&gt;If not, then you're running the traditional rootful.&lt;/p&gt;
+&lt;p&gt;Easy! (And I sent a fix which is now &lt;a href="https://github.com/google/syzkaller/commit/340a1b9094e4b3fad232c98c62de653ec48954ab"&gt;merged into syzkaller!&lt;/a&gt;)&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Andrew Donnellan</dc:creator><pubDate>Wed, 05 Apr 2023 13:00:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2023-04-05:/blog/2023/04/05/detecting-rootless-docker/</guid><category>Development</category><category>Docker</category><category>syzkaller</category></item><item><title>Dumb bugs: the PCI device that wasn't</title><link>https://sthbrx.github.io/blog/2023/04/04/dumb-bugs-the-pci-device-that-wasnt/</link><description>&lt;p&gt;I was happily minding my own business one fateful afternoon when I received the following kernel bug report:&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;BUG: KASAN: slab-out-of-bounds in vga_arbiter_add_pci_device+0x60/0xe00
 Read of size 4 at addr c000000264c26fdc by task swapper/0/1
 

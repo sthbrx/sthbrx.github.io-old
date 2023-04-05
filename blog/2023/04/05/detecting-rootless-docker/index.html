@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>Detecting rootless Docker &mdash; Store Halfword Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Halfword Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Halfword Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Detecting rootless Docker</h1>
+    <p class="meta">
+<time datetime="2023-04-05T13:00:00+10:00" pubdate>Wed 05 April 2023</time>    </p>
+</header>
+
+  <div class="byline_index">
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2023-04-05T13:00:00+10:00" pubdate>Wed 05 April 2023</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a class="category" href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>  </span>
+</p>  </div>
+  <div class="entry-content"><h2>Trying to do some fuzzing...</h2>
+<p>The other day, for the first time in a while, I wanted to do something with <a href="https://github.com/google/syzkaller">syzkaller</a>, a system call fuzzer that has been used to find literally thousands of kernel bugs. As it turns out, since the last time I had done any work on syzkaller, I switched to a new laptop, and so I needed to set up a few things in my development environment again.</p>
+<p>While I was doing this, I took a look at the syzkaller source again and found a neat little script called <a href="https://github.com/google/syzkaller/blob/master/tools/syz-env"><code>syz-env</code></a>, which uses a Docker image to provide you with a standardised environment that has all the necessary tools and dependencies preinstalled.</p>
+<p>I decided to give it a go, and then realised I hadn't actually installed Docker since getting my new laptop. So I went to do that, and along the way I discovered <a href="https://docs.docker.com/engine/security/rootless/">rootless mode</a>, and decided to give it a try.</p>
+<h2>What's rootless mode?</h2>
+<p>As of relatively recently, Docker supports rootless mode, which allows you to run your <code>dockerd</code> as a non-root user. This is helpful for security, as traditional "rootful" Docker can trivially be used to obtain root privileges outside of a container. Rootless Docker is implemented using <a href="https://github.com/rootless-containers/rootlesskit">RootlessKit</a> (a fancy replacement for <a href="https://wiki.debian.org/FakeRoot">fakeroot</a> that uses user namespaces) to create a new user namespace that maps the UID of the user running <code>dockerd</code> to 0.</p>
+<p>You can find more information, including details of the various restrictions that apply to rootless setups, <a href="https://docs.docker.com/engine/security/rootless/">in the Docker documentation</a>.</p>
+<h2>The problem</h2>
+<p>I ran <code>tools/syz-env make</code> to test things out. It pulled the container image, then gave me some strange errors:</p>
+<div class="highlight"><pre><span></span><code>ajd@jarvis-debian:~/syzkaller$ tools/syz-env make NCORES=1
+gcr.io/syzkaller/env:latest
+warning: Not a git repository. Use --no-index to compare two paths outside a working tree
+usage: git diff --no-index [&lt;options&gt;] &lt;path&gt; &lt;path&gt;
+
+    ...
+
+fatal: detected dubious ownership in repository at &#39;/syzkaller/gopath/src/github.com/google/syzkaller&#39;
+To add an exception for this directory, call:
+
+        git config --global --add safe.directory /syzkaller/gopath/src/github.com/google/syzkaller
+fatal: detected dubious ownership in repository at &#39;/syzkaller/gopath/src/github.com/google/syzkaller&#39;
+To add an exception for this directory, call:
+
+        git config --global --add safe.directory /syzkaller/gopath/src/github.com/google/syzkaller
+go list -f &#39;{{.Stale}}&#39; ./sys/syz-sysgen | grep -q false || go install ./sys/syz-sysgen
+error obtaining VCS status: exit status 128
+        Use -buildvcs=false to disable VCS stamping.
+error obtaining VCS status: exit status 128
+        Use -buildvcs=false to disable VCS stamping.
+make: *** [Makefile:155: descriptions] Error 1
+</code></pre></div>
+
+<p>After a bit of digging, I found that <code>syz-env</code> mounts the syzkaller source directory inside the container as a volume. <code>make</code> was running with UID 1000, while the files in the mounted volume appeared to be owned by root.</p>
+<p>Reading the script, it turns out that <code>syz-env</code> invokes <code>docker run</code> with the <code>--user</code> option to set the UID inside the container to match the user's UID outside the container, to ensure that file ownership and permissions behave as expected.</p>
+<p>This works in rootful Docker, where files appear inside the container to be owned by the same UID as they are outside the container. However, it breaks in rootless mode: due to the way RootlessKit sets up the namespaces, the user's UID is mapped to 0, causing the files to appear to be owned by root.</p>
+<p>The workaround seemed pretty obvious: just skip the <code>--user</code> flag if running rootless.</p>
+<h2>How can you check whether your Docker daemon is running in rootless mode?</h2>
+<p>It took me quite a while, as a total Docker non-expert, to figure out how to definitively check whether the Docker daemon is running rootless or not. There's a variety of ways you could do this, such as checking the name of the current Docker context to see if it's called <code>rootless</code> (as used by the Docker rootless setup scripts), but I think the approach I settled on is the most correct one.</p>
+<p>If you want to check whether your Docker daemon is running in rootless mode, use <code>docker info</code> to query the daemon's security options, and check for the <code>rootless</code> option.</p>
+<div class="highlight"><pre><span></span><code>docker info -f &quot;{{println .SecurityOptions}}&quot; | grep rootless
+</code></pre></div>
+
+<p>If this prints something like:</p>
+<div class="highlight"><pre><span></span><code>[name=seccomp,profile=builtin name=rootless name=cgroupns]
+</code></pre></div>
+
+<p>then you're running rootless.</p>
+<p>If not, then you're running the traditional rootful.</p>
+<p>Easy! (And I sent a fix which is now <a href="https://github.com/google/syzkaller/commit/340a1b9094e4b3fad232c98c62de653ec48954ab">merged into syzkaller!</a>)</p></div>
+    <footer>
+<div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/">Detecting rootless Docker</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/04/dumb-bugs-the-pci-device-that-wasnt/">Dumb bugs: the PCI device that wasn't</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+  <section>
+    <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
+    <ul id="authors_list">
+        <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
+        <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
+        <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
+        <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
+        <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a></li>
+        <li><a href="https://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a></li>
+        <li><a href="https://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a></li>
+        <li><a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a></li>
+        <li><a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a></li>
+        <li><a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a></li>
+        <li><a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a></li>
+        <li><a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a></li>
+    </ul>
+  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2023/04/05/detecting-rootless-docker/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/';
+    var disqus_title = 'Detecting rootless Docker';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>

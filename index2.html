@@ -102,6 +102,216 @@ document.addEventListener('DOMContentLoaded', function() {
   		<article>
 <header>
       <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
+      </h1>
+    <p class="meta">
+<time datetime="2021-06-14T17:10:00+10:00" pubdate>Mon 14 June 2021</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2021-06-14T17:10:00+10:00" pubdate>Mon 14 June 2021</time></div>
+
+  <div class="entry-content"><p>Recently a set of 8 vulnerabilities were disclosed for the <a href="https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021">grub bootloader</a>. I
+found 2 of them (CVE-2021-20225 and CVE-2021-20233), and contributed a number of
+other fixes for crashing bugs which we don't believe are exploitable. I found
+them by applying fuzz testing to grub. Here's how.</p>
+<p>This is a multi-part series: I think it will end up being 4 posts. I'm hoping to
+cover:</p>
+<ul>
+<li><a href="/blog/2021/03/04/fuzzing-grub-part-1">Part 1: getting started with fuzzing grub</a></li>
+<li>Part 2 (this post): going faster by doing lots more work</li>
+<li>Part 3: fuzzing filesystems and more</li>
+<li>Part 4: potential next steps and avenues for further work</li>
+</ul>
+<p>We've been looking at fuzzing <code>grub-emu</code>, which is basically most parts of grub
+built into a standard userspace program. This includes all the script parsing
+logic, fonts, graphics, partition tables, filesystems and so on - just not
+platform specific driver code or the ability to actually load and boot a kernel.</p>
+<p>Previously, we talked about some issues building grub with AFL++'s
+instrumentation:</p>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
+...<span class="w"></span>
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
+</code></pre></div>
+
+<p>It also doesn't work with <code>afl-gcc</code>.</p>
+<p>We tried to trick configure:</p>
+<div class="highlight"><pre><span></span><code>:::shell
+./configure --with-platform=emu --disable-grub-emu-sdl CC=clang CXX=clang++
+make CC=&quot;$AFL_PATH/afl-cc&quot; 
+</code></pre></div>
+
+<p>Sadly, things still break:</p>
+<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+</code></pre></div>
+
+<p>The problem is the module linkage that I talked about in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
+There is a link stage of sorts for the kernel (<code>kernel.exec</code>) and each module
+(e.g. <code>disk.module</code>), so some AFL support code gets linked into each of
+those. Then there's another link stage for <code>grub-emu</code> itself, which also tries
+to bring in the same support code. The linker doesn't like the symbols being in
+multiple places, which is fair enough.</p>
+<p>There are (at least) 3 ways you could solve this. I'm going to call them the hard way, and the ugly way and the easy way.</p>
+<h2>The hard way: messing with makefiles</h2>
+<p>We've been looking at fuzzing <code>grub-emu</code>. Building <code>grub-emu</code> links
+<code>kernel.exec</code> and almost every <code>.module</code> file that grub produces into the
+final binary. Maybe we could avoid our duplicate symbol problems entirely by
+changing how we build things?</p>
+<p>I didn't do this in my early work because, to be honest, I don't like working
+with build systems and I'm not especially good at it. grub's build system is
+based on autotools but is even more quirky than usual: rather than just having a
+<code>Makefile.am</code>, we have <code>Makefile.core.def</code> which is used along with other things
+to generate <code>Makefile.am</code>. It's a pretty cool system for making modules, but
+it's not my idea of fun to work with.</p>
+<p>But, for the sake of completeness, I tried again.</p>
+<p>It gets unpleasant quickly. The generated <code>grub-core/Makefile.core.am</code> adds each module to <code>platform_PROGRAMS</code>, and then each is built with <code>LDFLAGS_MODULE = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) -Wl,-r,-d</code>.</p>
+<p>Basically, in the makefile this ends up being (e.g.):</p>
+<div class="highlight"><pre><span></span><code><span class="err">:::make</span><span class="w"></span>
+<span class="nf">tar.module$(EXEEXT)</span><span class="o">:</span> <span class="k">$(</span><span class="nv">tar_module_OBJECTS</span><span class="k">)</span> <span class="k">$(</span><span class="nv">tar_module_DEPENDENCIES</span><span class="k">)</span> <span class="k">$(</span><span class="nv">EXTRA_tar_module_DEPENDENCIES</span><span class="k">)</span> 
+    @rm -f tar.module<span class="k">$(</span>EXEEXT<span class="k">)</span>
+    <span class="k">$(</span>AM_V_CCLD<span class="k">)$(</span>tar_module_LINK<span class="k">)</span> <span class="k">$(</span>tar_module_OBJECTS<span class="k">)</span> <span class="k">$(</span>tar_module_LDADD<span class="k">)</span> <span class="k">$(</span>LIBS<span class="k">)</span>
+</code></pre></div>
+
+<p>Ideally I don't want them to be linked at all; there's no benefit if
+they're just going to be linked again.</p>
+<p>You can't just collect the sources and build them into <code>grub-emu</code> - they all
+have to built with different <code>CFLAGS</code>! So instead I spent some hours messing
+around with the build system. Given some changes to the python script that
+converts the <code>Makefile.*.def</code> files into <code>Makefile.am</code> files, plus some other
+bits and pieces, we can build <code>grub-emu</code> by linking the object files rather than
+the more-processed modules.</p>
+<p>The build dies immediately after linking <code>grub-emu</code> in other components, and it
+requires a bit of manual intervention to get the right things built in the right
+order, but with all of those caveats, it's enough. It works, and you can turn on
+things like ASAN, but getting there was hard, unrewarding and unpleasant. Let's
+consider alternative ways to solve this problem.</p>
+<h2>The ugly way: patching AFL</h2>
+<p>What I did when finding the bugs was to observe that we only wanted AFL to link
+in its extra instrumentation at certain points of the build process. So I
+patched AFL to add an environment variable <code>AFL_DEFER_LIB</code> - which prevented AFL
+adding its own instrumentation library when being called as a linker. I combined
+this with the older CFG instrumentation, as the PCGUARD instrumentation brought
+in a bunch of symbols from LLVM which I didn't want to also figure out how to
+guard.</p>
+<p>I then wrapped this in a horrifying script that basically built bits and pieces
+of grub with the environment variable on or off, in order to at least get the
+userspace tools and <code>grub-emu</code> built. Basically it set <code>AFL_DEFER_LIB</code> when
+building all the modules and turned it off when building the userspace tools
+and <code>grub-emu</code>.</p>
+<p>This worked and it's what I used to find most of my bugs. But I'd probably not
+recommend it, and I'm not sharing the source: it's extremely fragile and
+brittle, the hard way is more generally applicable, and the easy way is nicer.</p>
+<h2>The easy way: adjusting linker flags</h2>
+<p>After posting part 1 of this series, I had a fascinating twitter DM conversation
+with <a href="https://twitter.com/hackerschoice">@hackerschoice</a>, who pointed me to some
+new work that had been done in AFL++ between when I started and when I published
+part 1.</p>
+<p>AFL++ now has the ability to dynamically detect some duplicate symbols, allowing
+it to support plugins and modules better. This isn't directly applicable because
+we link all the modules in at build time, but in the conversation I was pointed
+to a linker flag which instructs the linker to ignore the symbol duplication
+rather than error out. This provides a significantly simpler way to instrument
+<code>grub-emu</code>, avoiding all the issues I'd previously been fighting so hard to
+address.</p>
+<p>So, with a modern AFL++, and the patch from <a href="https://github.com/daxtens/grub/tree/fuzzing-pt2">part 1</a>,
+you can sort out this entire process like this:</p>
+<div class="highlight"><pre><span></span><code>:::shell
+./bootstrap
+./configure --with-platform=emu CC=clang CXX=clang++ --disable-grub-emu-sdl
+make CC=/path/to/afl-clang-fast LDFLAGS=&quot;-Wl,--allow-multiple-definition&quot;
+</code></pre></div>
+
+<p>Eventually it will error out, but <code>./grub-core/grub-emu</code> should be successfully
+built first.</p>
+<p>(Why not just build <code>grub-emu</code> directly? It gets built by <code>grub-core/Makefile</code>,
+but depends on a bunch of things made by the top-level makefile and doesn't
+express its dependencies well. So you can try to build all the things that you
+need separately and then <code>cd grub-core; make ...flags... grub-emu</code> if you want -
+but it's way more complicated to do it that way!)</p>
+<h1>Going extra fast: <code>__AFL_INIT</code></h1>
+<p>Now that we can compile with instrumentation, we can use <code>__AFL_INIT</code>. I'll
+leave the precise details of how this works to the AFL docs, but in short it
+allows us to do a bunch of early setup only once, and just fork the process
+after the setup is done.</p>
+<p>There's a patch that inserts a call to <code>__AFL_INIT</code> in the <code>grub-emu</code> start path
+in <a href="https://github.com/daxtens/grub/tree/fuzzing-pt2">my GitHub repo</a>.</p>
+<p>All up, this can lead to a 2x-3x speedup over the figures I saw in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
+In part 1 we saw around 244 executions per second at this point - now we're over
+500:</p>
+<p><img alt="afl-fuzz fuzzing grub, showing fuzzing happening" src="/images/dja/grub-fuzzing-pt2.png"></p>
+<h1>Finding more bugs with sanitisers</h1>
+<p>A 'sanitizer' refers to a set of checks inserted by a compiler at build time to
+detect various runtime issues that might not cause a crash or otherwise be
+detected. A particularly common and useful sanitizer is ASAN, the
+<a href="https://clang.llvm.org/docs/AddressSanitizer.html">AddressSanitizer</a>, which
+detects out-of-bounds memory accesses, use-after-frees and other assorted memory
+bugs. Other sanitisers can check for
+<a href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html">undefined behaviour</a>,
+<a href="https://clang.llvm.org/docs/MemorySanitizer.html">uninitialised memory reads</a>
+or even breaches of
+<a href="https://releases.llvm.org/12.0.0/tools/clang/docs/ControlFlowIntegrity.html">control flow integrity</a>.</p>
+<p>ASAN is particularly popular for fuzzing. In theory, compiling with AFL++ and
+LLVM makes it really easy to compile with ASAN. Setting <code>AFL_USE_ASAN=1</code> should
+be sufficient.</p>
+<p>However, in practice, it's quite fragile for grub. I believe I had it all
+working, and then I upgraded my distro, LLVM and AFL++ versions, and everything
+stopped working. (It's possible that I hadn't sufficiently cleaned my source
+tree and I was still building based on the hard way? Who knows.)</p>
+<p>I spent quite a while fighting "truncated relocations". ASAN instrumentation was
+bloating the binaries, and the size of all the <code>*.module</code> files was over 512MB,
+which I suspect was causing the issues. (Without ASAN, it only comes to 35MB.)</p>
+<p>I tried <code>afl-clang-lto</code>: I installed <code>lld</code>, rebuilt AFL++, and managed to
+segfault the linker while building grub. So I wrote that off. Changing the
+instrumentation type to classic didn't help either.</p>
+<p><a href="https://www.technovelty.org/c/relocation-truncated-to-fit-wtf.html">Some googling</a>
+suggested GCC's <code>-mmodel</code>, which in Clang seems to be <code>-mcmodel</code>, but
+<code>CFLAGS="-mcmodel=large"</code> didn't get me any further either: it's already added
+in a few different links.</p>
+<p>My default llvm is llvm-12, so I tried building with llvm-9 and llvm-11 in case
+that helped. Both built a binary, but it would fail to start:</p>
+<div class="highlight"><pre><span></span><code><span class="p">:::</span><span class="n">text</span><span class="w"></span>
+<span class="o">==</span><span class="mi">375638</span><span class="o">==</span><span class="n">AddressSanitizer</span><span class="w"> </span><span class="n">CHECK</span><span class="w"> </span><span class="n">failed</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">llvm</span><span class="o">-</span><span class="n">toolchain</span><span class="o">-</span><span class="mi">9</span><span class="o">-</span><span class="mi">8</span><span class="n">fovFY</span><span class="o">/</span><span class="n">llvm</span><span class="o">-</span><span class="n">toolchain</span><span class="o">-</span><span class="mi">9</span><span class="o">-</span><span class="mf">9.0</span><span class="o">.</span><span class="mi">1</span><span class="o">/</span><span class="n">compiler</span><span class="o">-</span><span class="n">rt</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">sanitizer_common</span><span class="o">/</span><span class="n">sanitizer_common_libcdep</span><span class="o">.</span><span class="n">cc</span><span class="p">:</span><span class="mi">23</span><span class="w"> </span><span class="s2">&quot;((SoftRssLimitExceededCallback)) == ((nullptr))&quot;</span><span class="w"> </span><span class="p">(</span><span class="mh">0x423660</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<p>The same happens if I build with llvm-12 and <code>afl-clang</code>, the old-style
+instrumentation.</p>
+<p>I spun up a Ubuntu 20.04 VM and build there with LLVM 10 and the latest stable
+AFL++. That didn't work either.</p>
+<p>I had much better luck using GCC's and GCC's ASAN implementation, either with
+the old-school <code>afl-gcc</code> or the newer GCC plugin-based <code>afl-gcc-fast</code>. (I have
+some hypotheses around shared library vs static library ASAN, but having spent
+way more work time on this than was reasonable, I was disinclined to debug it
+further.) Here's what worked for me:</p>
+<div class="highlight"><pre><span></span><code><span class="p">:::</span><span class="n">shell</span><span class="w"></span>
+<span class="o">./</span><span class="n">configure</span><span class="w"> </span><span class="o">--</span><span class="n">with</span><span class="o">-</span><span class="n">platform</span><span class="o">=</span><span class="n">emu</span><span class="w"> </span><span class="o">--</span><span class="n">disable</span><span class="o">-</span><span class="n">grub</span><span class="o">-</span><span class="n">emu</span><span class="o">-</span><span class="n">sdl</span><span class="w"></span>
+<span class="c1"># the ASAN option is required because one of the tools leaks memory and</span><span class="w"></span>
+<span class="c1"># that breaks the generation of documentation.</span><span class="w"></span>
+<span class="c1"># -Wno-nested-extern makes __AFL_INIT work on gcc</span><span class="w"></span>
+<span class="n">ASAN_OPTIONS</span><span class="o">=</span><span class="n">detect_leaks</span><span class="o">=</span><span class="mi">0</span><span class="w"> </span><span class="n">AFL_USE_ASAN</span><span class="o">=</span><span class="mi">1</span><span class="w"> </span><span class="n">make</span><span class="w"> </span><span class="n">CC</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">afl</span><span class="o">-</span><span class="n">gcc</span><span class="o">-</span><span class="n">fast</span><span class="w"> </span><span class="n">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span><span class="w"> </span><span class="n">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wno-nested-extern&quot;</span><span class="w"></span>
+</code></pre></div>
+
+<p>GCC doesn't support as many sanitisers as LLVM, but happily it does support
+ASAN. AFL++'s GCC plugin mode should get us most of the speed we would get from
+LLVM, and indeed the speed - even with ASAN - is quite acceptable.</p>
+<p>If you persist, you should be able to find some more bugs: for example there's a
+very boring global array out-of-bounds read when parsing config files.</p>
+<p>That's all for part 2. In part 3 we'll look at fuzzing filesystems and
+more. Hopefully there will be a quicker turnaround between part 2 and part 3
+than there was between part 1 and part 2!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
         <a href="https://sthbrx.github.io/blog/2021/03/04/fuzzing-grub-part-1/">Fuzzing grub: part 1</a>
       </h1>
     <p class="meta">
@@ -671,33 +881,6 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
 
 <p>I wonder if I can submit that bug without someone throwing something at my desk.</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2019/05/29/dm-crypt-password-prompts-proliferate/">dm-crypt: Password Prompts Proliferate</a>
-      </h1>
-    <p class="meta">
-<time datetime="2019-05-29T16:47:00+10:00" pubdate>Wed 29 May 2019</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
-    </span>
-  </span>
-<time datetime="2019-05-29T16:47:00+10:00" pubdate>Wed 29 May 2019</time></div>
-
-  <div class="entry-content"><p><a href="https://sthbrx.github.io/blog/2019/02/25/what-do-you-mean-no/">Just recently</a> Petitboot added a method to ask the user for a password before allowing certain actions to proceed. Underneath the covers this is checking against the root password, but the UI "pop-up" asking for the password is relatively generic. Something else which has been on the to-do list for a while is support for mounting encrpyted partitions, but there wasn't a good way to retrieve the password for them - until now!</p>
-<p>With the password problem solved, there isn't too much else to do. If Petitboot sees an encrypted partition it makes a note of it and informs the UI via the <code>device_add</code> interface. Seeing this the UI shows this device in the UI even though there aren't any boot options associated with it yet:</p>
-<p><img alt="encrypted_hdr" src="/images/sammj/encrypted_hdr.png"></p>
-<p>Unlike normal devices in the menu these are selectable; once that happens the user is prompted for the password:</p>
-<p><img alt="encrypted_password" src="/images/sammj/encrypted_password.png"></p>
-<p>With password in hand pb-discover will then try to open the device with <code>cryptsetup</code>. If that succeeds the encrypted device is removed from the UI and replaced with the new un-encrypted device:</p>
-<p><img alt="unencrypted_hdr" src="/images/sammj/unencrypted_hdr.png"></p>
-<p>That's it! These devices can't be auto-booted from at the moment since the password needs to be manually entered. The UI also doesn't have a way yet to select specific options for <code>cryptsetup</code>, but if you find yourself needing to do so you can run <code>cryptsetup</code> manually from the shell and pb-discover will recognise the new unencrypted device automatically.</p>
-<p>This is in Petitboot as of v1.10.3 so go check it out! Just make sure your image includes the kernel and cryptsetup <a href="https://github.com/open-power/op-build/pull/2840">dependencies</a>.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -709,6 +892,9 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/">Detecting rootless Docker</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/04/04/dumb-bugs-the-pci-device-that-wasnt/">Dumb bugs: the PCI device that wasn't</a>
       </li>
       <li class="post">
@@ -719,9 +905,6 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
       </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2021/06/14/fuzzing-grub-part-2-going-faster/">Fuzzing grub, part 2: going faster</a>
       </li>
     </ul>
   </section>
@@ -742,7 +925,7 @@ The changes to the Qemu model setup fill up each PCI bridge as long as we have d
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
