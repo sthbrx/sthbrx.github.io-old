@@ -75,6 +75,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -99,6 +102,267 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="main">
     <div id="content">
 <div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/09/23/stupid-solutions-to-stupid-problems-hardcoding-your-ssh-key-in-the-kernel/">Stupid Solutions to Stupid Problems: Hardcoding Your SSH Key in the Kernel</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-09-23T03:00:00+10:00" pubdate>Sat 23 September 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2017-09-23T03:00:00+10:00" pubdate>Sat 23 September 2017</time></div>
+
+  <div class="entry-content"><h2>The "problem"</h2>
+<p>I'm currently working on firmware and kernel support for <a href="http://opencapi.org/">OpenCAPI</a> on POWER9.</p>
+<p>I've recently been allocated a machine in the lab for development purposes. We use an internal IBM tool running on a secondary machine that triggers hardware initialisation procedures, then loads a specified <a href="https://github.com/open-power/skiboot">skiboot</a> firmware image, a kernel image, and a root file system directly into RAM. This allows us to get skiboot and Linux running without requiring the usual <a href="https://github.com/open-power/hostboot">hostboot</a> initialisation and gives us a lot of options for easier tinkering, so it's super-useful for our developers working on bringup.</p>
+<p>When I got access to my machine, I figured out the necessary scripts, developed a workflow, and started fixing my code... so far, so good.</p>
+<p>One day, I was trying to debug something and get logs off the machine using <code>ssh</code> and <code>scp</code>, when I got frustrated with having to repeatedly type in our ultra-secret, ultra-secure root password, <code>abc123</code>. So, I ran <code>ssh-copy-id</code> to copy over my public key, and all was good.</p>
+<p>Until I rebooted the machine, when strangely, my key stopped working. It took me longer than it should have to realise that this is an obvious consequence of running entirely from an initrd that's reloaded every boot...</p>
+<h2>The "solution"</h2>
+<p>I mentioned something about this to Jono, my housemate/partner-in-stupid-ideas, one evening a few weeks ago. We decided that clearly, the best way to solve this problem was to hardcode my SSH public key in the kernel.</p>
+<p>This would definitely be the easiest and most sensible way to solve the problem, as opposed to, say, just keeping my own copy of the root filesystem image. Or asking <a href="https://twitter.com/mikeyneuling">Mikey</a>, whose desk is three metres away from mine, whether he could use his write access to add my key to the image. Or just writing a wrapper around <a href="https://linux.die.net/man/1/sshpass">sshpass</a>...</p>
+<p>One Tuesday afternoon, I was feeling bored...</p>
+<h2>The approach</h2>
+<p>The SSH daemon looks for authorised public keys in <code>~/.ssh/authorized_keys</code>, so we need to have a read of <code>/root/.ssh/authorized_keys</code> return a specified hard-coded string.</p>
+<p>I did a bit of investigation. My first thought was to put some kind of hook inside whatever filesystem driver was being used for the root. After some digging, I found out that the filesystem type <code>rootfs</code>, as seen in <code>mount</code>, is actually backed by the <code>tmpfs</code> filesystem. I took a look around the <code>tmpfs</code> code for a while, but didn't see any way to hook in a fake file without a lot of effort - the <code>tmpfs</code> code wasn't exactly designed with this in mind.</p>
+<p>I thought about it some more - what would be the easiest way to create a file such that it just returns a string?</p>
+<p>Then I remembered sysfs, the filesystem normally mounted at <code>/sys</code>, which is used by various kernel subsystems to expose configuration and debugging information to userspace in the form of files. The sysfs API allows you to define a file and specify callbacks to handle reads and writes to the file.</p>
+<p>That got me thinking - could I create a file in <code>/sys</code>, and then use a <a href="https://unix.stackexchange.com/questions/198590/what-is-a-bind-mount">bind mount</a> to have that file appear where I need it in <code>/root/.ssh/authorized_keys</code>? This approach seemed fairly straightforward, so I decided to give it a try.</p>
+<p>First up, creating a pseudo-file. It had been a while since the last time I'd used the sysfs API...</p>
+<h2>sysfs</h2>
+<p>The sysfs pseudo file system was first introduced in Linux 2.6, and is generally used for exposing system and device information.</p>
+<p>Per the <a href="https://www.kernel.org/doc/Documentation/filesystems/sysfs.txt">sysfs documentation</a>, sysfs is tied in very closely with the <a href="https://www.kernel.org/doc/Documentation/kobject.txt">kobject</a> infrastructure. sysfs exposes kobjects as directories, containing "attributes" represented as files. The kobject infrastructure provides a way to define kobjects representing entities (e.g. devices) and ksets which define collections of kobjects (e.g. devices of a particular type).</p>
+<p>Using kobjects you can do lots of fancy things such as sending events to userspace when devices are hotplugged - but that's all out of the scope of this post. It turns out there's some fairly straightforward wrapper functions if all you want to do is create a kobject just to have a simple directory in sysfs.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/kobject.h&gt;</span><span class="cp"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">ssh_key_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">ssh_kobj</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="n">ssh_kobj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kobject_create_and_add</span><span class="p">(</span><span class="s">&quot;ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ssh_kobj</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: kobject creation failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="n">late_initcall</span><span class="p">(</span><span class="n">ssh_key_init</span><span class="p">);</span><span class="w"></span>
+</code></pre></div>
+
+<p>This creates and adds a kobject called <code>ssh</code>. And just like that, we've got a directory in <code>/sys/ssh/</code>!</p>
+<p>The next thing we have to do is define a sysfs attribute for our <code>authorized_keys</code> file. sysfs provides a framework for subsystems to define their own custom types of attributes with their own metadata - but for our purposes, we'll use the generic <code>bin_attribute</code> attribute type.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/sysfs.h&gt;</span><span class="cp"></span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PUBLIC KEY HERE...&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">show_key</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">kobj</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="o">*</span><span class="n">bin_attr</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">to</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">memory_read_from_buffer</span><span class="p">(</span><span class="n">to</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">bin_attr</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="n">authorized_keys_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;authorized_keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mo">0444</span><span class="w"> </span><span class="p">},</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">show_key</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</code></pre></div>
+
+<p>We provide a simple callback, <code>show_key()</code>, that copies the key string into the file's buffer, and we put it in a <code>bin_attribute</code> with the appropriate name, size and permissions.</p>
+<p>To actually add the attribute, we put the following in <code>ssh_key_init()</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sysfs_create_bin_file</span><span class="p">(</span><span class="n">ssh_kobj</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">authorized_keys_attr</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: sysfs creation failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>Woo, we've now got <code>/sys/ssh/authorized_keys</code>! Time to move on to the bind mount.</p>
+<h2>Mounting</h2>
+<p>Now that we've got a directory with the key file in it, it's time to figure out the bind mount.</p>
+<p>Because I had no idea how any of the file system code works, I started off by running <code>strace</code> on <code>mount --bind ~/tmp1 ~/tmp2</code> just to see how the userspace <code>mount</code> tool uses the <code>mount</code> syscall to request the bind mount.</p>
+<div class="highlight"><pre><span></span><code><span class="n">execve</span><span class="p">(</span><span class="s">&quot;/bin/mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--bind&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="cm">/* 18 vars */</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+
+<span class="p">...</span><span class="w"></span>
+
+<span class="n">mount</span><span class="p">(</span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x18b78bf00</span><span class="p">,</span><span class="w"> </span><span class="n">MS_MGC_VAL</span><span class="o">|</span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+</code></pre></div>
+
+<p>The first and second arguments are the source and target paths respectively. The third argument, looking at the signature of the <code>mount</code> syscall, is a pointer to a string with the file system type. Because this is a bind mount, the type is irrelevant (upon further digging, it turns out that this particular pointer is to the string "none").</p>
+<p>The fourth argument is where we specify the flags bitfield. <code>MS_MGC_VAL</code> is a magic value that was required before Linux 2.4 and can now be safely ignored. <code>MS_BIND</code>, as you can probably guess, signals that we want a bind mount.</p>
+<p>(The final argument is used to pass file system specific data - as you can see it's ignored here.)</p>
+<p>Now, how is the syscall actually handled on the kernel side? The answer is found in <a href="http://elixir.free-electrons.com/linux/latest/source/fs/namespace.c#L2969">fs/namespace.c</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">SYSCALL_DEFINE5</span><span class="p">(</span><span class="n">mount</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dev_name</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"></span>
+<span class="w">                </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">        </span><span class="cm">/* ... copy parameters from userspace memory ... */</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="n">kernel_dev</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_type</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">        </span><span class="cm">/* ... cleanup ... */</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>So in order to achieve the same thing from within the kernel, we just call <code>do_mount()</code> with exactly the same parameters as the syscall uses:</p>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;/sys/ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/root/.ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: bind mount failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p>...and we're done, right? Not so fast:</p>
+<div class="highlight"><pre><span></span><code><span class="n">SSH</span><span class="o">:</span><span class="w"> </span><span class="n">bind</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">failed</span><span class="o">,</span><span class="w"> </span><span class="n">rc</span><span class="w"> </span><span class="o">-</span><span class="mi">2</span><span class="w"></span>
+</code></pre></div>
+
+<p>-2 is <code>ENOENT</code> - no such file or directory. For some reason, we can't find <code>/sys/ssh</code>... of course, that would be because even though we've created the sysfs entry, we haven't actually mounted sysfs on <code>/sys</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/sys&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">              </span><span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NODEV</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+</code></pre></div>
+
+<p>At this point, my key worked!</p>
+<p>Note that this requires that your root file system has an empty directory created at <code>/sys</code> to be the mount point. Additionally, in a typical Linux distribution environment (as opposed to my hardware bringup environment), your initial root file system will contain an init script that mounts your real root file system somewhere and calls <code>pivot_root()</code> to switch to the new root file system. At that point, the bind mount won't be visible from children processes using the new root - I think this could be worked around but would require some effort.</p>
+<h2>Kconfig</h2>
+<p>The final piece of the puzzle is building our new code into the kernel image.</p>
+<p>To allow us to switch this important functionality on and off, I added a config option to <code>fs/Kconfig</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span><span class="w"> </span><span class="nv">SSH_KEY</span><span class="w"></span>
+<span class="w">        </span><span class="nv">bool</span><span class="w"> </span><span class="s2">&quot;Andrew&#39;s dumb SSH key hack&quot;</span><span class="w"></span>
+<span class="w">        </span><span class="nv">default</span><span class="w"> </span><span class="nv">y</span><span class="w"></span>
+<span class="w">        </span><span class="nv">help</span><span class="w"></span>
+<span class="w">          </span><span class="nv">Hardcode</span><span class="w"> </span><span class="nv">an</span><span class="w"> </span><span class="nv">SSH</span><span class="w"> </span><span class="nv">key</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.<span class="w"></span>
+
+<span class="w">          </span><span class="nv">This</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="nv">stupid</span><span class="w"> </span><span class="nv">idea</span>.<span class="w"> </span><span class="k">If</span><span class="w"> </span><span class="nv">unsure</span>,<span class="w"> </span><span class="nv">say</span><span class="w"> </span><span class="nv">N</span>.<span class="w"></span>
+</code></pre></div>
+
+<p>This will show up in <code>make menuconfig</code> under the <code>File systems</code> menu.</p>
+<p>And in <code>fs/Makefile</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">obj-$(CONFIG_SSH_KEY)</span>           <span class="o">+=</span> ssh_key.o
+</code></pre></div>
+
+<p>If <code>CONFIG_SSH_KEY</code> is set to <code>y</code>, <code>obj-$(CONFIG_SSH_KEY)</code> evaluates to <code>obj-y</code> and thus <code>ssh-key.o</code> gets compiled. Conversely, <code>obj-n</code> is completely ignored by the build system.</p>
+<p>I thought I was all done... then <a href="https://twitter.com/mramboar">Andrew</a> suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span><span class="w"> </span><span class="nv">SSH_KEY_VALUE</span><span class="w"></span>
+<span class="w">        </span><span class="nv">string</span><span class="w"> </span><span class="s2">&quot;Value for SSH key&quot;</span><span class="w"></span>
+<span class="w">        </span><span class="nv">depends</span><span class="w"> </span><span class="nv">on</span><span class="w"> </span><span class="nv">SSH_KEY</span><span class="w"></span>
+<span class="w">        </span><span class="nv">help</span><span class="w"></span>
+<span class="w">          </span><span class="nv">Enter</span><span class="w"> </span><span class="nv">in</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">content</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.<span class="w"></span>
+</code></pre></div>
+
+<p>Including the string in the C file is as simple as:</p>
+<div class="highlight"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CONFIG_SSH_KEY_VALUE</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
+<p>And there we have it, a nicely configurable albeit highly limited kernel SSH backdoor!</p>
+<h2>Conclusion</h2>
+<p>I've put the <a href="https://github.com/ajdlinux/linux/commit/052c0cb7296f7510fd482fecbe572b641c29239f">full code</a> up on GitHub for perusal. Please don't use it, I will be extremely disappointed in you if you do.</p>
+<p>Thanks to Jono for giving me stupid ideas, and the rest of OzLabs for being very angry when they saw the disgusting things I was doing.</p>
+<p>Comments and further stupid suggestions welcome!</p></div>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/09/22/ncsi-nice-network-youve-got-there/">NCSI - Nice Network You've Got There</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-09-22T10:08:00+10:00" pubdate>Fri 22 September 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a>
+    </span>
+  </span>
+<time datetime="2017-09-22T10:08:00+10:00" pubdate>Fri 22 September 2017</time></div>
+
+  <div class="entry-content"><p>A neat piece of kernel code dropped into my lap recently, and as a way of
+processing having to inject an entire network stack into by brain in
+less-than-ideal time I thought we'd have a look at it here: NCSI!</p>
+<h2>NCSI - Not the TV Show</h2>
+<p>NCSI stands for Network Controller Sideband Interface, and put most simply it
+is a way for a management controller (eg. a BMC like those found on our OpenPOWER
+machines) to share a single physical network interface with a host machine.
+Instead of two distinct network interfaces you plug in a single cable and both
+the host and the BMC have network connectivity.</p>
+<p>NCSI-capable network controllers achieve this by filtering network traffic as
+it arrives and determining if it is host- or BMC-bound. To know how to do this
+the BMC needs to tell the network controller what to look out for, and from a
+Linux driver perspective this the focus of the NCSI protocol.</p>
+<p><img alt="NCSI Overview" src="/images/sammj/ncsi_overview.png"></p>
+<h2>Hi My Name Is 70:e2:84:14:24:a1</h2>
+<p>The major components of what NCSI helps facilitate are:</p>
+<ul>
+<li>Network Controllers, known as 'Packages' in this context. There may be multiple
+  separate packages which contain one or more Channels.</li>
+<li>Channels, most easily thought of as the individual physical network interfaces.
+  If a package is the network card, channels are the individual network jacks. (Somewhere a pedant's head is spinning in circles).</li>
+<li>Management Controllers, or our BMC, with their own network interfaces. Hypothetically there can be multiple
+  management controllers in a single NCSI system, but I've not come across such
+  a setup yet.</li>
+</ul>
+<p>NCSI is the medium and protocol via which these components communicate.</p>
+<p><img alt="NCSI Packages" src="/images/sammj/ncsi_packages.png"></p>
+<p>The interface between Management Controller and one or more
+Packages carries both general network traffic to/from the Management
+Controller as well as NCSI traffic between the Management Controller
+and the Packages &amp; Channels. Management traffic is differentiated from
+regular traffic via the inclusion of a special NCSI tag inserted
+in the Ethernet frame header.
+These management commands are used to discover and configure the state of the
+NCSI packages and channels.</p>
+<p>If a BMC's network interface is configured to use NCSI, as soon as the interface
+is brought up NCSI gets to work finding and configuring a usable channel.
+The NCSI driver at first glance is an intimidating combination of state machines
+and packet handlers, but with enough coffee it can be represented like this:</p>
+<p><img alt="NCSI State Diagram" src="/images/sammj/ncsi_states.png"></p>
+<p>Without getting into the nitty gritty details the overall process for configuring
+a channel enough to get packets flowing is fairly straightforward:</p>
+<ul>
+<li>Find available packages.</li>
+<li>Find each package's available channels.</li>
+<li>(At least in the Linux driver) select a channel with link.</li>
+<li>Put this channel into the Initial Config State.
+The Initial Config State is where all the useful configuration occurs. Here we
+find out what the selected channel is capable of and its current configuration,
+and set it up to recognise the traffic we're interested in. The first and most
+basic way of doing this is configuring the channel to filter traffic based on
+our MAC address.</li>
+<li>Enable the channel and let the packets flow.</li>
+</ul>
+<p>At this point NCSI takes a back seat to normal network traffic, transmitting
+a "Get Link Status" packet at regular intervals to monitor the channel.</p>
+<h2>AEN Packets</h2>
+<p>Changes can occur from the package side too; the NCSI package communicates these
+back to the BMC with Asynchronous Event Notification (AEN) packets. As the name
+suggests these can occur at any time and the driver needs to catch and handle these.
+There are different types but they essentially boil down to changes in link state,
+telling the BMC the channel needs to be reconfigured, or to select a different
+channel.
+These are only transmitted once and no effort is made to recover lost AEN packets -
+another good reason for the NCSI driver to periodically monitor the channel.</p>
+<h2>Filtering</h2>
+<p>Each channel can be configured to filter traffic based on MAC address,
+broadcast traffic, multicast traffic, and VLAN tagging. Associated with each of
+these filters is a <em>filter table</em> which can hold a finite number of entries.
+In the case of the VLAN filter each channel could match against 15 different
+VLAN IDs for example, but in practice the physical device will likely
+support less. Indeed the popular BCM5718 controller supports only two!</p>
+<p>This is where I dived into NCSI. The driver had a lot of the pieces for
+configuring VLAN filters but none of it was actually hooked up in the configure
+state, and didn't have a way of actually knowing which VLAN IDs were meant to be
+configured on the interface. The bulk of that work appears in <a href="https://github.com/torvalds/linux/commit/21acf63013ed3d6fce3176cc34b74064052a31b4#diff-f391518f4e552724349be3589e00dfa7">this commit</a> where we take advantage of some useful network stack callbacks to get the VLAN configuration and set them during the configuration state. Getting <em>to</em> the configuration state at some arbitrary time and then managing to assign multiple IDs was the trickiest bit, and is something I'll be looking at simplifying in the future.</p>
+<hr>
+<p>NCSI! A neat way to give physically separate users access to a single network controller, and if it works right you won't notice it at all. I'll surely be spending more time here (fleshing out the driver's features, better error handling, and making the state machine a touch more readable to start, and I haven't even <em>mentioned</em> HWA), so watch this space!</p></div>
+  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -494,353 +758,6 @@ kernel changes!</p>
 now is a good time to learn them! (And those on Power have no excuse
 either!)</p></div>
   		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a>
-    </span>
-  </span>
-<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time></div>
-
-  <div class="entry-content"><h2>Methodology</h2>
-<p>To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
-space to compile the software, as well as 3 sparse 1TB disks to create the
-object store.</p>
-<p>We will then build &amp; install the Ceph packages, after adding the PowerPC
-optimisiations to the code. This is done, as ceph-deploy will fetch prebuilt
-packages that do not have the performance patches if the packages are not
-installed.</p>
-<p>Finally, we will use the ceph-deploy to deploy the instance. We will ceph-deploy
-via pip, to avoid file conflicts with the packages that we built.</p>
-<p>For more information on what each command does, visit the following tutorial,
-upon which which this is based:
-<a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></p>
-<h3>Virtual Machine Config</h3>
-<p>Create a virtual machine with at least the following:
- - 16GB of memory
- - 16 CPUs
- - 64GB disk for the root filesystem
- - 3 x 1TB for the Ceph object store
- - Ubuntu 16.04 default install (only use the 64GB disk, leave the others unpartitioned)</p>
-<h3>Initial config</h3>
-<ul>
-<li>Enable ssh</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    sudo apt install openssh-server
-    sudo apt update
-    sudo apt upgrade
-    sudo reboot
-</code></pre></div>
-
-<ul>
-<li>Install build tools</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    sudo apt install git debhelper
-</code></pre></div>
-
-<h3>Build Ceph</h3>
-<ul>
-<li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
-</ul>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nv">mkdir</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
-<span class="w">    </span><span class="nv">cd</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">clone</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"> </span><span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span><span class="w">  </span>#<span class="w"> </span><span class="nv">This</span><span class="w"> </span><span class="nv">may</span><span class="w"> </span><span class="nv">take</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="k">while</span><span class="w"></span>
-<span class="w">    </span><span class="nv">cd</span><span class="w"> </span><span class="nv">ceph</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">checkout</span><span class="w"> </span><span class="nv">master</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">submodule</span><span class="w"> </span><span class="nv">update</span><span class="w"> </span><span class="o">--</span><span class="nv">force</span><span class="w"> </span><span class="o">--</span><span class="nv">init</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"></span>
-</code></pre></div>
-
-<ul>
-<li>Cherry-pick the Power performance patches:</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    git remote add kestrels https://github.com/kestrels/ceph.git
-    git fetch --all
-    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
-</code></pre></div>
-
-<ul>
-<li>Install prerequisites</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    ./install-deps.sh
-    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
-    sudo pip3 install ceph-deploy
-</code></pre></div>
-
-<ul>
-<li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
-</ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src/ceph
-    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
-</code></pre></div>
-
-<ul>
-<li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src
-    sudo dpkg -i *.deb
-</code></pre></div>
-
-<h3>Create the ceph-deploy user</h3>
-<div class="highlight"><pre><span></span><code>    sudo adduser ceph-deploy
-    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy
-    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
-</code></pre></div>
-
-<h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">su</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span><span class="w"></span>
-<span class="w">    </span><span class="n">node</span><span class="o">=</span><span class="n n-Quoted">`hostname`</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span><span class="w"></span>
-<span class="w">    </span><span class="n">mkdir</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">cd</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">$node</span><span class="w"> </span><span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd pool default size = 2&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-</code></pre></div>
-
-<h3>Complete the Ceph deployment</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy install <span class="nv">$node</span>
-    ceph-deploy mon create-initial
-    drives=&quot;vda vdb vdc&quot;  # the 1TB drives - check that these are correct for your system
-    for drive in <span class="nv">$drives</span>; do ceph-deploy disk zap <span class="nv">$node</span>:<span class="nv">$drive</span>; ceph-deploy osd prepare <span class="nv">$node</span>:<span class="nv">$drive</span>; done
-    for drive in <span class="nv">$drives</span>; do ceph-deploy osd activate <span class="nv">$node</span>:/dev/<span class="cp">${</span><span class="n">drive</span><span class="cp">}</span>1; done
-    ceph-deploy admin <span class="nv">$node</span>
-    sudo chmod +r /etc/ceph/ceph.client.admin.keyring
-    ceph -s # Check the state of the cluster
-</code></pre></div>
-
-<h3>Configure CephFS</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy mds create $node
-    ceph osd pool create cephfs_data 128
-    ceph osd pool create cephfs_metadata 128
-    ceph fs new cephfs cephfs_metadata cephfs_data
-    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
-    sudo mkdir /mnt/cephfs
-    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
-    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
-</code></pre></div>
-
-<h2>References</h2>
-<ol>
-<li><a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
-<li><a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
-<li><a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></li>
-</ol></div>
-  		</article>
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/03/24/erasure-coding-for-programmers-part-2/">Erasure Coding for Programmers, Part 2</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-03-24T10:08:00+11:00" pubdate>Fri 24 March 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2017-03-24T10:08:00+11:00" pubdate>Fri 24 March 2017</time></div>
-
-  <div class="entry-content"><p>We left <a href="/blog/2017/03/20/erasure-coding-for-programmers-part-1/">part 1</a> having explored GF(2^8) and RAID 6, and asking the question "what does all this have to do with Erasure Codes?"</p>
-<p>Basically, the thinking goes "RAID 6 is cool, but what if, instead of two parity disks, we had an arbitrary number of parity disks?"</p>
-<p>How would we do that? Well, let's introduce our new best friend: Coding Theory!</p>
-<p>Say we want to transmit some data across an error-prone medium. We don't know where the errors might occur, so we add some extra information to allow us to detect and possibly correct for errors. This is a code. Codes are a largish field of engineering, but rather than show off my knowledge about systematic linear block codes, let's press on.</p>
-<p>Today, our error-prone medium is an array of inexpensive disks. Now we make this really nice assumption about disks, namely that they are either perfectly reliable or completely missing. In other words, we consider that a disk will either be present or 'erased'. We come up with 'erasure codes' that are able to reconstruct data when it is known to be missing. (This is a slightly different problem to being able to verify and correct data that might or might not be subtly corrupted. Disks also have to deal with this problem, but it is <em>not</em> something erasure codes address!)</p>
-<p>The particular code we use is a Reed-Solomon code. The specific details are unimportant, but there's a really good graphical outline of the broad concepts in sections 1 and 3 of <a href="http://jerasure.org/jerasure-2.0/">the Jerasure paper/manual</a>. (Don't go on to section 4.)</p>
-<p>That should give you some background on how this works at a pretty basic mathematical level. Implementation is a matter of mapping that maths (matrix multiplication) onto hardware primitives, and making it go fast.</p>
-<h2>Scope</h2>
-<p>I'm deliberately <em>not</em> covering some pretty vast areas of what would be required to write your own erasure coding library from scratch. I'm not going to talk about how to compose the matricies, how to invert them, or anything like that. I'm not sure how that would be a helpful exercise - ISA-L and jerasure already exist and do that for you.</p>
-<p>What I want to cover is an efficient implementation of the some algorithms, once you have the matricies nailed down.</p>
-<p>I'm also going to assume your library already provides a generic multiplication function in GF(2^8). That's required to construct the matrices, so it's a pretty safe assumption.</p>
-<h2>The beginnings of an API</h2>
-<p>Let's make this a bit more concrete.</p>
-<p>This will be heavily based on the <a href="https://01.org/intel%C2%AE-storage-acceleration-library-open-source-version/documentation/isa-l-open-source-api">ISA-L API</a> but you probably want to plug into ISA-L anyway, so that shouldn't be a problem.</p>
-<p>What I want to do is build up from very basic algorithmic components into something useful.</p>
-<p>The first thing we want to do is to be able to is Galois Field multiplication of an entire region of bytes by an arbitrary constant.</p>
-<p>We basically want <code>gf_vect_mul(size_t len, &lt;something representing the constant&gt;, unsigned char * src, unsigned char * dest)</code></p>
-<h3>Simple and slow approach</h3>
-<p>The simplest way is to do something like this:</p>
-<div class="highlight"><pre><span></span><code><span class="n">void</span><span class="w"> </span><span class="n">gf_vect_mul_simple</span><span class="p">(</span><span class="n">size_t</span><span class="w"> </span><span class="nf">len</span><span class="p">,</span><span class="w"> </span><span class="n">unsigned</span><span class="w"> </span><span class="nc">char</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">unsigned</span><span class="w"> </span><span class="nc">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">unsigned</span><span class="w"> </span><span class="nc">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">dest</span><span class="p">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
-
-<span class="w">    </span><span class="n">size_t</span><span class="w"> </span><span class="n">i</span><span class="p">;</span><span class="w"></span>
-<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">&lt;</span><span class="nf">len</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">dest</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gf_mul</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">src</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="err">}</span><span class="w"></span>
-<span class="err">}</span><span class="w"></span>
-</code></pre></div>
-
-<p>That does multiplication element by element using the library's supplied <code>gf_mul</code> function, which - as the name suggests - does GF(2^8) multiplication of a scalar by a scalar.</p>
-<p>This works. The problem is that it is very, painfully, slow - in the order of a few hundred megabytes per second.</p>
-<h3>Going faster</h3>
-<p>How can we make this faster?</p>
-<p>There are a few things we can try: if you want to explore a whole range of different ways to do this, check out the <a href="http://jerasure.org/gf-complete-1.02/">gf-complete</a> project. I'm going to assume we want to skip right to the end and know what is the fastest we've found.</p>
-<p>Cast your mind back to the <a href="https://www.kernel.org/pub/linux/kernel/people/hpa/raid6.pdf">RAID 6 paper</a> (PDF). I talked about in <a href="/blog/2017/03/20/erasure-coding-for-programmers-part-1/">part 1</a>. That had a way of doing an efficient multiplication in GF(2^8) using vector instructions.</p>
-<p>To refresh your memory, we split the multiplication into two parts - low bits and high bits, looked them up separately in a lookup table, and joined them with XOR. We then discovered that on modern Power chips, we could do that in one instruction with <code>vpermxor</code>.</p>
-<p>So, a very simple way to do this would be:</p>
-<ul>
-<li>generate the table for <code>a</code></li>
-<li>for each 16-byte chunk of our input:<ul>
-<li>load the input</li>
-<li>do the <code>vpermxor</code> with the table</li>
-<li>save it out</li>
-</ul>
-</li>
-</ul>
-<p>Generating the tables is reasonably straight-forward, in theory. Recall that the tables are <code>a</code> * {{00},{01},...,{0f}} and <code>a</code> * {{00},{10},..,{f0}} - a couple of loops in C will generate them without difficulty. ISA-L has a function to do this, as does gf-complete in split-table mode, so I won't repeat them here.</p>
-<p>So, let's recast our function to take the tables as an input rather than the constant <code>a</code>. Assume we're provided the two tables concatenated into one 32-byte chunk. That would give us:</p>
-<div class="highlight"><pre><span></span><code>void gf_vect_mul_v2(size_t len, unsigned char * table, unsigned char * src, unsigned char * dest)
-</code></pre></div>
-
-<p>Here's how you would do it in C:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">void</span><span class="w"> </span><span class="nv">gf_vect_mul_v2</span><span class="ss">(</span><span class="nv">size_t</span><span class="w"> </span><span class="nv">len</span>,<span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">table</span>,<span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">src</span>,<span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">dest</span><span class="ss">)</span><span class="w"> </span>{<span class="w"></span>
-<span class="w">        </span><span class="nv">vector</span><span class="w"> </span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="nv">tbl1</span>,<span class="w"> </span><span class="nv">tbl2</span>,<span class="w"> </span><span class="nv">in</span>,<span class="w"> </span><span class="nv">out</span><span class="c1">;</span><span class="w"></span>
-<span class="w">        </span><span class="nv">size_t</span><span class="w"> </span><span class="nv">i</span><span class="c1">;</span><span class="w"></span>
-
-<span class="w">        </span><span class="cm">/* Assume table, src, dest are aligned and len is a multiple of 16 */</span><span class="w"></span>
-
-<span class="w">        </span><span class="nv">tbl1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">16</span>,<span class="w"> </span><span class="nv">table</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">        </span><span class="nv">tbl2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="mi">0</span>,<span class="w"> </span><span class="nv">table</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;len; i+=16) {</span><span class="w"></span>
-<span class="w">            </span><span class="nv">in</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in</span><span class="ss">)</span><span class="w"></span>
-<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out</span>,<span class="w"> </span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">        </span>}<span class="w"></span>
-}<span class="w"></span>
-</code></pre></div>
-
-<p>There's a few quirks to iron out - making sure the table is laid out in the vector register in the way you expect, etc, but that generally works and is quite fast - my Power 8 VM does about 17-18 GB/s with non-cache-contained data with this implementation.</p>
-<p>We can go a bit faster by doing larger chunks at a time:</p>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="ss">(</span><span class="nv">i</span><span class="o">=</span><span class="mi">0</span><span class="c1">; i&lt;vlen; i+=64) {</span><span class="w"></span>
-<span class="w">            </span><span class="nv">in1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">in2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">16</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">in3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">32</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">in4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">vec_ld</span><span class="ss">(</span><span class="nv">i</span><span class="o">+</span><span class="mi">48</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">src</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out1</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in1</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out2</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in2</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out3</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in3</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">__asm__</span><span class="ss">(</span><span class="s2">&quot;vpermxor %0, %1, %2, %3&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;=v&quot;</span><span class="ss">(</span><span class="nv">out4</span><span class="ss">)</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl1</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">tbl2</span><span class="ss">)</span>,<span class="w"> </span><span class="s2">&quot;v&quot;</span><span class="ss">(</span><span class="nv">in4</span><span class="ss">))</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out1</span>,<span class="w"> </span><span class="nv">i</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out2</span>,<span class="w"> </span><span class="nv">i</span><span class="o">+</span><span class="mi">16</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out3</span>,<span class="w"> </span><span class="nv">i</span><span class="o">+</span><span class="mi">32</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">            </span><span class="nv">vec_st</span><span class="ss">(</span><span class="nv">out4</span>,<span class="w"> </span><span class="nv">i</span><span class="o">+</span><span class="mi">48</span>,<span class="w"> </span><span class="ss">(</span><span class="nv">unsigned</span><span class="w"> </span><span class="nv">char</span><span class="w"> </span><span class="o">*</span><span class="ss">)</span><span class="nv">dest</span><span class="ss">)</span><span class="c1">;</span><span class="w"></span>
-<span class="w">    </span>}<span class="w"></span>
-</code></pre></div>
-
-<p>This goes at about 23.5 GB/s.</p>
-<p>We can go one step further and do the core loop in assembler - that means we control the instruction layout and so on. I tried this: it turns out that for the basic vector multiply loop, if we turn off ASLR and pin to a particular CPU, we can see a improvement of a few percent (and a decrease in variability) over C code.</p>
-<h2>Building from vector multiplication</h2>
-<p>Once you're comfortable with the core vector multiplication, you can start to build more interesting routines.</p>
-<p>A particularly useful one on Power turned out to be the multiply and add routine: like gf_vect_mul, except that rather than overwriting the output, it loads the output and xors the product in. This is a simple extension of the gf_vect_mul function so is left as an exercise to the reader.</p>
-<p>The next step would be to start building erasure coding proper. Recall that to get an element of our output, we take a dot product: we take the corresponding input element of each disk, multiply it with the corresponding GF(2^8) coding matrix element and sum all those products. So all we need now is a dot product algorithm.</p>
-<p>One approach is the conventional dot product:</p>
-<ul>
-<li>for each element<ul>
-<li>zero accumulator</li>
-<li>for each source<ul>
-<li>load <code>input[source][element]</code></li>
-<li>do GF(2^8) multiplication</li>
-<li>xor into accumulator</li>
-</ul>
-</li>
-<li>save accumulator to <code>output[element]</code></li>
-</ul>
-</li>
-</ul>
-<p>The other approach is multiply and add:</p>
-<ul>
-<li>for each source<ul>
-<li>for each element<ul>
-<li>load <code>input[source][element]</code></li>
-<li>do GF(2^8) multiplication</li>
-<li>load <code>output[element]</code></li>
-<li>xor in product</li>
-<li>save <code>output[element]</code></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<p>The dot product approach has the advantage of fewer writes. The multiply and add approach has the advantage of better cache/prefetch performance. The approach you ultimately go with will probably depend on the characteristics of your machine and the length of data you are dealing with.</p>
-<p>For what it's worth, ISA-L ships with only the first approach in x86 assembler, and Jerasure leans heavily towards the second approach.</p>
-<p>Once you have a vector dot product sorted, you can build a full erasure coding setup: build your tables with your library, then do a dot product to generate each of your outputs!</p>
-<p>In ISA-L, this is implemented something like this:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/*</span>
-<span class="cm"> * ec_encode_data_simple(length of each data input, number of inputs,</span>
-<span class="cm"> *                       number of outputs, pre-generated GF(2^8) tables,</span>
-<span class="cm"> *                       input data pointers, output code pointers)</span>
-<span class="cm"> */</span><span class="w"></span>
-void<span class="w"> </span>ec_encode_data_simple<span class="o">(</span>int<span class="w"> </span>len<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>k<span class="o">,</span><span class="w"> </span>int<span class="w"> </span>rows<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">*</span>g_tbls<span class="o">,</span><span class="w"></span>
-<span class="w">                           </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>data<span class="o">,</span><span class="w"> </span>unsigned<span class="w"> </span>char<span class="w"> </span><span class="o">**</span>coding<span class="o">)</span><span class="w"></span>
-<span class="err">{</span><span class="w"></span>
-<span class="w">        </span><span class="kr">while</span><span class="w"> </span><span class="o">(</span>rows<span class="o">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
-<span class="w">                </span>gf_vect_dot_prod<span class="o">(</span>len<span class="o">,</span><span class="w"> </span>k<span class="o">,</span><span class="w"> </span>g_tbls<span class="o">,</span><span class="w"> </span>data<span class="o">,</span><span class="w"> </span><span class="o">*</span>coding<span class="o">)</span><span class="err">;</span><span class="w"></span>
-<span class="w">                </span>g_tbls<span class="w"> </span><span class="o">+=</span><span class="w"> </span>k<span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">32</span><span class="err">;</span><span class="w"></span>
-<span class="w">                </span>coding<span class="o">++</span><span class="err">;</span><span class="w"></span>
-<span class="w">                </span>rows<span class="o">--</span><span class="err">;</span><span class="w"></span>
-<span class="w">        </span><span class="err">}</span><span class="w"></span>
-<span class="err">}</span><span class="w"></span>
-</code></pre></div>
-
-<h2>Going faster still</h2>
-<p>Eagle eyed readers will notice that however we generate an output, we have to read all the input elements. This means that if we're doing a code with 10 data disks and 4 coding disks, we have to read each of the 10 inputs 4 times.</p>
-<p>We could do better if we could calculate multiple outputs for each pass through the inputs. This is a little fiddly to implement, but does lead to a speed improvement.</p>
-<p>ISA-L is an excellent example here. Intel goes up to 6 outputs at once: the number of outputs you can do is only limited by how many vector registers you have to put the various operands and results in.</p>
-<h2>Tips and tricks</h2>
-<ul>
-<li>
-<p>Benchmarking is tricky. I do the following on a bare-metal, idle machine, with ASLR off and pinned to an arbitrary hardware thread. (Code is for the <a href="https://fishshell.com/">fish shell</a>)</p>
-<div class="highlight"><pre><span></span><code><span class="n">for</span> <span class="n">x</span> <span class="n">in</span> <span class="p">(</span><span class="n">seq</span> <span class="mi">1</span> <span class="mi">50</span><span class="p">)</span>
-    <span class="n">setarch</span> <span class="n">ppc64le</span> <span class="o">-</span><span class="n">R</span> <span class="n">taskset</span> <span class="o">-</span><span class="n">c</span> <span class="mi">24</span> <span class="n">erasure_code</span><span class="o">/</span><span class="n">gf_vect_mul_perf</span>
-<span class="n">end</span> <span class="p">|</span> <span class="n">awk</span> <span class="s">&#39;/MB/ {sum+=$13} END {print sum/50, &quot;MB/s&quot;}&#39;</span>
-</code></pre></div>
-
-</li>
-<li>
-<p>Debugging is tricky; the more you can do in C and the less you do in assembly, the easier your life will be.</p>
-</li>
-<li>
-<p>Vector code is notoriously alignment-sensitive - if you can't figure out why something is wrong, check alignment. (Pro-tip: ISA-L does <em>not</em> guarantee the alignment of the <code>gftbls</code> parameter, and many of the tests supply an unaligned table from the stack. For testing <code>__attribute__((aligned(16)))</code> is your friend!)</p>
-</li>
-<li>
-<p>Related: GCC is moving towards assignment over vector intrinsics, at least on Power:</p>
-<div class="highlight"><pre><span></span><code>vector unsigned char a;
-unsigned char * data;
-// good, also handles word-aligned data with VSX
-a = *(vector unsigned char *)data;
-// bad, requires special handling of non-16-byte aligned data
-a = vec_ld(0, (unsigned char *) data);
-</code></pre></div>
-
-</li>
-</ul>
-<h2>Conclusion</h2>
-<p>Hopefully by this point you're equipped to figure out how your erasure coding library of choice works, and write your own optimised implementation (or maintain an implementation written by someone else).</p>
-<p>I've referred to a number of resources throughout this series:</p>
-<ul>
-<li>ISA-L <a href="https://github.com/01org/isa-l">code</a>, <a href="">API description</a></li>
-<li>Jerasure <a href="http://jerasure.org/">code</a>, <a href="http://jerasure.org/jerasure-2.0/">docs</a></li>
-<li>gf-complete <a href="http://jerasure.org/">code</a>, <a href="http://jerasure.org/gf-complete-1.02/">docs</a> </li>
-<li><a href="https://www.kernel.org/pub/linux/kernel/people/hpa/raid6.pdf">The mathematics of RAID-6</a> (PDF), H. Peter Anvin</li>
-</ul>
-<p>If you want to go deeper, I also read the following and found them quite helpful in understanding Galois Fields and Reed-Solomon coding:</p>
-<ul>
-<li><a href="https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19900019023.pdf">Tutorial on Reed-Solomon Error Correction Coding</a> (PDF), William A. Geisel, NASA</li>
-<li><a href="https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19900019023.pdf">Reed-Solomon error correction</a> (PDF), BBC R&amp;D White Paper WHP 031, C. K. P. Clarke.</li>
-</ul>
-<p>For a more rigorous mathematical approach to rings and fields, a university mathematics course may be of interest. For more on coding theory, a university course in electronics engineering may be helpful.</p></div>
-  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index6.html">&larr; Older</a>
 
@@ -852,6 +769,12 @@ a = vec_ld(0, (unsigned char *) data);
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/04/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/">Detecting rootless Docker</a>
       </li>
       <li class="post">
@@ -860,18 +783,13 @@ a = vec_ld(0, (unsigned char *) data);
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/10/26/power-kernel-hardening-features-in-linux-61/">Power kernel hardening features in Linux 6.1</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
@@ -885,7 +803,7 @@ a = vec_ld(0, (unsigned char *) data);
 
   <section>
   <h1>Tags</h1>
-    <a href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+    <a href="https://sthbrx.github.io/tag/ssh.html">ssh</a>,    <a href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
 
   <section>
     <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>

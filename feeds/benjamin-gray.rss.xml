@@ -1,5 +1,199 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed - Benjamin Gray</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Fri, 24 Mar 2023 00:00:00 +1100</lastBuildDate><item><title>Dumb bugs: When a date breaks booting the kernel</title><link>https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/</link><description>&lt;h2&gt;The setup&lt;/h2&gt;
+<rss version="2.0"><channel><title>Store Halfword Byte-Reverse Indexed - Benjamin Gray</title><link>https://sthbrx.github.io/</link><description>A Power Technical Blog</description><lastBuildDate>Fri, 04 Aug 2023 18:00:00 +1000</lastBuildDate><item><title>Quirks of parsing SSH configs</title><link>https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/</link><description>&lt;h2&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;I've been using the VSCodium 
+&lt;a href="https://open-vsx.org/extension/jeanp413/open-remote-ssh"&gt;Open Remote - SSH&lt;/a&gt;
+extension recently to great results. I can treat everything as a single
+environment, without any worry about syncing between my local development files
+and the remote. This is very different to mounting the remote as a network drive
+and opening a local instance of VSCodium on it: in addition to crippling latency
+on every action, a locally mounted drive doesn't bring the build context that
+tools like &lt;code&gt;clangd&lt;/code&gt; require (e.g., system headers).&lt;/p&gt;
+&lt;p&gt;Instead, the remote extension runs a server on the remote that performs most
+actions, and the local VSCodium instance acts as a client that buffers and
+caches data seamlessly, so the experience is nearly as good as developing
+locally. &lt;/p&gt;
+&lt;p&gt;For example, a project wide file search on a network drive is unusably slow
+because every file and directory read requires a round trip back to the remote,
+and the latency is just too large to finish getting results back in a reasonable
+time. But with the client-server approach, the client just sends the search
+request to the server for it to fulfil, and all the server has to do is send the
+matches back. This eliminates nearly all the latency effects, except for the
+initial request and receiving any results.&lt;/p&gt;
+&lt;p&gt;However there has been one issue with using this for everything: the extension
+failed to connect when I wasn't on the same network as the host machine. So I
+wasn't able to use it when working from home over a VPN. In this post we find
+out why this happened, and in the process look at some of the weird quirks of
+parsing an SSH config.&lt;/p&gt;
+&lt;h2&gt;The issue&lt;/h2&gt;
+&lt;p&gt;As above, I wasn't able to connect to my remote machines when working from home.
+The extension would abort with the following error:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;[Error  - 00:23:10.592] Error resolving authority
+Error: getaddrinfo ENOTFOUND remotename.ozlabs.ibm.com
+    at GetAddrInfoReqWrap.onlookup [as oncomplete] (node:dns:109:26)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;So it's a DNS issue. This would make sense, as the remote machine is not exposed
+to the internet, and must instead be accessed through a proxy. What's weird is
+that the integrated terminal in VSCodium has no problem connecting to the
+remote. So the extension seems to be doing something different than just a plain
+SSH connection.&lt;/p&gt;
+&lt;p&gt;You might think that the extension is not reading the SSH config. But the
+extension panel lists all the host aliases I've declared in the config, so it's
+clearly aware of the config at least. Possibly it doesn't understand the proxy
+config correctly? If it was trying to connect directly from the host, it would
+make sense to fail a DNS lookup.&lt;/p&gt;
+&lt;h2&gt;Investigating&lt;/h2&gt;
+&lt;p&gt;Enough theorising, time to debug the extension as it tries to connect.&lt;/p&gt;
+&lt;p&gt;From the error above, the string &lt;code&gt;"Error resolving authority"&lt;/code&gt; looks like
+something I can search for. This takes me to the
+&lt;a href="https://github.com/jeanp413/open-remote-ssh/blob/521098e24f48b4b9e04d476895f9097b03f8c984/src/authResolver.ts#L226"&gt;&lt;code&gt;catch&lt;/code&gt; case for a large try-catch block&lt;/a&gt;.
+It could be annoying to narrow down which part of the block
+throws the exception, but fortunately debugging is as easy as installing the
+dependencies and running the pre-configured 'Extension' debug target. This opens
+a new window with the local copy of the extension active, and I can debug it in
+the original window.&lt;/p&gt;
+&lt;p&gt;In this block, there is a conditional statement on whether the &lt;code&gt;ProxyJump&lt;/code&gt; field
+is present in the config. This is a good place to break on and see what the
+computed config looks like. If it doesn't find a proxy then of course it's going
+to run everything on the host.&lt;/p&gt;
+&lt;p&gt;And indeed, it doesn't think there is a proxy. This is progress, but why does
+the extension's view of the config not match up with what SSH does? After all,
+invoking SSH directly connects properly. Tracing back the source of the config
+in the extension, it ultimately comes from manually reading in and parsing the
+SSH config. When resolving the host argument it manually computes the config as
+per &lt;a href="https://man7.org/linux/man-pages/man5/ssh_config.5.html"&gt;&lt;code&gt;ssh_config(5)&lt;/code&gt;&lt;/a&gt;.
+Yet somewhere it makes a mistake, because it doesn't include the &lt;code&gt;ProxyJump&lt;/code&gt;
+field.&lt;/p&gt;
+&lt;h2&gt;Parsing SSH config&lt;/h2&gt;
+&lt;p&gt;To get to the bottom of this, we need to know the rules behind parsing SSH
+configs. The &lt;code&gt;ssh_config(5)&lt;/code&gt; manpage does a pretty decent job of explaining
+this, but I'm going to go over the relevant information here. I reckon most
+people have a vague idea of how it works, and can write enough to meet their
+needs, but have never looked deeper into the actual rules behind how SSH parses
+the config.&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;For starters, the config is parsed line by line. Leading whitespace (i.e.,
+   indentation) is ignored. So, while indentation makes it look like you are
+   configuring properties for a particular host, this isn't quite correct.
+   Instead, the &lt;code&gt;Host&lt;/code&gt; and &lt;code&gt;Match&lt;/code&gt; lines are special statements that enable or
+   disable all subsequent lines until the next &lt;code&gt;Host&lt;/code&gt; or &lt;code&gt;Match&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;There is no backtracking; previous conditions and lines are not re-evaluated
+after learning more about the config later on.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;When a config line is seen, and is active thanks to the most recent &lt;code&gt;Host&lt;/code&gt; or
+   &lt;code&gt;Match&lt;/code&gt; succeeding, its value is selected if it is the first of that config
+   to be selected. So the earliest place a value is set takes priority; this may
+   be a little counterintuitive if you are used to having the latest value be
+   picked, like enable/disable command line flags tend to work.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;When &lt;code&gt;HostName&lt;/code&gt; is set, it replaces the &lt;code&gt;host&lt;/code&gt; value in &lt;code&gt;Match&lt;/code&gt; matches. It
+   is also used as the &lt;code&gt;Host&lt;/code&gt; value during a final pass (if requested).&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;The last behaviour of interest is the &lt;code&gt;Match final&lt;/code&gt; rule. There are several
+   conditions a &lt;code&gt;Match&lt;/code&gt; statement can have, and the &lt;code&gt;final&lt;/code&gt; rule says make this
+   active on the final pass over the config.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Wait, final pass? Multiple passes? Yes. If &lt;code&gt;final&lt;/code&gt; is a condition on a &lt;code&gt;Match&lt;/code&gt;,
+SSH will do another pass over the entire config, following all the rules above.
+Except this time all the configs we read on the first pass are still active (and
+can't be changed). But all the &lt;code&gt;Host&lt;/code&gt; and &lt;code&gt;Matches&lt;/code&gt; are re-evaluated, allowing
+other configs to potentially be set. I guess that means rule (1) ought to have a
+big asterisk next to it.&lt;/p&gt;
+&lt;p&gt;Together, these rules can lead to some quirky behaviours. Consider the following
+config&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;Match host=&amp;quot;*.ozlabs.ibm.com&amp;quot;
+    ProxyJump proxy
+
+Host example
+    HostName example.ozlabs.ibm.com
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;If I run &lt;code&gt;ssh example&lt;/code&gt; on the command line, will it use the proxy?&lt;/p&gt;
+&lt;p&gt;By rule (1), no. When testing the first &lt;code&gt;Match host&lt;/code&gt; condition, our host value
+is currently &lt;code&gt;example&lt;/code&gt;. It is not until we reach the &lt;code&gt;HostName&lt;/code&gt; config that we
+start using &lt;code&gt;example.ozlabs.ibm.com&lt;/code&gt; for these matches.&lt;/p&gt;
+&lt;p&gt;But by rule (4), the answer turns into &lt;em&gt;maybe&lt;/em&gt;. If we end up doing a second pass
+over the config thanks to a &lt;code&gt;Match final&lt;/code&gt; that could be &lt;em&gt;anywhere&lt;/em&gt; else, we
+would now be matching &lt;code&gt;example.ozlabs.ibm.com&lt;/code&gt; against the first line on the
+second go around. This will pass, and, since nothing has set &lt;code&gt;ProxyJump&lt;/code&gt; yet, we
+would gain the proxy.&lt;/p&gt;
+&lt;p&gt;You may think, yes, but we don't have a &lt;code&gt;Match final&lt;/code&gt; in that example. But if
+you thought that, then you forgot about the system config.&lt;/p&gt;
+&lt;p&gt;The system config is effectively appended to the user config, to allow any
+system wide settings. Most of the time this isn't an issue because of the
+first-come-first-served rule with config matches (rule 2). But if the system
+config includes a &lt;code&gt;Match final&lt;/code&gt;, it will trigger the entire config to be
+re-parsed, including the user section. And it so happens that, at least on
+Fedora with the &lt;code&gt;openssh-clients&lt;/code&gt; package installed, the system config does
+contain a &lt;code&gt;Match final&lt;/code&gt; (see &lt;code&gt;/etc/ssh/ssh_config.d&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;But wait, there's more! If we want to specify a custom SSH config file, then we
+can use &lt;code&gt;-F path/to/config&lt;/code&gt; in the command line. But this disables loading a
+system config, so we would no longer get the proxy!&lt;/p&gt;
+&lt;p&gt;To sum up, for the above config:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;ssh example&lt;/code&gt; doesn't have a proxy&lt;/li&gt;
+&lt;li&gt;...unless a system config contains &lt;code&gt;Match final&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;...but invoking it as &lt;code&gt;ssh -F ~/.ssh/config example&lt;/code&gt; definitely won't have
+   the proxy&lt;/li&gt;
+&lt;li&gt;...but if a subprocess invokes &lt;code&gt;ssh example&lt;/code&gt; while trying to resolve another
+   host, it'll probably not add the &lt;code&gt;-F ~/.ssh/config&lt;/code&gt;, so we might get the
+   proxy again (in the child process).&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Wait, how did that last one slip in? Well, unlike environment variables, it's a
+lot harder for processes to propagate command line flags correctly. If resolving
+the config involves running a script that itself tries to run SSH, chances are
+the &lt;code&gt;-F&lt;/code&gt; flag won't be propagated and you'll see some weird behaviour.&lt;/p&gt;
+&lt;p&gt;I swear that's all for now, you've probably learned more about SSH configs than
+you will ever need to care about.&lt;/p&gt;
+&lt;h2&gt;Back to VSCodium&lt;/h2&gt;
+&lt;p&gt;Alright, armed now with this knowledge on SSH config parsing, we can work out
+what's going on with the extension. It ends up being a simple issue: it doesn't
+apply rules (3) and (4), so all &lt;code&gt;Host&lt;/code&gt; matches are done against the original
+host name.&lt;/p&gt;
+&lt;p&gt;In my case, there are several machines behind the proxy, but they all share a
+common suffix, so I had a &lt;code&gt;Host *.ozlabs.ibm.com&lt;/code&gt; rule to apply the proxy. I
+also use aliases to refer to the machines without the &lt;code&gt;.ozlabs.ibm.com&lt;/code&gt; suffix,
+so failing to follow rule (3) lead to the situation where the extension didn't
+think there was a proxy.&lt;/p&gt;
+&lt;p&gt;However, even if this were to be fixed, it still doesn't respect rule (4), or
+most complex match logic in general. If the hostname bug is fixed then my setup
+would work, but it's less than ideal to keep playing whack-a-mole with parsing
+bugs. It would be a lot easier if there was a way to just ask SSH for the config
+that a given host name resolves to.&lt;/p&gt;
+&lt;p&gt;Enter &lt;code&gt;ssh -G&lt;/code&gt;. The &lt;code&gt;-G&lt;/code&gt; flag asks SSH to dump the complete resolved config,
+without actually opening the connection (it may execute arbitrary code while
+resolving the config however!). So to fix the extension once and for all, we
+could swap the manual parser to just invoking &lt;code&gt;ssh -G example&lt;/code&gt;, and parsing the
+output as the final config. No &lt;code&gt;Host&lt;/code&gt; or &lt;code&gt;Match&lt;/code&gt; or &lt;code&gt;HostName&lt;/code&gt; or &lt;code&gt;Match final&lt;/code&gt;
+quirks to worry about.&lt;/p&gt;
+&lt;p&gt;Sure enough, if we replace the config backend with this 'native' resolver, we
+can connect to all the machines with no problem. Hopefully the
+&lt;a href="https://github.com/jeanp413/open-remote-ssh/pull/103"&gt;pull request&lt;/a&gt; to add this
+support will get accepted, and I can stop running my locally patched copy of the
+extension.&lt;/p&gt;
+&lt;p&gt;In general, I'd suggest avoiding any dependency on a second pass being done on
+the config. Resolve your aliases early, so that the rest of your matches work
+against the full hostname. If you later need to match against the name passed in
+the command line, you can use &lt;code&gt;Match originalhost=example&lt;/code&gt;. The example above
+should always be written as&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;Host example
+    HostName example.ozlabs.ibm.com
+
+Match host=&amp;quot;*.ozlabs.ibm.com&amp;quot;
+    ProxyJump proxy
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;even if the reversed order might appear to work thanks to the weird interactions
+described above. And after learning these parser quirks, I find the idea of
+using &lt;code&gt;Host&lt;/code&gt; match statements unreliable; that they may or may not be run
+against the &lt;code&gt;HostName&lt;/code&gt; value allows for truely strange bugs to appear. Maybe you
+should remove this uncertainty by starting your config with &lt;code&gt;Match final&lt;/code&gt; to at
+least always be parsed the same way.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Benjamin Gray</dc:creator><pubDate>Fri, 04 Aug 2023 18:00:00 +1000</pubDate><guid isPermaLink="false">tag:sthbrx.github.io,2023-08-04:/blog/2023/08/04/quirks-of-parsing-ssh-configs/</guid><category>Development</category><category>ssh</category></item><item><title>Dumb bugs: When a date breaks booting the kernel</title><link>https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/</link><description>&lt;h2&gt;The setup&lt;/h2&gt;
 &lt;p&gt;I've recently been working on internal CI infrastructure for testing kernels before sending them to the mailing list. As part of this effort, I became interested in &lt;a href="https://reproducible-builds.org/"&gt;reproducible builds&lt;/a&gt;. Minimising the changing parts outside of the source tree itself could improve consistency and ccache hits, which is great for trying to make the CI faster and more reproducible across different machines. This means removing 'external' factors like timestamps from the build process, because the time changes every build and means the results between builds of the same tree are no longer identical binaries. This also prevents using previously cached results, potentially slowing down builds (though it turns out the kernel does a good job of limiting the scope of where timestamps appear in the build).&lt;/p&gt;
 &lt;p&gt;As part of this effort, I came across the &lt;code&gt;KBUILD_BUILD_TIMESTAMP&lt;/code&gt; environment variable. This variable is used to set the kernel timestamp, which is primarily for any users who want to know when their kernel was built. That's mostly irrelevant for our work, so an easy &lt;code&gt;KBUILD_BUILD_TIMESTAMP=0&lt;/code&gt; later and... it still uses the current date.&lt;/p&gt;
 &lt;p&gt;Ok, checking &lt;a href="https://docs.kernel.org/kbuild/kbuild.html#kbuild-build-timestamp"&gt;the documentation&lt;/a&gt; it says&lt;/p&gt;

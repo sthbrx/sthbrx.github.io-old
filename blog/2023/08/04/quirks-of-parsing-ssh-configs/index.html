@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>Quirks of parsing SSH configs &mdash; Store Halfword Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Halfword Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Halfword Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Quirks of parsing SSH configs</h1>
+    <p class="meta">
+<time datetime="2023-08-04T18:00:00+10:00" pubdate>Fri 04 August 2023</time>    </p>
+</header>
+
+  <div class="byline_index">
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a>
+    </span>
+  </span>
+<time datetime="2023-08-04T18:00:00+10:00" pubdate>Fri 04 August 2023</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/development.html'>Development</a>
+  </span>
+  <span class="categories">
+    <a class="category" href="https://sthbrx.github.io/tag/ssh.html">ssh</a>  </span>
+</p>  </div>
+  <div class="entry-content"><h2>Introduction</h2>
+<p>I've been using the VSCodium 
+<a href="https://open-vsx.org/extension/jeanp413/open-remote-ssh">Open Remote - SSH</a>
+extension recently to great results. I can treat everything as a single
+environment, without any worry about syncing between my local development files
+and the remote. This is very different to mounting the remote as a network drive
+and opening a local instance of VSCodium on it: in addition to crippling latency
+on every action, a locally mounted drive doesn't bring the build context that
+tools like <code>clangd</code> require (e.g., system headers).</p>
+<p>Instead, the remote extension runs a server on the remote that performs most
+actions, and the local VSCodium instance acts as a client that buffers and
+caches data seamlessly, so the experience is nearly as good as developing
+locally. </p>
+<p>For example, a project wide file search on a network drive is unusably slow
+because every file and directory read requires a round trip back to the remote,
+and the latency is just too large to finish getting results back in a reasonable
+time. But with the client-server approach, the client just sends the search
+request to the server for it to fulfil, and all the server has to do is send the
+matches back. This eliminates nearly all the latency effects, except for the
+initial request and receiving any results.</p>
+<p>However there has been one issue with using this for everything: the extension
+failed to connect when I wasn't on the same network as the host machine. So I
+wasn't able to use it when working from home over a VPN. In this post we find
+out why this happened, and in the process look at some of the weird quirks of
+parsing an SSH config.</p>
+<h2>The issue</h2>
+<p>As above, I wasn't able to connect to my remote machines when working from home.
+The extension would abort with the following error:</p>
+<div class="highlight"><pre><span></span><code>[Error  - 00:23:10.592] Error resolving authority
+Error: getaddrinfo ENOTFOUND remotename.ozlabs.ibm.com
+    at GetAddrInfoReqWrap.onlookup [as oncomplete] (node:dns:109:26)
+</code></pre></div>
+
+<p>So it's a DNS issue. This would make sense, as the remote machine is not exposed
+to the internet, and must instead be accessed through a proxy. What's weird is
+that the integrated terminal in VSCodium has no problem connecting to the
+remote. So the extension seems to be doing something different than just a plain
+SSH connection.</p>
+<p>You might think that the extension is not reading the SSH config. But the
+extension panel lists all the host aliases I've declared in the config, so it's
+clearly aware of the config at least. Possibly it doesn't understand the proxy
+config correctly? If it was trying to connect directly from the host, it would
+make sense to fail a DNS lookup.</p>
+<h2>Investigating</h2>
+<p>Enough theorising, time to debug the extension as it tries to connect.</p>
+<p>From the error above, the string <code>"Error resolving authority"</code> looks like
+something I can search for. This takes me to the
+<a href="https://github.com/jeanp413/open-remote-ssh/blob/521098e24f48b4b9e04d476895f9097b03f8c984/src/authResolver.ts#L226"><code>catch</code> case for a large try-catch block</a>.
+It could be annoying to narrow down which part of the block
+throws the exception, but fortunately debugging is as easy as installing the
+dependencies and running the pre-configured 'Extension' debug target. This opens
+a new window with the local copy of the extension active, and I can debug it in
+the original window.</p>
+<p>In this block, there is a conditional statement on whether the <code>ProxyJump</code> field
+is present in the config. This is a good place to break on and see what the
+computed config looks like. If it doesn't find a proxy then of course it's going
+to run everything on the host.</p>
+<p>And indeed, it doesn't think there is a proxy. This is progress, but why does
+the extension's view of the config not match up with what SSH does? After all,
+invoking SSH directly connects properly. Tracing back the source of the config
+in the extension, it ultimately comes from manually reading in and parsing the
+SSH config. When resolving the host argument it manually computes the config as
+per <a href="https://man7.org/linux/man-pages/man5/ssh_config.5.html"><code>ssh_config(5)</code></a>.
+Yet somewhere it makes a mistake, because it doesn't include the <code>ProxyJump</code>
+field.</p>
+<h2>Parsing SSH config</h2>
+<p>To get to the bottom of this, we need to know the rules behind parsing SSH
+configs. The <code>ssh_config(5)</code> manpage does a pretty decent job of explaining
+this, but I'm going to go over the relevant information here. I reckon most
+people have a vague idea of how it works, and can write enough to meet their
+needs, but have never looked deeper into the actual rules behind how SSH parses
+the config.</p>
+<ol>
+<li>
+<p>For starters, the config is parsed line by line. Leading whitespace (i.e.,
+   indentation) is ignored. So, while indentation makes it look like you are
+   configuring properties for a particular host, this isn't quite correct.
+   Instead, the <code>Host</code> and <code>Match</code> lines are special statements that enable or
+   disable all subsequent lines until the next <code>Host</code> or <code>Match</code>.</p>
+<p>There is no backtracking; previous conditions and lines are not re-evaluated
+after learning more about the config later on.</p>
+</li>
+<li>
+<p>When a config line is seen, and is active thanks to the most recent <code>Host</code> or
+   <code>Match</code> succeeding, its value is selected if it is the first of that config
+   to be selected. So the earliest place a value is set takes priority; this may
+   be a little counterintuitive if you are used to having the latest value be
+   picked, like enable/disable command line flags tend to work.</p>
+</li>
+<li>
+<p>When <code>HostName</code> is set, it replaces the <code>host</code> value in <code>Match</code> matches. It
+   is also used as the <code>Host</code> value during a final pass (if requested).</p>
+</li>
+<li>
+<p>The last behaviour of interest is the <code>Match final</code> rule. There are several
+   conditions a <code>Match</code> statement can have, and the <code>final</code> rule says make this
+   active on the final pass over the config.</p>
+</li>
+</ol>
+<p>Wait, final pass? Multiple passes? Yes. If <code>final</code> is a condition on a <code>Match</code>,
+SSH will do another pass over the entire config, following all the rules above.
+Except this time all the configs we read on the first pass are still active (and
+can't be changed). But all the <code>Host</code> and <code>Matches</code> are re-evaluated, allowing
+other configs to potentially be set. I guess that means rule (1) ought to have a
+big asterisk next to it.</p>
+<p>Together, these rules can lead to some quirky behaviours. Consider the following
+config</p>
+<div class="highlight"><pre><span></span><code>Match host=&quot;*.ozlabs.ibm.com&quot;
+    ProxyJump proxy
+
+Host example
+    HostName example.ozlabs.ibm.com
+</code></pre></div>
+
+<p>If I run <code>ssh example</code> on the command line, will it use the proxy?</p>
+<p>By rule (1), no. When testing the first <code>Match host</code> condition, our host value
+is currently <code>example</code>. It is not until we reach the <code>HostName</code> config that we
+start using <code>example.ozlabs.ibm.com</code> for these matches.</p>
+<p>But by rule (4), the answer turns into <em>maybe</em>. If we end up doing a second pass
+over the config thanks to a <code>Match final</code> that could be <em>anywhere</em> else, we
+would now be matching <code>example.ozlabs.ibm.com</code> against the first line on the
+second go around. This will pass, and, since nothing has set <code>ProxyJump</code> yet, we
+would gain the proxy.</p>
+<p>You may think, yes, but we don't have a <code>Match final</code> in that example. But if
+you thought that, then you forgot about the system config.</p>
+<p>The system config is effectively appended to the user config, to allow any
+system wide settings. Most of the time this isn't an issue because of the
+first-come-first-served rule with config matches (rule 2). But if the system
+config includes a <code>Match final</code>, it will trigger the entire config to be
+re-parsed, including the user section. And it so happens that, at least on
+Fedora with the <code>openssh-clients</code> package installed, the system config does
+contain a <code>Match final</code> (see <code>/etc/ssh/ssh_config.d</code>).</p>
+<p>But wait, there's more! If we want to specify a custom SSH config file, then we
+can use <code>-F path/to/config</code> in the command line. But this disables loading a
+system config, so we would no longer get the proxy!</p>
+<p>To sum up, for the above config:</p>
+<ol>
+<li><code>ssh example</code> doesn't have a proxy</li>
+<li>...unless a system config contains <code>Match final</code></li>
+<li>...but invoking it as <code>ssh -F ~/.ssh/config example</code> definitely won't have
+   the proxy</li>
+<li>...but if a subprocess invokes <code>ssh example</code> while trying to resolve another
+   host, it'll probably not add the <code>-F ~/.ssh/config</code>, so we might get the
+   proxy again (in the child process).</li>
+</ol>
+<p>Wait, how did that last one slip in? Well, unlike environment variables, it's a
+lot harder for processes to propagate command line flags correctly. If resolving
+the config involves running a script that itself tries to run SSH, chances are
+the <code>-F</code> flag won't be propagated and you'll see some weird behaviour.</p>
+<p>I swear that's all for now, you've probably learned more about SSH configs than
+you will ever need to care about.</p>
+<h2>Back to VSCodium</h2>
+<p>Alright, armed now with this knowledge on SSH config parsing, we can work out
+what's going on with the extension. It ends up being a simple issue: it doesn't
+apply rules (3) and (4), so all <code>Host</code> matches are done against the original
+host name.</p>
+<p>In my case, there are several machines behind the proxy, but they all share a
+common suffix, so I had a <code>Host *.ozlabs.ibm.com</code> rule to apply the proxy. I
+also use aliases to refer to the machines without the <code>.ozlabs.ibm.com</code> suffix,
+so failing to follow rule (3) lead to the situation where the extension didn't
+think there was a proxy.</p>
+<p>However, even if this were to be fixed, it still doesn't respect rule (4), or
+most complex match logic in general. If the hostname bug is fixed then my setup
+would work, but it's less than ideal to keep playing whack-a-mole with parsing
+bugs. It would be a lot easier if there was a way to just ask SSH for the config
+that a given host name resolves to.</p>
+<p>Enter <code>ssh -G</code>. The <code>-G</code> flag asks SSH to dump the complete resolved config,
+without actually opening the connection (it may execute arbitrary code while
+resolving the config however!). So to fix the extension once and for all, we
+could swap the manual parser to just invoking <code>ssh -G example</code>, and parsing the
+output as the final config. No <code>Host</code> or <code>Match</code> or <code>HostName</code> or <code>Match final</code>
+quirks to worry about.</p>
+<p>Sure enough, if we replace the config backend with this 'native' resolver, we
+can connect to all the machines with no problem. Hopefully the
+<a href="https://github.com/jeanp413/open-remote-ssh/pull/103">pull request</a> to add this
+support will get accepted, and I can stop running my locally patched copy of the
+extension.</p>
+<p>In general, I'd suggest avoiding any dependency on a second pass being done on
+the config. Resolve your aliases early, so that the rest of your matches work
+against the full hostname. If you later need to match against the name passed in
+the command line, you can use <code>Match originalhost=example</code>. The example above
+should always be written as</p>
+<div class="highlight"><pre><span></span><code>Host example
+    HostName example.ozlabs.ibm.com
+
+Match host=&quot;*.ozlabs.ibm.com&quot;
+    ProxyJump proxy
+</code></pre></div>
+
+<p>even if the reversed order might appear to work thanks to the weird interactions
+described above. And after learning these parser quirks, I find the idea of
+using <code>Host</code> match statements unreliable; that they may or may not be run
+against the <code>HostName</code> value allows for truely strange bugs to appear. Maybe you
+should remove this uncertainty by starting your config with <code>Match final</code> to at
+least always be parsed the same way.</p></div>
+    <footer>
+<div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/04/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/">Detecting rootless Docker</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/04/dumb-bugs-the-pci-device-that-wasnt/">Dumb bugs: the PCI device that wasn't</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/ssh.html">ssh</a>,    <a href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+  <section>
+    <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
+    <ul id="authors_list">
+        <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
+        <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
+        <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
+        <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
+        <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a></li>
+        <li><a href="https://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a></li>
+        <li><a href="https://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a></li>
+        <li><a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a></li>
+        <li><a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a></li>
+        <li><a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a></li>
+        <li><a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a></li>
+        <li><a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a></li>
+    </ul>
+  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2023/08/04/quirks-of-parsing-ssh-configs/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/';
+    var disqus_title = 'Quirks of parsing SSH configs';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>
