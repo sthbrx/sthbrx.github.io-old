@@ -75,9 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
-        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
-      </li>
-      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -102,45 +99,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="main">
     <div id="content">
 <div class="blog-index">
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </h1>
-    <p class="meta">
-<time datetime="2022-11-16T17:30:00+11:00" pubdate>Wed 16 November 2022</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a>
-    </span>
-  </span>
-<time datetime="2022-11-16T17:30:00+11:00" pubdate>Wed 16 November 2022</time></div>
-
-  <div class="entry-content"><p>If you have POWER8 systems that you want to keep alive, what are your options in 2022?  You can keep using the legacy distribution you're still using as long as it's still supported, but if you want some modernisation, that might not be the best option for you.  Here's the current landscape of POWER8 support in major distributions, and hopefully it helps you out!</p>
-<p>Please note that I am entirely focused on what runs and keeps getting new packages, not what companies will officially support.  <a href="https://www.ibm.com/docs/en/linux-on-systems?topic=lpo-supported-linux-distributions-virtualization-options-power8-power9-linux-power-systems">IBM provides documentation for that.</a>  I'm also mostly focused on OpenPOWER and not what's supported under IBM PowerVM.</p>
-<p><strong>RHEL-compatible</strong></p>
-<p>Things aren't too great on the RHEL-compatible side.  RHEL 9 is compiled with P9 instructions, removing support for P8.  This includes compatible distributions, like CentOS Stream and Rocky Linux.</p>
-<p>You can continue to use RHEL 8 for a long time.  Unfortunately, Rocky Linux only has a Power release for EL9 and not EL8, and CentOS Stream 8 hits EOL May 31st, 2024 - a bit too soon for my liking.  If you're a RHEL customer though, you're set.</p>
-<p><strong>Fedora</strong></p>
-<p>Fedora seems like a great option - the latest versions still support P8 and there's no immediate signs of that changing.  The issue is that Fedora could change this with relatively little warning (and their big brother RHEL already has), Fedora doesn't provide LTS versions that will stay supported if this happens, and any options you could migrate to would be very different from what you're using.</p>
-<p>For that reason, I don't recommend using Fedora on POWER8 if you intend to keep it around for a while.  If you want something modern for a short-term project, go right ahead!  Otherwise, I'd avoid it.  If you're still keeping POWER8 systems alive, you probably want something more set-and-forget than Fedora anyway.</p>
-<p><strong>Ubuntu</strong></p>
-<p>Ubuntu is a mixed bag.  The good news is that Ubuntu 20.04 LTS is supported until mid-2025, and if you give Canonical money, that support can extend through 2030.  Ubuntu 20.04 LTS is my personal pick for the best distro to install on POWER8 systems that you want to have somewhat modern software but without the risks of future issues.</p>
-<p>The bad news is that POWER8 support went away in Ubuntu 22.04, which is extremely unfortunate.  Missing an LTS cycle is one thing, but <em>not having a pathway from 21.10 is another</em>.  If you were on 20.10/21.04/21.10, you are completely boned, because they're all out of support and 22.04 and later don't support POWER8.  You're going to have to reinstall 20.04.</p>
-<p>If I sound salty, it's because I had to do this for a few machines.  Hopefully you're not in that situation.  20.04 is going to be around for a good while longer, with a lot of modern creature comforts you'd miss on an EL8-compatible distro, so it's my pick for now.</p>
-<p><strong>OpenSUSE</strong></p>
-<p>I'm pretty ignorant when it comes to chameleon-flavoured distros, so take this with a grain of salt as most of it is from some quick searching.  OpenSUSE Leap follows SLES, but without extended support lifetimes for older major versions.  From what I can tell, the latest release (15.4) still includes POWER8 support (and adds Power10 support!), but similar to Fedora, that looks rather prone to a new version dropping P8 support to me.</p>
-<p>If the 15.x series stayed alive after 16 came out, you might be good, but it doesn't seem like there's a history of that happening.</p>
-<p><strong>Debian</strong></p>
-<p>Debian 11 "bullseye" came out in 2021, supports POWER8, and is likely to be supported until around 2026.  I can't really chime in on more than that because I am a certified Debian hater (even newer releases feel outdated to me), but that looks like a pretty good deal.</p>
-<p><strong>Other options</strong></p>
-<p>Those are just some major distros, there's plenty of others, including some Power-specific ones from the community.</p>
-<p><strong>Conclusion</strong></p>
-<p>POWER8's getting old, but is still plenty capable.  Make sure your distro still remembers to send your POWER8 a birthday card each year and you'll have plenty more good times to come.</p></div>
-  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -681,6 +639,96 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
 </ul>
 <p>Christoph discusses how to deal with the hardware and software limitations that make it difficult to capture traffic at wire speed on fast fibre networks.</p></div>
   		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2019/12/18/rfid-and-hrfid/">rfid and hrfid</a>
+      </h1>
+    <p class="meta">
+<time datetime="2019-12-18T17:30:00+11:00" pubdate>Wed 18 December 2019</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2019-12-18T17:30:00+11:00" pubdate>Wed 18 December 2019</time></div>
+
+  <div class="entry-content"><p>I was staring at some assembly recently, and for not the first time encountered <em>rfid</em> and <em>hrfid</em>, two instructions that we use when doing things like returning to userspace, returning from OPAL to the kernel, or from a host kernel into a guest.</p>
+<p><em>rfid</em> copies various bits from the register SRR1 (Machine Status Save/Restore Register 1) into the MSR (Machine State Register), and then jumps to an address given in SRR0 (Machine Status Save/Restore Register 0). <em>hrfid</em> does something similar, using HSRR0 and HSRR1 (Hypervisor Machine Status Save/Restore Registers 0/1), and slightly different handling of MSR bits.</p>
+<p>The various Save/Restore Registers are used to preserve the state of the CPU before jumping to an interrupt handler, entering the kernel, etc, and are set up as part of instructions like <em>sc</em> (System Call), by the interrupt mechanism, or manually (using instructions like <em>mtsrr1</em>).</p>
+<p>Anyway, the way in which <em>rfid</em> and <em>hrfid</em> restores MSR bits is documented somewhat obtusely in the ISA (if you don't believe me, look it up), and I was annoyed by this, so here, have a more useful definition. Leave a comment if I got something wrong.</p>
+<h1>rfid - Return From Interrupt Doubleword</h1>
+<h2>Machine State Register</h2>
+<p>Copy all bits (except some reserved bits) from SRR1 into the MSR, with the following exceptions:</p>
+<ul>
+<li>
+<p>MSR_3 (HV, Hypervisor State) = MSR_3 &amp; SRR1_3<br>
+[We won't put the thread into hypervisor state if we're not already in hypervisor state]</p>
+</li>
+<li>
+<p>If MSR_29:31 != 0b010 [Transaction State Suspended, TM not available], or SRR1_29:31 != 0b000 [Transaction State Non-transactional, TM not available] then:</p>
+<ul>
+<li>MSR_29:30 (TS, Transaction State) = SRR1_29:30</li>
+<li>MSR_31 (TM, Transactional Memory Available) = SRR1_31</li>
+</ul>
+<p>[See the ISA description for explanation on how rfid interacts with TM and resulting interrupts]</p>
+</li>
+<li>
+<p>MSR_48 (EE, External Interrupt Enable) = SRR1_48 | SRR1_49 (PR, Problem State)<br>
+[If going into problem state, external interrupts will be enabled]</p>
+</li>
+<li>
+<p>MSR_51 (ME, Machine Check Interrupt Enable) = (MSR_3 (HV, Hypervisor State) &amp; SRR1_51) | ((! MSR_3) &amp; MSR_51)<br>
+[If we're not already in hypervisor state, we won't alter ME]</p>
+</li>
+<li>
+<p>MSR_58 (IR, Instruction Relocate) = SRR1_58 | SRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+<li>
+<p>MSR_59 (DR, Data Relocate) = SRR1_59 | SRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+</ul>
+<h2>Next Instruction Address</h2>
+<ul>
+<li>NIA = SRR0_0:61 || 0b00<br>
+[Jump to SRR0, set last 2 bits to zero to ensure address is aligned to 4 bytes]</li>
+</ul>
+<h1>hrfid - Hypervisor Return From Interrupt Doubleword</h1>
+<h2>Machine State Register</h2>
+<p>Copy all bits (except some reserved bits) from HSRR1 into the MSR, with the following exceptions:</p>
+<ul>
+<li>
+<p>If MSR_29:31 != 0b010 [Transaction State Suspended, TM not available], or HSRR1_29:31 != 0b000 [Transaction State Non-transactional, TM not available] then:</p>
+<ul>
+<li>MSR_29:30 (TS, Transaction State) = HSRR1_29:30</li>
+<li>MSR_31 (TM, Transactional Memory Available) = HSRR1_31</li>
+</ul>
+<p>[See the ISA description for explanation on how rfid interacts with TM and resulting interrupts]</p>
+</li>
+<li>
+<p>MSR_48 (EE, External Interrupt Enable) = HSRR1_48 | HSRR1_49 (PR, Problem State)<br>
+[If going into problem state, external interrupts will be enabled]</p>
+</li>
+<li>
+<p>MSR_58 (IR, Instruction Relocate) = HSRR1_58 | HSRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+<li>
+<p>MSR_59 (DR, Data Relocate) = HSRR1_59 | HSRR1_49 (PR, Problem State)<br>
+[If going into problem state, relocation will be enabled]</p>
+</li>
+</ul>
+<h2>Next Instruction Address</h2>
+<ul>
+<li>NIA = HSRR0_0:61 || 0b00<br>
+[Jump to HSRR0, set last 2 bits to zero to ensure address is aligned to 4 bytes]</li>
+</ul></div>
+  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index3.html">&larr; Older</a>
 
@@ -691,9 +739,6 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2023/08/04/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
-      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
@@ -706,13 +751,15 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
-        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

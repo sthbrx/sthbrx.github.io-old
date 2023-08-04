@@ -75,9 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
-        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
-      </li>
-      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -102,69 +99,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="main">
     <div id="content">
 <div class="blog-index">
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-01-31T16:07:00+11:00" pubdate>Tue 31 January 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
-    </span>
-  </span>
-<time datetime="2017-01-31T16:07:00+11:00" pubdate>Tue 31 January 2017</time></div>
-
-  <div class="entry-content"><p>I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.</p>
-<p>I received some really interesting feedback so I've taken the opportunity to write some of it down to complement the talk videos and slides that are online. (And to remind me to follow up on it!)</p>
-<h2>Miniconf talk: Sparse Warnings</h2>
-<p>My kernel miniconf talk was on sparse warnings (<a href="https://github.com/daxtens/sparse-warnings-talk/blob/master/talk.pdf">pdf slides</a>, <a href="https://www.youtube.com/watch?v=hmCukzpevUc">23m video</a>).</p>
-<p>The abstract read (in part):</p>
-<blockquote>
-<p>sparse is a semantic parser for C, and is one of the static analysis tools available to kernel devs.</p>
-<p>Sparse is a powerful tool with good integration into the kernel build system. However, we suffer from warning overload - there are too many sparse warnings to spot the serious issues amongst the trivial. This makes it difficult to use, both for developers and maintainers.</p>
-</blockquote>
-<p>Happily, I received some feedback that suggests it's not all doom and gloom like I had thought!</p>
-<ul>
-<li>
-<p>Dave Chinner told me that the xfs team uses sparse regularly to make sure that the file system is endian-safe. This is good news - we really would like that to be endian-safe!</p>
-</li>
-<li>
-<p>Paul McKenney let me know that the 0day bot does do some sparse checking - it would just seem that it's not done on PowerPC.</p>
-</li>
-</ul>
-<h2>Main talk: 400,000 Ephemeral Containers</h2>
-<p>My main talk was entitled "400,000 Ephemeral Containers: testing entire ecosystems with Docker". You can read the <a href="https://linux.conf.au/schedule/presentation/81/">abstract</a> for full details, but it boils down to:</p>
-<blockquote>
-<p>What if you want to test how <em>all</em> the packages in a given ecosystem work in a given situation?</p>
-</blockquote>
-<p>My main example was testing how many of the Ruby packages successfully install on Power, but I also talk about other languages and other cool tests you could run.</p>
-<p>The <a href="https://www.youtube.com/watch?v=v7wSqOQeGhA">44m video</a> is online. I haven't put the slides up yet but they should be available <a href="https://github.com/daxtens/400000-ephemeral-containers">on GitHub</a> soonish.</p>
-<p>Unlike with the kernel talk, I didn't catch the names of most of the people with feedback.</p>
-<h3>Docker memory issues</h3>
-<p>One of the questions I received during the talk was about running into memory issues in Docker. I attempted to answer that during the Q&amp;A. The person who asked the question then had a chat with me afterwards, and it turns out I had completely misunderstood the question. I thought it was about memory usage of running containers in parallel. It was actually about memory usage in the docker daemon when running lots of containers in serial. Apparently the docker daemon doesn't free memory during the life of the process, and the question was whether or not I had observed that during my runs.</p>
-<p>I didn't have a good answer for this at the time other than "it worked for me", so I have gone back and looked at the docker daemon memory usage.</p>
-<p>After a full Ruby run, the daemon is using about 13.9G of virtual memory, and 1.975G of resident memory. If I restart it, the memory usage drops to 1.6G of virtual and 43M of resident memory. So it would appear that the person asking the question was right, and I'm just not seeing it have an effect.</p>
-<h3>Other interesting feedback</h3>
-<ul>
-<li>
-<p>Someone was quite interested in testing on Sparc, once they got their Go runtime nailed down.</p>
-</li>
-<li>
-<p>A Rackspacer was quite interested in Python testing for OpenStack - this has some intricacies around Py2/Py3, but we had an interesting discussion around just testing to see if packages that claim Py3 support provide Py3 support.</p>
-</li>
-<li>
-<p>A large jobs site mentioned using this technique to help them migrate their dependencies between versions of Go.</p>
-</li>
-<li>
-<p>I was 'gently encouraged' to try to do better with how long the process takes to run - if for no other reason than to avoid burning more coal. This is a fair point. I did not explain very well what I meant with diminishing returns in the talk: there's <em>lots</em> you could do to make the process faster, it's just comes at the cost of the simplicity that I really wanted when I first started the project. I am working (on and off) on better ways to deal with this by considering the dependency graph.</p>
-</li>
-</ul></div>
-  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -543,6 +477,33 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
 </ol>
 </div></div>
   		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2016/07/06/where-to-get-a-power8-development-vm/">Where to Get a POWER8 Development VM</a>
+      </h1>
+    <p class="meta">
+<time datetime="2016-07-06T16:00:00+10:00" pubdate>Wed 06 July 2016</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a>
+    </span>
+  </span>
+<time datetime="2016-07-06T16:00:00+10:00" pubdate>Wed 06 July 2016</time></div>
+
+  <div class="entry-content"><p><em>POWER8 sounds great, but where the heck can I get a Power VM so I can test my code?</em></p>
+<p>This is a common question we get at OzLabs from other open source developers looking to port their software to the Power Architecture. Unfortunately, most developers don't have one of our amazing servers just sitting around under their desk.</p>
+<p>Thankfully, there's a few IBM partners who offer free VMs for development use. If you're in need of a development VM, check out:</p>
+<ul>
+<li><a href="http://openpower.ic.unicamp.br/minicloud/">MiniCloud</a>, hosted by the State University of Campinas (Unicamp), Brazil</li>
+<li><a href="http://osuosl.org/services/powerdev">OSU Open Source Lab</a>, hosted by the Oregon State University</li>
+<li><a href="https://ptopenlab.com/cloudlabconsole">SuperVessel Cloud for Power/OpenPOWER</a>, hosted by IBM China</li>
+</ul>
+<p>So, next time you wonder how you can test your project on POWER8, request a VM and get to it!</p></div>
+  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index8.html">&larr; Older</a>
 
@@ -553,9 +514,6 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2023/08/04/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
-      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
@@ -568,13 +526,15 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
-        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

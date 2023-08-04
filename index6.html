@@ -75,9 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
-        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
-      </li>
-      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -102,148 +99,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="main">
     <div id="content">
 <div class="blog-index">
-  		<article>
-<header>
-      <h1 class="entry-title">
-        <a href="https://sthbrx.github.io/blog/2017/03/29/evaluating-cephfs-on-power/">Evaluating CephFS on Power</a>
-      </h1>
-    <p class="meta">
-<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time>    </p>
-</header>
-
-<div class="byline_index">
-  <span class="byline author vcard">
-    Posted by <span class="fn">
-          <a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a>
-    </span>
-  </span>
-<time datetime="2017-03-29T00:00:00+11:00" pubdate>Wed 29 March 2017</time></div>
-
-  <div class="entry-content"><h2>Methodology</h2>
-<p>To evaluate CephFS, we will create a ppc64le virtual machine, with sufficient
-space to compile the software, as well as 3 sparse 1TB disks to create the
-object store.</p>
-<p>We will then build &amp; install the Ceph packages, after adding the PowerPC
-optimisiations to the code. This is done, as ceph-deploy will fetch prebuilt
-packages that do not have the performance patches if the packages are not
-installed.</p>
-<p>Finally, we will use the ceph-deploy to deploy the instance. We will ceph-deploy
-via pip, to avoid file conflicts with the packages that we built.</p>
-<p>For more information on what each command does, visit the following tutorial,
-upon which which this is based:
-<a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></p>
-<h3>Virtual Machine Config</h3>
-<p>Create a virtual machine with at least the following:
- - 16GB of memory
- - 16 CPUs
- - 64GB disk for the root filesystem
- - 3 x 1TB for the Ceph object store
- - Ubuntu 16.04 default install (only use the 64GB disk, leave the others unpartitioned)</p>
-<h3>Initial config</h3>
-<ul>
-<li>Enable ssh</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    sudo apt install openssh-server
-    sudo apt update
-    sudo apt upgrade
-    sudo reboot
-</code></pre></div>
-
-<ul>
-<li>Install build tools</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    sudo apt install git debhelper
-</code></pre></div>
-
-<h3>Build Ceph</h3>
-<ul>
-<li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
-</ul>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nv">mkdir</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
-<span class="w">    </span><span class="nv">cd</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">clone</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"> </span><span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span><span class="w">  </span>#<span class="w"> </span><span class="nv">This</span><span class="w"> </span><span class="nv">may</span><span class="w"> </span><span class="nv">take</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="k">while</span><span class="w"></span>
-<span class="w">    </span><span class="nv">cd</span><span class="w"> </span><span class="nv">ceph</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">checkout</span><span class="w"> </span><span class="nv">master</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">submodule</span><span class="w"> </span><span class="nv">update</span><span class="w"> </span><span class="o">--</span><span class="nv">force</span><span class="w"> </span><span class="o">--</span><span class="nv">init</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"></span>
-</code></pre></div>
-
-<ul>
-<li>Cherry-pick the Power performance patches:</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    git remote add kestrels https://github.com/kestrels/ceph.git
-    git fetch --all
-    git cherry-pick 59bed55a676ebbe3ad97d8ec005c2088553e4e11
-</code></pre></div>
-
-<ul>
-<li>Install prerequisites</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    ./install-deps.sh
-    sudo apt install python-requests python-flask resource-agents curl python-cherrypy python3-pip python-django python-dateutil python-djangorestframework
-    sudo pip3 install ceph-deploy
-</code></pre></div>
-
-<ul>
-<li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
-</ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src/ceph
-    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
-</code></pre></div>
-
-<ul>
-<li>Install the packages (note that python3-ceph-argparse will fail, but is safe to ignore)</li>
-</ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src
-    sudo dpkg -i *.deb
-</code></pre></div>
-
-<h3>Create the ceph-deploy user</h3>
-<div class="highlight"><pre><span></span><code>    sudo adduser ceph-deploy
-    echo &quot;ceph-deploy ALL = (root) NOPASSWD:ALL&quot; | sudo tee /etc/sudoers.d/ceph-deploy
-    sudo chmod 0440 /etc/sudoers.d/ceph-deploy
-</code></pre></div>
-
-<h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">su</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span><span class="w"></span>
-<span class="w">    </span><span class="n">node</span><span class="o">=</span><span class="n n-Quoted">`hostname`</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span><span class="w"></span>
-<span class="w">    </span><span class="n">mkdir</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">cd</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">$node</span><span class="w"> </span><span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd pool default size = 2&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-</code></pre></div>
-
-<h3>Complete the Ceph deployment</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy install <span class="nv">$node</span>
-    ceph-deploy mon create-initial
-    drives=&quot;vda vdb vdc&quot;  # the 1TB drives - check that these are correct for your system
-    for drive in <span class="nv">$drives</span>; do ceph-deploy disk zap <span class="nv">$node</span>:<span class="nv">$drive</span>; ceph-deploy osd prepare <span class="nv">$node</span>:<span class="nv">$drive</span>; done
-    for drive in <span class="nv">$drives</span>; do ceph-deploy osd activate <span class="nv">$node</span>:/dev/<span class="cp">${</span><span class="n">drive</span><span class="cp">}</span>1; done
-    ceph-deploy admin <span class="nv">$node</span>
-    sudo chmod +r /etc/ceph/ceph.client.admin.keyring
-    ceph -s # Check the state of the cluster
-</code></pre></div>
-
-<h3>Configure CephFS</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy mds create $node
-    ceph osd pool create cephfs_data 128
-    ceph osd pool create cephfs_metadata 128
-    ceph fs new cephfs cephfs_metadata cephfs_data
-    sudo systemctl status ceph\*.service ceph\*.target # Ensure the ceph-osd, ceph-mon &amp; ceph-mds daemons are running
-    sudo mkdir /mnt/cephfs
-    key=`grep key ~/ceph-cluster/ceph.client.admin.keyring | cut -d &#39; &#39; -f 3`
-    sudo mount -t ceph $node:6789:/ /mnt/cephfs -o name=admin,secret=$key
-</code></pre></div>
-
-<h2>References</h2>
-<ol>
-<li><a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
-<li><a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
-<li><a href="http://palmerville.github.io/2016/04/30/single-node-ceph-install.html">http://palmerville.github.io/2016/04/30/single-node-ceph-install.html</a></li>
-</ol></div>
-  		</article>
   		<article>
 <header>
       <h1 class="entry-title">
@@ -1061,6 +916,69 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
 
 <p>The script we supply should get these right automatically.</p></div>
   		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="https://sthbrx.github.io/blog/2017/01/31/linuxconfau-2017-review/">linux.conf.au 2017 review</a>
+      </h1>
+    <p class="meta">
+<time datetime="2017-01-31T16:07:00+11:00" pubdate>Tue 31 January 2017</time>    </p>
+</header>
+
+<div class="byline_index">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a>
+    </span>
+  </span>
+<time datetime="2017-01-31T16:07:00+11:00" pubdate>Tue 31 January 2017</time></div>
+
+  <div class="entry-content"><p>I recently attended LCA 2017, where I gave a talk at the Linux Kernel miniconf (run by fellow sthbrx blogger Andrew Donnellan!) and a talk at the main conference.</p>
+<p>I received some really interesting feedback so I've taken the opportunity to write some of it down to complement the talk videos and slides that are online. (And to remind me to follow up on it!)</p>
+<h2>Miniconf talk: Sparse Warnings</h2>
+<p>My kernel miniconf talk was on sparse warnings (<a href="https://github.com/daxtens/sparse-warnings-talk/blob/master/talk.pdf">pdf slides</a>, <a href="https://www.youtube.com/watch?v=hmCukzpevUc">23m video</a>).</p>
+<p>The abstract read (in part):</p>
+<blockquote>
+<p>sparse is a semantic parser for C, and is one of the static analysis tools available to kernel devs.</p>
+<p>Sparse is a powerful tool with good integration into the kernel build system. However, we suffer from warning overload - there are too many sparse warnings to spot the serious issues amongst the trivial. This makes it difficult to use, both for developers and maintainers.</p>
+</blockquote>
+<p>Happily, I received some feedback that suggests it's not all doom and gloom like I had thought!</p>
+<ul>
+<li>
+<p>Dave Chinner told me that the xfs team uses sparse regularly to make sure that the file system is endian-safe. This is good news - we really would like that to be endian-safe!</p>
+</li>
+<li>
+<p>Paul McKenney let me know that the 0day bot does do some sparse checking - it would just seem that it's not done on PowerPC.</p>
+</li>
+</ul>
+<h2>Main talk: 400,000 Ephemeral Containers</h2>
+<p>My main talk was entitled "400,000 Ephemeral Containers: testing entire ecosystems with Docker". You can read the <a href="https://linux.conf.au/schedule/presentation/81/">abstract</a> for full details, but it boils down to:</p>
+<blockquote>
+<p>What if you want to test how <em>all</em> the packages in a given ecosystem work in a given situation?</p>
+</blockquote>
+<p>My main example was testing how many of the Ruby packages successfully install on Power, but I also talk about other languages and other cool tests you could run.</p>
+<p>The <a href="https://www.youtube.com/watch?v=v7wSqOQeGhA">44m video</a> is online. I haven't put the slides up yet but they should be available <a href="https://github.com/daxtens/400000-ephemeral-containers">on GitHub</a> soonish.</p>
+<p>Unlike with the kernel talk, I didn't catch the names of most of the people with feedback.</p>
+<h3>Docker memory issues</h3>
+<p>One of the questions I received during the talk was about running into memory issues in Docker. I attempted to answer that during the Q&amp;A. The person who asked the question then had a chat with me afterwards, and it turns out I had completely misunderstood the question. I thought it was about memory usage of running containers in parallel. It was actually about memory usage in the docker daemon when running lots of containers in serial. Apparently the docker daemon doesn't free memory during the life of the process, and the question was whether or not I had observed that during my runs.</p>
+<p>I didn't have a good answer for this at the time other than "it worked for me", so I have gone back and looked at the docker daemon memory usage.</p>
+<p>After a full Ruby run, the daemon is using about 13.9G of virtual memory, and 1.975G of resident memory. If I restart it, the memory usage drops to 1.6G of virtual and 43M of resident memory. So it would appear that the person asking the question was right, and I'm just not seeing it have an effect.</p>
+<h3>Other interesting feedback</h3>
+<ul>
+<li>
+<p>Someone was quite interested in testing on Sparc, once they got their Go runtime nailed down.</p>
+</li>
+<li>
+<p>A Rackspacer was quite interested in Python testing for OpenStack - this has some intricacies around Py2/Py3, but we had an interesting discussion around just testing to see if packages that claim Py3 support provide Py3 support.</p>
+</li>
+<li>
+<p>A large jobs site mentioned using this technique to help them migrate their dependencies between versions of Go.</p>
+</li>
+<li>
+<p>I was 'gently encouraged' to try to do better with how long the process takes to run - if for no other reason than to avoid burning more coal. This is a fair point. I did not explain very well what I meant with diminishing returns in the talk: there's <em>lots</em> you could do to make the process faster, it's just comes at the cost of the simplicity that I really wanted when I first started the project. I am working (on and off) on better ways to deal with this by considering the dependency graph.</p>
+</li>
+</ul></div>
+  		</article>
 <div class="pagination">
     <a class="prev" href="https://sthbrx.github.io/index7.html">&larr; Older</a>
 
@@ -1071,9 +989,6 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
   <section>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2023/08/04/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
-      </li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
@@ -1086,13 +1001,15 @@ Make sure you get the ppc64le versions, not the ppc64 versions, otherwise you'll
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
+      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
-        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
