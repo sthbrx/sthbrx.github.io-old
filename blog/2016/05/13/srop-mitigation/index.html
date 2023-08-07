@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -137,51 +140,51 @@ document.addEventListener('DOMContentLoaded', function() {
 <p><strong>Firstly</strong> we have to set up a (valid) sigframe:</p>
 <p>By valid sigframe, I mean a sigframe that the kernel will not reject. Luckily most architectures only examine a few parts of the sigframe to determine the validity of it. Unluckily, you will have to dive into the source code to find out which parts of the sigframe you need to set up for your architecture. Have a look in the function which deals with the syscall sigreturn (probably something like sys_sigreturn() ).</p>
 <p>For a real time signal on a little endian powerpc 64bit machine, the sigframe looks something like this:</p>
-<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">rt_sigframe</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">ucontext</span><span class="w"> </span><span class="n">uc</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span><span class="w"></span>
-<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">siginfo</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">pinfo</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">puc</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">siginfo</span><span class="w"> </span><span class="n">info</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">user_cookie</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="cm">/* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */</span><span class="w"></span>
-<span class="w">        </span><span class="kt">char</span><span class="w"> </span><span class="n">abigap</span><span class="p">[</span><span class="n">USER_REDZONE_SIZE</span><span class="p">];</span><span class="w"></span>
-<span class="p">}</span><span class="w"> </span><span class="n">__attribute__</span><span class="w"> </span><span class="p">((</span><span class="n">aligned</span><span class="w"> </span><span class="p">(</span><span class="mi">16</span><span class="p">)));</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">rt_sigframe</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">ucontext</span><span class="w"> </span><span class="n">uc</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">_unused</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">tramp</span><span class="p">[</span><span class="n">TRAMP_SIZE</span><span class="p">];</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">siginfo</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">pinfo</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">puc</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">siginfo</span><span class="w"> </span><span class="n">info</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">user_cookie</span><span class="p">;</span>
+<span class="w">        </span><span class="cm">/* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */</span>
+<span class="w">        </span><span class="kt">char</span><span class="w"> </span><span class="n">abigap</span><span class="p">[</span><span class="n">USER_REDZONE_SIZE</span><span class="p">];</span>
+<span class="p">}</span><span class="w"> </span><span class="n">__attribute__</span><span class="w"> </span><span class="p">((</span><span class="n">aligned</span><span class="w"> </span><span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
 </code></pre></div>
 
 <p>The most important part of the sigframe is the context or ucontext as this contains all the register values that will be written into the CPU's registers when the kernel loads in the sigframe. To minimise potential issues we can copy valid values from the current GPRs into our fake ucontext:</p>
-<div class="highlight"><pre><span></span><code><span class="k">register</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">r1</span><span class="w"> </span><span class="k">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="k">register</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">r13</span><span class="w"> </span><span class="k">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="k">struct</span><span class="w"> </span><span class="nc">ucontext</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">register</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">r1</span><span class="w"> </span><span class="k">asm</span><span class="p">(</span><span class="s">&quot;r1&quot;</span><span class="p">);</span>
+<span class="k">register</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">r13</span><span class="w"> </span><span class="k">asm</span><span class="p">(</span><span class="s">&quot;r13&quot;</span><span class="p">);</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ucontext</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span>
 
-<span class="cm">/* We need a system thread id so copy the one from this process */</span><span class="w"></span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R13</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r13</span><span class="p">;</span><span class="w"></span>
+<span class="cm">/* We need a system thread id so copy the one from this process */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R13</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r13</span><span class="p">;</span>
 
-<span class="cm">/*  Set the context&#39;s stack pointer to where the current stack pointer is pointing */</span><span class="w"></span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r1</span><span class="p">;</span><span class="w"></span>
+<span class="cm">/*  Set the context&#39;s stack pointer to where the current stack pointer is pointing */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_R1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r1</span><span class="p">;</span>
 </code></pre></div>
 
 <p>We also need to tell the kernel where to resume execution from. As this is just a test to see if we can successfully get the kernel to resume execution from a fake sigframe we will just point it to a function that prints out some text.</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span><span class="w"></span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="n">test_function</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="cm">/* Set the next instruction pointer (NIP) to the code that we want executed */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_NIP</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="n">test_function</span><span class="p">;</span>
 </code></pre></div>
 
 <p>For some reason the sys_rt_sigreturn() on little endian powerpc 64bit checks the endianess bit of the ucontext's MSR register, so we need to set that:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Set MSR bit if LE */</span><span class="w"></span>
-<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x01</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="cm">/* Set MSR bit if LE */</span>
+<span class="n">ctx</span><span class="p">.</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gp_regs</span><span class="p">[</span><span class="n">PT_MSR</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x01</span><span class="p">;</span>
 </code></pre></div>
 
 <p>Fun fact: not doing this or setting it to 0 results in the CPU switching from little endian to big endian! For a powerpc machine sys_rt_sigreturn() only examines ucontext, so we do not need to set up a full sigframe.</p>
 <p><strong>Secondly</strong> we have to put it on the stack:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Set current stack pointer to our fake context */</span><span class="w"></span>
-<span class="n">r1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="cm">/* Set current stack pointer to our fake context */</span>
+<span class="n">r1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ctx</span><span class="p">;</span>
 </code></pre></div>
 
 <p><strong>Thirdly</strong>, we call sigreturn:</p>
-<div class="highlight"><pre><span></span><code><span class="cm">/* Syscall - NR_rt_sigreturn */</span><span class="w"></span>
-<span class="k">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="k">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="cm">/* Syscall - NR_rt_sigreturn */</span>
+<span class="k">asm</span><span class="p">(</span><span class="s">&quot;li 0, 172</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="k">asm</span><span class="p">(</span><span class="s">&quot;sc</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
 </code></pre></div>
 
 <p>When the kernel receives the sigreturn call, it looks at the userspace stack pointer for the ucontext and loads this in. As we have put valid values in the ucontext, the kernel assumes that this is a valid sigframe that it set up earlier and loads the contents of the ucontext in the CPU's registers "and resumes" execution of the process from the address we pointed the NIP to.</p>
@@ -211,6 +214,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -222,15 +228,13 @@ document.addEventListener('DOMContentLoaded', function() {
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -146,9 +149,9 @@ modify it as normal.</p>
 <h2>After v1.2.2</h2>
 <p>To make this easier while keeping the benefit of snapshots, v1.2.2 introduces
 a new user-event that will merge snapshots on demand. For example:</p>
-<div class="highlight"><pre><span></span><code><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="n">remount</span><span class="p">,</span><span class="n">rw</span><span class="w"> </span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="n">petitboot</span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda2</span><span class="w"></span>
-<span class="n">cp</span><span class="w"> </span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="nb">log</span><span class="o">/</span><span class="n">messages</span><span class="w"> </span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="n">petitboot</span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda2</span><span class="o">/</span><span class="w"></span>
-<span class="n">pb</span><span class="o">-</span><span class="n">event</span><span class="w"> </span><span class="n">sync</span><span class="err">@</span><span class="n">sda2</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="n">remount</span><span class="p">,</span><span class="n">rw</span><span class="w"> </span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="n">petitboot</span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda2</span>
+<span class="n">cp</span><span class="w"> </span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="nb">log</span><span class="o">/</span><span class="n">messages</span><span class="w"> </span><span class="o">/</span><span class="k">var</span><span class="o">/</span><span class="n">petitboot</span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sda2</span><span class="o">/</span>
+<span class="n">pb</span><span class="o">-</span><span class="n">event</span><span class="w"> </span><span class="n">sync</span><span class="err">@</span><span class="n">sda2</span>
 </code></pre></div>
 
 <p>After calling <code>pb-event sync@yourdevice</code>, Petitboot will remount the device back to
@@ -169,6 +172,9 @@ run <code>pb-event sync@all</code> to sync all existing snapshots if desired.</p
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -180,15 +186,13 @@ run <code>pb-event sync@all</code> to sync all existing snapshots if desired.</p
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

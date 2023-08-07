@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -160,23 +163,23 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>For the following impitool commands, server_ip_address is the IP address of the BMC from Step 2, and ipmi_user and ipmi_password are the default user ID and password for IPMI.</p>
 <h3>Power On using IPMI</h3>
 <p>If your server is not powered on, run the following command to power the server on:</p>
-<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">ipmi_user</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">chassis</span><span class="w"> </span><span class="n">power</span><span class="w"> </span><span class="n">on</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">ipmi_user</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">chassis</span><span class="w"> </span><span class="n">power</span><span class="w"> </span><span class="n">on</span>
 </code></pre></div>
 
 <h3><a name="active-sol-ipmi"></a>Activate Serial-Over-Lan using IPMI</h3>
 <p>Activate your IPMI console by running this command:</p>
-<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">ipmi_user</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">sol</span><span class="w"> </span><span class="n">activate</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">ipmi_user</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">sol</span><span class="w"> </span><span class="n">activate</span>
 </code></pre></div>
 
 <p>After powering on your system, the Petitboot interface loads. If you do not interrupt the boot process by pressing any key within 10 seconds, Petitboot automatically boots the first option. At this point the IPMI console will be connected to the Operating Systems serial. If you get to this stage accidently you can deactivate and reboot as per the following two commands.</p>
 <h3>Deactivate Serial-Over-Lan using IPMI</h3>
 <p>If you need to power off or reboot your system, deactivate the console by running this command:</p>
-<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">user</span><span class="o">-</span><span class="n">name</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">sol</span><span class="w"> </span><span class="n">deactivate</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">user</span><span class="o">-</span><span class="n">name</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">sol</span><span class="w"> </span><span class="n">deactivate</span>
 </code></pre></div>
 
 <h3>Reboot using IPMI</h3>
 <p>If you need to reboot the system, run this command: </p>
-<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">user</span><span class="o">-</span><span class="n">name</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">chassis</span><span class="w"> </span><span class="n">power</span><span class="w"> </span><span class="n">reset</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">ipmitool</span><span class="w"> </span><span class="o">-</span><span class="n">I</span><span class="w"> </span><span class="n">lanplus</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">server_ip_address</span><span class="w"> </span><span class="o">-</span><span class="n">U</span><span class="w"> </span><span class="n">user</span><span class="o">-</span><span class="n">name</span><span class="w"> </span><span class="o">-</span><span class="n">P</span><span class="w"> </span><span class="n">ipmi_password</span><span class="w"> </span><span class="n">chassis</span><span class="w"> </span><span class="n">power</span><span class="w"> </span><span class="n">reset</span>
 </code></pre></div>
 
 <h2>Step 4: Creating a USB device and booting</h2>
@@ -232,10 +235,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>Using the ipmitool's shell (<em>ctrl-b 2</em>):</li>
 <li>Enter the following commands to generate a grub.cfg file</li>
 </ol>
-<div class="highlight"><pre><span></span><code><span class="nv">chroot</span><span class="w"> </span><span class="o">/</span><span class="nv">mnt</span><span class="o">/</span><span class="nv">sysimage</span><span class="w"></span>
-<span class="nv">rm</span><span class="w"> </span><span class="o">/</span><span class="nv">etc</span><span class="o">/</span><span class="nv">grub</span>.<span class="nv">d</span><span class="o">/</span><span class="mi">30</span><span class="nv">_os</span><span class="o">-</span><span class="nv">prober</span><span class="w"></span>
-<span class="nv">grub2</span><span class="o">-</span><span class="nv">mkconfig</span><span class="w"> </span><span class="o">-</span><span class="nv">o</span><span class="w"> </span><span class="o">/</span><span class="nv">boot</span><span class="o">/</span><span class="nv">grub2</span><span class="o">/</span><span class="nv">grub</span>.<span class="nv">cfg</span><span class="w"></span>
-<span class="k">exit</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="nv">chroot</span><span class="w"> </span><span class="o">/</span><span class="nv">mnt</span><span class="o">/</span><span class="nv">sysimage</span>
+<span class="nv">rm</span><span class="w"> </span><span class="o">/</span><span class="nv">etc</span><span class="o">/</span><span class="nv">grub</span>.<span class="nv">d</span><span class="o">/</span><span class="mi">30</span><span class="nv">_os</span><span class="o">-</span><span class="nv">prober</span>
+<span class="nv">grub2</span><span class="o">-</span><span class="nv">mkconfig</span><span class="w"> </span><span class="o">-</span><span class="nv">o</span><span class="w"> </span><span class="o">/</span><span class="nv">boot</span><span class="o">/</span><span class="nv">grub2</span><span class="o">/</span><span class="nv">grub</span>.<span class="nv">cfg</span>
+<span class="k">exit</span>
 </code></pre></div>
 
 <p><code>/etc/grub.d/30_os-prober</code> is removed as Petitboot probes the other devices anyway so including it would create lots of duplicate menu items.</p>
@@ -266,6 +269,9 @@ For more information, see the following resources:</p>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -277,15 +283,13 @@ For more information, see the following resources:</p>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -142,93 +145,93 @@ document.addEventListener('DOMContentLoaded', function() {
 <p>The sysfs pseudo file system was first introduced in Linux 2.6, and is generally used for exposing system and device information.</p>
 <p>Per the <a href="https://www.kernel.org/doc/Documentation/filesystems/sysfs.txt">sysfs documentation</a>, sysfs is tied in very closely with the <a href="https://www.kernel.org/doc/Documentation/kobject.txt">kobject</a> infrastructure. sysfs exposes kobjects as directories, containing "attributes" represented as files. The kobject infrastructure provides a way to define kobjects representing entities (e.g. devices) and ksets which define collections of kobjects (e.g. devices of a particular type).</p>
 <p>Using kobjects you can do lots of fancy things such as sending events to userspace when devices are hotplugged - but that's all out of the scope of this post. It turns out there's some fairly straightforward wrapper functions if all you want to do is create a kobject just to have a simple directory in sysfs.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/kobject.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/kobject.h&gt;</span>
 
-<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">ssh_key_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">ssh_kobj</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="n">ssh_kobj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kobject_create_and_add</span><span class="p">(</span><span class="s">&quot;ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ssh_kobj</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: kobject creation failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="p">}</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
-<span class="n">late_initcall</span><span class="p">(</span><span class="n">ssh_key_init</span><span class="p">);</span><span class="w"></span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">ssh_key_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">ssh_kobj</span><span class="p">;</span>
+<span class="w">        </span><span class="n">ssh_kobj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kobject_create_and_add</span><span class="p">(</span><span class="s">&quot;ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ssh_kobj</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: kobject creation failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="n">late_initcall</span><span class="p">(</span><span class="n">ssh_key_init</span><span class="p">);</span>
 </code></pre></div>
 
 <p>This creates and adds a kobject called <code>ssh</code>. And just like that, we've got a directory in <code>/sys/ssh/</code>!</p>
 <p>The next thing we have to do is define a sysfs attribute for our <code>authorized_keys</code> file. sysfs provides a framework for subsystems to define their own custom types of attributes with their own metadata - but for our purposes, we'll use the generic <code>bin_attribute</code> attribute type.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/sysfs.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/sysfs.h&gt;</span>
 
-<span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PUBLIC KEY HERE...&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PUBLIC KEY HERE...&quot;</span><span class="p">;</span>
 
-<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">show_key</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">kobj</span><span class="p">,</span><span class="w"></span>
-<span class="w">                        </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="o">*</span><span class="n">bin_attr</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">to</span><span class="p">,</span><span class="w"></span>
-<span class="w">                        </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">memory_read_from_buffer</span><span class="p">(</span><span class="n">to</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">bin_attr</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">show_key</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">kobj</span><span class="p">,</span>
+<span class="w">                        </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="o">*</span><span class="n">bin_attr</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">to</span><span class="p">,</span>
+<span class="w">                        </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">memory_read_from_buffer</span><span class="p">(</span><span class="n">to</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">bin_attr</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span>
+<span class="p">}</span>
 
-<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="n">authorized_keys_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;authorized_keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mo">0444</span><span class="w"> </span><span class="p">},</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">show_key</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="w"></span>
-<span class="p">};</span><span class="w"></span>
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">bin_attribute</span><span class="w"> </span><span class="n">authorized_keys_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;authorized_keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mo">0444</span><span class="w"> </span><span class="p">},</span>
+<span class="w">        </span><span class="p">.</span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">show_key</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="p">};</span>
 </code></pre></div>
 
 <p>We provide a simple callback, <code>show_key()</code>, that copies the key string into the file's buffer, and we put it in a <code>bin_attribute</code> with the appropriate name, size and permissions.</p>
 <p>To actually add the attribute, we put the following in <code>ssh_key_init()</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
-<span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sysfs_create_bin_file</span><span class="p">(</span><span class="n">ssh_kobj</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">authorized_keys_attr</span><span class="p">);</span><span class="w"></span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: sysfs creation failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span>
+<span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sysfs_create_bin_file</span><span class="p">(</span><span class="n">ssh_kobj</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">authorized_keys_attr</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: sysfs creation failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>Woo, we've now got <code>/sys/ssh/authorized_keys</code>! Time to move on to the bind mount.</p>
 <h2>Mounting</h2>
 <p>Now that we've got a directory with the key file in it, it's time to figure out the bind mount.</p>
 <p>Because I had no idea how any of the file system code works, I started off by running <code>strace</code> on <code>mount --bind ~/tmp1 ~/tmp2</code> just to see how the userspace <code>mount</code> tool uses the <code>mount</code> syscall to request the bind mount.</p>
-<div class="highlight"><pre><span></span><code><span class="n">execve</span><span class="p">(</span><span class="s">&quot;/bin/mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--bind&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="cm">/* 18 vars */</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">execve</span><span class="p">(</span><span class="s">&quot;/bin/mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;mount&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--bind&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="cm">/* 18 vars */</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
 
-<span class="p">...</span><span class="w"></span>
+<span class="p">...</span>
 
-<span class="n">mount</span><span class="p">(</span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x18b78bf00</span><span class="p">,</span><span class="w"> </span><span class="n">MS_MGC_VAL</span><span class="o">|</span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+<span class="n">mount</span><span class="p">(</span><span class="s">&quot;/home/ajd/tmp1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/home/ajd/tmp2&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x18b78bf00</span><span class="p">,</span><span class="w"> </span><span class="n">MS_MGC_VAL</span><span class="o">|</span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
 </code></pre></div>
 
 <p>The first and second arguments are the source and target paths respectively. The third argument, looking at the signature of the <code>mount</code> syscall, is a pointer to a string with the file system type. Because this is a bind mount, the type is irrelevant (upon further digging, it turns out that this particular pointer is to the string "none").</p>
 <p>The fourth argument is where we specify the flags bitfield. <code>MS_MGC_VAL</code> is a magic value that was required before Linux 2.4 and can now be safely ignored. <code>MS_BIND</code>, as you can probably guess, signals that we want a bind mount.</p>
 <p>(The final argument is used to pass file system specific data - as you can see it's ignored here.)</p>
 <p>Now, how is the syscall actually handled on the kernel side? The answer is found in <a href="http://elixir.free-electrons.com/linux/latest/source/fs/namespace.c#L2969">fs/namespace.c</a>.</p>
-<div class="highlight"><pre><span></span><code><span class="n">SYSCALL_DEFINE5</span><span class="p">(</span><span class="n">mount</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dev_name</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"></span>
-<span class="w">                </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">SYSCALL_DEFINE5</span><span class="p">(</span><span class="n">mount</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dev_name</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span>
+<span class="w">                </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
 
-<span class="w">        </span><span class="cm">/* ... copy parameters from userspace memory ... */</span><span class="w"></span>
+<span class="w">        </span><span class="cm">/* ... copy parameters from userspace memory ... */</span>
 
-<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="n">kernel_dev</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_type</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="n">kernel_dev</span><span class="p">,</span><span class="w"> </span><span class="n">dir_name</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_type</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span>
 
-<span class="w">        </span><span class="cm">/* ... cleanup ... */</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">        </span><span class="cm">/* ... cleanup ... */</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>So in order to achieve the same thing from within the kernel, we just call <code>do_mount()</code> with exactly the same parameters as the syscall uses:</p>
-<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;/sys/ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/root/.ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: bind mount failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span><span class="w"></span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;/sys/ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/root/.ssh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">MS_BIND</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;SSH: bind mount failed, rc %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rc</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">rc</span><span class="p">;</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>...and we're done, right? Not so fast:</p>
-<div class="highlight"><pre><span></span><code><span class="n">SSH</span><span class="o">:</span><span class="w"> </span><span class="n">bind</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">failed</span><span class="o">,</span><span class="w"> </span><span class="n">rc</span><span class="w"> </span><span class="o">-</span><span class="mi">2</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">SSH</span><span class="o">:</span><span class="w"> </span><span class="n">bind</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="n">failed</span><span class="o">,</span><span class="w"> </span><span class="n">rc</span><span class="w"> </span><span class="o">-</span><span class="mi">2</span>
 </code></pre></div>
 
 <p>-2 is <code>ENOENT</code> - no such file or directory. For some reason, we can't find <code>/sys/ssh</code>... of course, that would be because even though we've created the sysfs entry, we haven't actually mounted sysfs on <code>/sys</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/sys&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">              </span><span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NODEV</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">rc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">do_mount</span><span class="p">(</span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/sys&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sysfs&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">MS_NODEV</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
 </code></pre></div>
 
 <p>At this point, my key worked!</p>
@@ -236,31 +239,31 @@ document.addEventListener('DOMContentLoaded', function() {
 <h2>Kconfig</h2>
 <p>The final piece of the puzzle is building our new code into the kernel image.</p>
 <p>To allow us to switch this important functionality on and off, I added a config option to <code>fs/Kconfig</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">config</span><span class="w"> </span><span class="nv">SSH_KEY</span><span class="w"></span>
-<span class="w">        </span><span class="nv">bool</span><span class="w"> </span><span class="s2">&quot;Andrew&#39;s dumb SSH key hack&quot;</span><span class="w"></span>
-<span class="w">        </span><span class="nv">default</span><span class="w"> </span><span class="nv">y</span><span class="w"></span>
-<span class="w">        </span><span class="nv">help</span><span class="w"></span>
-<span class="w">          </span><span class="nv">Hardcode</span><span class="w"> </span><span class="nv">an</span><span class="w"> </span><span class="nv">SSH</span><span class="w"> </span><span class="nv">key</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.<span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span><span class="w"> </span><span class="nv">SSH_KEY</span>
+<span class="w">        </span><span class="nv">bool</span><span class="w"> </span><span class="s2">&quot;Andrew&#39;s dumb SSH key hack&quot;</span>
+<span class="w">        </span><span class="nv">default</span><span class="w"> </span><span class="nv">y</span>
+<span class="w">        </span><span class="nv">help</span>
+<span class="w">          </span><span class="nv">Hardcode</span><span class="w"> </span><span class="nv">an</span><span class="w"> </span><span class="nv">SSH</span><span class="w"> </span><span class="nv">key</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.
 
-<span class="w">          </span><span class="nv">This</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="nv">stupid</span><span class="w"> </span><span class="nv">idea</span>.<span class="w"> </span><span class="k">If</span><span class="w"> </span><span class="nv">unsure</span>,<span class="w"> </span><span class="nv">say</span><span class="w"> </span><span class="nv">N</span>.<span class="w"></span>
+<span class="w">          </span><span class="nv">This</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="nv">stupid</span><span class="w"> </span><span class="nv">idea</span>.<span class="w"> </span><span class="k">If</span><span class="w"> </span><span class="nv">unsure</span>,<span class="w"> </span><span class="nv">say</span><span class="w"> </span><span class="nv">N</span>.
 </code></pre></div>
 
 <p>This will show up in <code>make menuconfig</code> under the <code>File systems</code> menu.</p>
 <p>And in <code>fs/Makefile</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">obj-$(CONFIG_SSH_KEY)</span>           <span class="o">+=</span> ssh_key.o
+<div class="highlight"><pre><span></span><code><span class="nv">obj-$(CONFIG_SSH_KEY)</span><span class="w">           </span><span class="o">+=</span><span class="w"> </span>ssh_key.o
 </code></pre></div>
 
 <p>If <code>CONFIG_SSH_KEY</code> is set to <code>y</code>, <code>obj-$(CONFIG_SSH_KEY)</code> evaluates to <code>obj-y</code> and thus <code>ssh-key.o</code> gets compiled. Conversely, <code>obj-n</code> is completely ignored by the build system.</p>
 <p>I thought I was all done... then <a href="https://twitter.com/mramboar">Andrew</a> suggested I make the contents of the key configurable, and I had to oblige. Conveniently, Kconfig options can also be strings:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">config</span><span class="w"> </span><span class="nv">SSH_KEY_VALUE</span><span class="w"></span>
-<span class="w">        </span><span class="nv">string</span><span class="w"> </span><span class="s2">&quot;Value for SSH key&quot;</span><span class="w"></span>
-<span class="w">        </span><span class="nv">depends</span><span class="w"> </span><span class="nv">on</span><span class="w"> </span><span class="nv">SSH_KEY</span><span class="w"></span>
-<span class="w">        </span><span class="nv">help</span><span class="w"></span>
-<span class="w">          </span><span class="nv">Enter</span><span class="w"> </span><span class="nv">in</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">content</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.<span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="nv">config</span><span class="w"> </span><span class="nv">SSH_KEY_VALUE</span>
+<span class="w">        </span><span class="nv">string</span><span class="w"> </span><span class="s2">&quot;Value for SSH key&quot;</span>
+<span class="w">        </span><span class="nv">depends</span><span class="w"> </span><span class="nv">on</span><span class="w"> </span><span class="nv">SSH_KEY</span>
+<span class="w">        </span><span class="nv">help</span>
+<span class="w">          </span><span class="nv">Enter</span><span class="w"> </span><span class="nv">in</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">content</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="o">/</span><span class="nv">root</span><span class="o">/</span>.<span class="nv">ssh</span><span class="o">/</span><span class="nv">authorized_keys</span>.
 </code></pre></div>
 
 <p>Including the string in the C file is as simple as:</p>
-<div class="highlight"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CONFIG_SSH_KEY_VALUE</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">key</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CONFIG_SSH_KEY_VALUE</span><span class="p">;</span>
 </code></pre></div>
 
 <p>And there we have it, a nicely configurable albeit highly limited kernel SSH backdoor!</p>
@@ -283,6 +286,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -294,15 +300,13 @@ document.addEventListener('DOMContentLoaded', function() {
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

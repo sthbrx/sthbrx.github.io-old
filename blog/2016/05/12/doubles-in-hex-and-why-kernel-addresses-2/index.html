@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li class="active">
@@ -165,14 +168,14 @@ Fraction: 0x1568fba0    -&gt; 1.<em>something</em><br></p>
 <p><strong>But there's a much easier way!</strong> Just write ourselves a little program in
 userspace (where we are capable of printing floats) and we can save ourselves
 <em>most</em> of the trouble.</p>
-<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span>
 
-<span class="kt">void</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xc00000001568fba0</span><span class="p">;</span><span class="w"></span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xc00000001568fba0</span><span class="p">;</span>
 
-<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">((</span><span class="kt">double</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">val</span><span class="p">));</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">((</span><span class="kt">double</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>So all we're doing is taking our hex value and storing it in a long (val), then
@@ -184,7 +187,7 @@ and printing it as a float. <em><strong>Drum Roll</strong></em> And the answer i
 <p>"Wait a minute, that doesn't quite sound right". You're right, it does seem a
 bit strange that this is exactly -2. Well it may be that we are not printing
 enough decimal places to see the full result, so update our print statement to:</p>
-<div class="highlight"><pre><span></span><code><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">((</span><span class="kt">double</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">val</span><span class="p">));</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: %.64lf</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">((</span><span class="kt">double</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
 </code></pre></div>
 
 <p>And now we get:</p>
@@ -211,14 +214,14 @@ indeed a pointer to a Kernel address (and further code investigation confirmed
 this).</p>
 <h2>But What is -2 as a Double in hex?</h2>
 <p>Well lets modify the above program and find out:</p>
-<div class="highlight"><pre><span></span><code><span class="n">include</span><span class="w"> </span><span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="n">include</span><span class="w"> </span><span class="o">&lt;</span><span class="n">stdio</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 
-<span class="kt">void</span><span class="w"> </span><span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="kt">double</span><span class="w"> </span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-2</span><span class="p">;</span><span class="w"></span>
+<span class="kt">void</span><span class="w"> </span><span class="n">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="kt">double</span><span class="w"> </span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-2</span><span class="p">;</span>
 
-<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: 0x%lx</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">((</span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">val</span><span class="p">));</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;val: 0x%lx</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">((</span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="n">val</span><span class="p">));</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>Result?</p>
@@ -268,6 +271,9 @@ a double, 0xc00000001568fba0 =
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -279,15 +285,13 @@ a double, 0xc00000001568fba0 =
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

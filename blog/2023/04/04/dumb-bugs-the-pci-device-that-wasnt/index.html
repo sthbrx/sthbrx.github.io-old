@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -149,17 +152,17 @@ ret_from_kernel_thread+0x5c/0x64
 <h2>Why does my VGA require arbitration?</h2>
 <p>I'd never heard of the <a href="https://en.wikipedia.org/wiki/VGA_connector">VGA</a> arbiter in the kernel (do kids these days know what VGA is?), or <code>vgaarb</code> as it's called.  What it does is irrelevant to this bug, but I found the history pretty interesting!  <a href="https://lists.freedesktop.org/archives/xorg/2005-March/006663.html">Benjamin Herrenschmidt proposed VGA arbitration back in 2005</a> as a way of resolving conflicts between multiple legacy VGA devices that want to use the same address assignments.  This was previously handled in userspace by the X server, but issues arose with multiple X servers on the same machine.  Plus, it's probably not a good idea for this kind of thing to be handled by userspace.  <a href="https://docs.kernel.org/gpu/vgaarbiter.html">You can read more about the VGA arbiter in the kernel docs</a>, but it's probably not something anyone has thought much about in a long time.</p>
 <h2>The bad access</h2>
-<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">vga_arbiter_add_pci_device</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_dev</span><span class="w"> </span><span class="o">*</span><span class="n">pdev</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">vga_device</span><span class="w"> </span><span class="o">*</span><span class="n">vgadev</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_bus</span><span class="w"> </span><span class="o">*</span><span class="n">bus</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_dev</span><span class="w"> </span><span class="o">*</span><span class="n">bridge</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="n">u16</span><span class="w"> </span><span class="n">cmd</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">vga_arbiter_add_pci_device</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_dev</span><span class="w"> </span><span class="o">*</span><span class="n">pdev</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">vga_device</span><span class="w"> </span><span class="o">*</span><span class="n">vgadev</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_bus</span><span class="w"> </span><span class="o">*</span><span class="n">bus</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_dev</span><span class="w"> </span><span class="o">*</span><span class="n">bridge</span><span class="p">;</span>
+<span class="w">        </span><span class="n">u16</span><span class="w"> </span><span class="n">cmd</span><span class="p">;</span>
 
-<span class="w">        </span><span class="cm">/* Only deal with VGA class devices */</span><span class="w"></span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">pdev</span><span class="o">-&gt;</span><span class="n">class</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">PCI_CLASS_DISPLAY_VGA</span><span class="p">)</span><span class="w"></span>
-<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span><span class="w"></span>
+<span class="w">        </span><span class="cm">/* Only deal with VGA class devices */</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">pdev</span><span class="o">-&gt;</span><span class="n">class</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">PCI_CLASS_DISPLAY_VGA</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
 </code></pre></div>
 
 <p>We're blowing up on the read to <code>pdev-&gt;class</code>, and it's not something like the data being uninitialised, it's out-of-bounds.  If we look back at the call trace:</p>
@@ -174,11 +177,11 @@ vio_bus_scan_register_devices+0xc4/0x13c
 </code></pre></div>
 
 <p>This thing is a VIO device, not a PCI device!  Let's jump into the caller, <code>pci_notify()</code>, to find out how we got our <code>pdev</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">pci_notify</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="o">*</span><span class="n">nb</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">action</span><span class="p">,</span><span class="w"></span>
-<span class="w">                      </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">data</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_dev</span><span class="w"> </span><span class="o">*</span><span class="n">pdev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_pci_dev</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">pci_notify</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="o">*</span><span class="n">nb</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">action</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">pci_dev</span><span class="w"> </span><span class="o">*</span><span class="n">pdev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_pci_dev</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
 </code></pre></div>
 
 <p>So <code>pci_notify()</code> gets called with our VIO device (somehow), and we're converting that <code>struct device</code> into a <code>struct pci_dev</code> with no error checking.  We could solve this particular bug by just checking that our device is <em>actually</em> a PCI device before we proceed - but we're in a function called <code>pci_notify</code>, we're expecting a PCI device to come in, so this would just be a bandaid.</p>
@@ -188,26 +191,26 @@ vio_bus_scan_register_devices+0xc4/0x13c
 <p>The kernel's device subsystem allows consumers to register callbacks so that they can be notified of a given event.  I'm not going to go into a ton of detail on how they work, because I don't fully understand myself, and there's a lot of internals of the device subsystem involved.
 The best references I could find for this are <a href="https://elixir.bootlin.com/linux/latest/source/include/linux/notifier.h">notifier.h</a>, and for our purposes here, <a href="https://elixir.bootlin.com/linux/latest/source/include/linux/device/bus.h#L260">the register notifier functions in bus.h</a>.</p>
 <p>Something's clearly gone awry if we can end up in a function named <code>pci_notify()</code> without passing it a PCI device.  We find where the notifier is registered in <code>vgaarb.c</code> here:</p>
-<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="n">pci_notifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">notifier_call</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pci_notify</span><span class="p">,</span><span class="w"></span>
-<span class="p">};</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="n">pci_notifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">notifier_call</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pci_notify</span><span class="p">,</span>
+<span class="p">};</span>
 
-<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">vga_arb_device_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="cm">/* some stuff removed here... */</span><span class="w"></span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">vga_arb_device_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="cm">/* some stuff removed here... */</span>
 
-<span class="w">        </span><span class="n">bus_register_notifier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pci_bus_type</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pci_notifier</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="n">bus_register_notifier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pci_bus_type</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pci_notifier</span><span class="p">);</span>
 </code></pre></div>
 
 <p>This all looks sane.  A blocking notifier is registered so that <code>pci_notify()</code> gets called whenever there's a notification going out to PCI buses.  Our VIO device is distinctly <em>not</em> on a PCI bus, and in my debugging I couldn't find any potential causes of such confusion, so how on earth is a notification for PCI buses being applied to our non-PCI device?</p>
 <p>Deep in the guts of the device subsystem, if we have a look at <code>device_add()</code> we find the following:</p>
-<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">device_add</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="cm">/* lots of device init stuff... */</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">device_add</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="cm">/* lots of device init stuff... */</span>
 
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">bus</span><span class="p">)</span><span class="w"></span>
-<span class="w">                </span><span class="n">blocking_notifier_call_chain</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">bus</span><span class="o">-&gt;</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">bus_notifier</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                             </span><span class="n">BUS_NOTIFY_ADD_DEVICE</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">bus</span><span class="p">)</span>
+<span class="w">                </span><span class="n">blocking_notifier_call_chain</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">bus</span><span class="o">-&gt;</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">bus_notifier</span><span class="p">,</span>
+<span class="w">                                             </span><span class="n">BUS_NOTIFY_ADD_DEVICE</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">);</span>
 </code></pre></div>
 
 <p>If the device we're initialising is attached to a bus, then we call the bus notifier of that bus with the <code>BUS_NOTIFY_ADD_DEVICE</code> notification, and the device in question.  So we're going through the process of adding a VIO device, and somehow calling into a notifier that's only registered for PCI devices.  I did a bunch of debugging to see if our VIO device was somehow malformed and pointing to a PCI bus, or the <code>struct subsys_private</code> (that's the <code>bus-&gt;p</code> above) was somehow pointing to the wrong place, but everything seemed sane.  My thesis of there being confusion while matching devices to buses was getting harder to justify - everything still looked sane.</p>
@@ -215,11 +218,11 @@ The best references I could find for this are <a href="https://elixir.bootlin.co
 <p>I do not like debuggers.  I am an avid <code>printk()</code> enthusiast.  There's no real justification for this, a bunch of my problems could almost certainly be solved easier by using actual tools, but my brain seemingly enjoys the routine of printing and building and running until I figure out what's going on.  It was becoming increasingly obvious, however, that <code>printk</code> could not save me here, and we needed to go deeper.</p>
 <p>Very thankfully for me, even though this bug was discovered on real hardware, it reproduces easily in <a href="https://www.qemu.org">QEMU</a>, making iteration easy.  With <a href="https://qemu-project.gitlab.io/qemu/system/gdb.html">GDB attached to QEMU</a>, it's time to dive in to the guts of this issue and figure out what's happening.</p>
 <p>Somehow, VIO buses are ending up with <code>pci_notify()</code> in their <code>bus_notifier</code> list.  Let's break down the data structures here with a look at <code>struct notifier_block</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">notifier_fn_t</span><span class="w"> </span><span class="n">notifier_call</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="n">__rcu</span><span class="w"> </span><span class="o">*</span><span class="n">next</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">priority</span><span class="p">;</span><span class="w"></span>
-<span class="p">};</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">notifier_fn_t</span><span class="w"> </span><span class="n">notifier_call</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="n">__rcu</span><span class="w"> </span><span class="o">*</span><span class="n">next</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">priority</span><span class="p">;</span>
+<span class="p">};</span>
 </code></pre></div>
 
 <p>So notifier chains are <a href="https://en.wikipedia.org/wiki/Linked_list#Singly_linked_list">singly linked lists</a>.  Callbacks are registered through functions like <code>bus_register_notifier()</code>, then after a long chain of breadcrumbs we reach <a href="https://elixir.bootlin.com/linux/latest/source/kernel/notifier.c#L22"><code>notifier_chain_register()</code></a> which walks the list of <code>-&gt;next</code> pointers until it reaches <code>NULL</code>, at which point it sets <code>-&gt;next</code> of the tail node to the <code>struct notifier_block</code> that was passed in.  It's very important to note here that the data being appended to the list here is <em>not just the callback function</em> (i.e. <code>pci_notify()</code>), but the <code>struct notifier_block</code> itself (i.e. <code>struct notifier_block pci_notifier</code> from earlier).  There's no new data being initialised, just updating a pointer to the object that was passed by the caller.</p>
@@ -240,21 +243,21 @@ pci_notify
 <p>Time to find out if our assumption is correct - the same <code>struct notifier_block</code> is being registered to both bus types.  Let's start going through them!</p>
 <p>First up, we have <code>__gcov_.perf_trace_module_free</code>.  Thankfully, I recognised this as complete bait.  Trying to figure out what gcov and perf are doing here is going to be its own giant rabbit hole, and unless building without gcov makes our problem disappear, we skip this one and keep on looking.  Rabbit holes in the kernel never end, we have to be strategic with our time!</p>
 <p>Next, we reach <code>fail_iommu_bus_notify</code>, so let's take a look at that.</p>
-<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="n">fail_iommu_bus_notifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">notifier_call</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fail_iommu_bus_notify</span><span class="w"></span>
-<span class="p">};</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">notifier_block</span><span class="w"> </span><span class="n">fail_iommu_bus_notifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">notifier_call</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fail_iommu_bus_notify</span>
+<span class="p">};</span>
 
-<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">fail_iommu_setup</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">fail_iommu_setup</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
 <span class="cp">#ifdef CONFIG_PCI</span>
-<span class="w">        </span><span class="n">bus_register_notifier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pci_bus_type</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fail_iommu_bus_notifier</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="n">bus_register_notifier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pci_bus_type</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fail_iommu_bus_notifier</span><span class="p">);</span>
 <span class="cp">#endif</span>
 <span class="cp">#ifdef CONFIG_IBMVIO</span>
-<span class="w">        </span><span class="n">bus_register_notifier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vio_bus_type</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fail_iommu_bus_notifier</span><span class="p">);</span><span class="w"></span>
+<span class="w">        </span><span class="n">bus_register_notifier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vio_bus_type</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fail_iommu_bus_notifier</span><span class="p">);</span>
 <span class="cp">#endif</span>
 
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>Sure enough, here's our bug.  The same node is being registered to two different bus types:</p>
@@ -281,64 +284,64 @@ pci_notify
 
 <h2>The fix</h2>
 <p>Ultimately, the fix turned out to be pretty simple:</p>
-<div class="highlight"><pre><span></span><code><span class="w">Author: Russell Currey &lt;ruscur@russell.cc&gt;</span>
-<span class="w">Date:   Wed Mar 22 14:37:42 2023 +1100</span>
+<div class="highlight"><pre><span></span><code>Author: Russell Currey &lt;ruscur@russell.cc&gt;
+Date:   Wed Mar 22 14:37:42 2023 +1100
 
-<span class="w"> </span>   powerpc/iommu: Fix notifiers being shared by PCI and VIO buses<span class="w"></span>
+<span class="w"> </span>   powerpc/iommu: Fix notifiers being shared by PCI and VIO buses
 
-<span class="w"> </span>   fail_iommu_setup() registers the fail_iommu_bus_notifier struct to both<span class="w"></span>
-<span class="w"> </span>   PCI and VIO buses.  struct notifier_block is a linked list node, so this<span class="w"></span>
-<span class="w"> </span>   causes any notifiers later registered to either bus type to also be<span class="w"></span>
-<span class="w"> </span>   registered to the other since they share the same node.<span class="w"></span>
+<span class="w"> </span>   fail_iommu_setup() registers the fail_iommu_bus_notifier struct to both
+<span class="w"> </span>   PCI and VIO buses.  struct notifier_block is a linked list node, so this
+<span class="w"> </span>   causes any notifiers later registered to either bus type to also be
+<span class="w"> </span>   registered to the other since they share the same node.
 
-<span class="w"> </span>   This causes issues in (at least) the vgaarb code, which registers a<span class="w"></span>
-<span class="w"> </span>   notifier for PCI buses.  pci_notify() ends up being called on a vio<span class="w"></span>
-<span class="w"> </span>   device, converted with to_pci_dev() even though it&#39;s not a PCI device,<span class="w"></span>
-<span class="w"> </span>   and finally makes a bad access in vga_arbiter_add_pci_device() as<span class="w"></span>
-<span class="w"> </span>   discovered with KASAN:<span class="w"></span>
+<span class="w"> </span>   This causes issues in (at least) the vgaarb code, which registers a
+<span class="w"> </span>   notifier for PCI buses.  pci_notify() ends up being called on a vio
+<span class="w"> </span>   device, converted with to_pci_dev() even though it&#39;s not a PCI device,
+<span class="w"> </span>   and finally makes a bad access in vga_arbiter_add_pci_device() as
+<span class="w"> </span>   discovered with KASAN:
 
-<span class="w"> </span>   [stack trace redacted, see above]<span class="w"></span>
+<span class="w"> </span>   [stack trace redacted, see above]
 
-<span class="w"> </span>   Fix this by creating separate notifier_block structs for each bus type.<span class="w"></span>
+<span class="w"> </span>   Fix this by creating separate notifier_block structs for each bus type.
 
-<span class="w"> </span>   Fixes: d6b9a81b2a45 (&quot;powerpc: IOMMU fault injection&quot;)<span class="w"></span>
-<span class="w"> </span>   Reported-by: Nageswara R Sastry &lt;rnsastry@linux.ibm.com&gt;<span class="w"></span>
-<span class="w"> </span>   Signed-off-by: Russell Currey &lt;ruscur@russell.cc&gt;<span class="w"></span>
+<span class="w"> </span>   Fixes: d6b9a81b2a45 (&quot;powerpc: IOMMU fault injection&quot;)
+<span class="w"> </span>   Reported-by: Nageswara R Sastry &lt;rnsastry@linux.ibm.com&gt;
+<span class="w"> </span>   Signed-off-by: Russell Currey &lt;ruscur@russell.cc&gt;
 
-<span class="gh">diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c</span><span class="w"></span>
-<span class="gh">index ee95937bdaf1..6f1117fe3870 100644</span><span class="w"></span>
-<span class="gd">--- a/arch/powerpc/kernel/iommu.c</span><span class="w"></span>
-<span class="gi">+++ b/arch/powerpc/kernel/iommu.c</span><span class="w"></span>
-<span class="gu">@@ -171,17 +171,26 @@ static int fail_iommu_bus_notify(struct notifier_block *nb,</span><span class="w"></span>
-<span class="w"> </span>        return 0;<span class="w"></span>
-<span class="w"> </span>}<span class="w"></span>
+<span class="gh">diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c</span>
+<span class="gh">index ee95937bdaf1..6f1117fe3870 100644</span>
+<span class="gd">--- a/arch/powerpc/kernel/iommu.c</span>
+<span class="gi">+++ b/arch/powerpc/kernel/iommu.c</span>
+<span class="gu">@@ -171,17 +171,26 @@ static int fail_iommu_bus_notify(struct notifier_block *nb,</span>
+<span class="w"> </span>        return 0;
+<span class="w"> </span>}
 
-<span class="gd">-static struct notifier_block fail_iommu_bus_notifier = {</span><span class="w"></span>
-<span class="gi">+/*</span><span class="w"></span>
-<span class="gi">+ * PCI and VIO buses need separate notifier_block structs, since they&#39;re linked</span><span class="w"></span>
-<span class="gi">+ * list nodes.  Sharing a notifier_block would mean that any notifiers later</span><span class="w"></span>
-<span class="gi">+ * registered for PCI buses would also get called by VIO buses and vice versa.</span><span class="w"></span>
-<span class="gi">+ */</span><span class="w"></span>
-<span class="gi">+static struct notifier_block fail_iommu_pci_bus_notifier = {</span><span class="w"></span>
-<span class="gi">+        .notifier_call = fail_iommu_bus_notify</span><span class="w"></span>
-<span class="gi">+};</span><span class="w"></span>
-<span class="gi">+</span><span class="w"></span>
-<span class="gi">+static struct notifier_block fail_iommu_vio_bus_notifier = {</span><span class="w"></span>
-<span class="w"> </span>        .notifier_call = fail_iommu_bus_notify<span class="w"></span>
-<span class="w"> </span>};<span class="w"></span>
+<span class="gd">-static struct notifier_block fail_iommu_bus_notifier = {</span>
+<span class="gi">+/*</span>
+<span class="gi">+ * PCI and VIO buses need separate notifier_block structs, since they&#39;re linked</span>
+<span class="gi">+ * list nodes.  Sharing a notifier_block would mean that any notifiers later</span>
+<span class="gi">+ * registered for PCI buses would also get called by VIO buses and vice versa.</span>
+<span class="gi">+ */</span>
+<span class="gi">+static struct notifier_block fail_iommu_pci_bus_notifier = {</span>
+<span class="gi">+        .notifier_call = fail_iommu_bus_notify</span>
+<span class="gi">+};</span>
+<span class="gi">+</span>
+<span class="gi">+static struct notifier_block fail_iommu_vio_bus_notifier = {</span>
+<span class="w"> </span>        .notifier_call = fail_iommu_bus_notify
+<span class="w"> </span>};
 
-<span class="w"> </span>static int __init fail_iommu_setup(void)<span class="w"></span>
-<span class="w"> </span>{<span class="w"></span>
-<span class="w"> </span>#ifdef CONFIG_PCI<span class="w"></span>
-<span class="gd">-        bus_register_notifier(&amp;pci_bus_type, &amp;fail_iommu_bus_notifier);</span><span class="w"></span>
-<span class="gi">+        bus_register_notifier(&amp;pci_bus_type, &amp;fail_iommu_pci_bus_notifier);</span><span class="w"></span>
-<span class="w"> </span>#endif<span class="w"></span>
-<span class="w"> </span>#ifdef CONFIG_IBMVIO<span class="w"></span>
-<span class="gd">-        bus_register_notifier(&amp;vio_bus_type, &amp;fail_iommu_bus_notifier);</span><span class="w"></span>
-<span class="gi">+        bus_register_notifier(&amp;vio_bus_type, &amp;fail_iommu_vio_bus_notifier);</span><span class="w"></span>
-<span class="w"> </span>#endif<span class="w"></span>
+<span class="w"> </span>static int __init fail_iommu_setup(void)
+<span class="w"> </span>{
+<span class="w"> </span>#ifdef CONFIG_PCI
+<span class="gd">-        bus_register_notifier(&amp;pci_bus_type, &amp;fail_iommu_bus_notifier);</span>
+<span class="gi">+        bus_register_notifier(&amp;pci_bus_type, &amp;fail_iommu_pci_bus_notifier);</span>
+<span class="w"> </span>#endif
+<span class="w"> </span>#ifdef CONFIG_IBMVIO
+<span class="gd">-        bus_register_notifier(&amp;vio_bus_type, &amp;fail_iommu_bus_notifier);</span>
+<span class="gi">+        bus_register_notifier(&amp;vio_bus_type, &amp;fail_iommu_vio_bus_notifier);</span>
+<span class="w"> </span>#endif
 
-<span class="w"> </span>        return 0;<span class="w"></span>
+<span class="w"> </span>        return 0;
 </code></pre></div>
 
 <p>Easy!  Problem solved.  The <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=d6b9a81b2a45">commit that introduced this bug back in 2012</a> was written by the legendary <a href="http://antonblanchardfacts.com">Anton Blanchard</a>, so it's always a treat to discover an Anton bug.  Ultimately this bug is of little consequence, but it's always fun to catch dormant issues with powerful tools like KASAN.</p>
@@ -363,6 +366,9 @@ pci_notify
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -374,15 +380,13 @@ pci_notify
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

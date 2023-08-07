@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -187,11 +190,11 @@ for now.</p>
 <p>At this point in building a fuzzing target, we'd normally try to configure with
 <code>afl-cc</code> to get the instrumentation that makes AFL(++) so powerful. However, the
 grub configure script is not a fan:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
-.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
-...<span class="w"></span>
-<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
-<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
+...
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
@@ -205,10 +208,10 @@ make CC=&quot;$AFL_PATH/afl-gcc&quot;
 upstream at the moment.)</p>
 <p>After a small fix for gcc-10 compatibility, we get the userspace tools
 (potentially handy!) but a bunch of link errors for <code>grub-emu</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span><span class="w"></span>
-<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
-<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
-<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span>
 </code></pre></div>
 
 <p>The problem is the module linkage that I talked about earlier: because there is
@@ -240,27 +243,27 @@ running the config file, but if you pipe it through <code>less</code> or somethi
 see it.</p>
 <h1>Running the fuzzer</h1>
 <p>So, that seems to work - let's create a test input and try fuzzing:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span><span class="w"></span>
-<span class="nv">cd</span><span class="w"> </span>..<span class="w"></span>
-<span class="nv">mkdir</span><span class="w"> </span><span class="nv">in</span><span class="w"></span>
-<span class="nv">echo</span><span class="w"> </span><span class="s2">&quot;echo hi&quot;</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">shell</span>
+<span class="nv">cd</span><span class="w"> </span>..
+<span class="nv">mkdir</span><span class="w"> </span><span class="nv">in</span>
+<span class="nv">echo</span><span class="w"> </span><span class="s2">&quot;echo hi&quot;</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">in</span><span class="o">/</span><span class="nv">echo</span><span class="o">-</span><span class="nv">hi</span>
 
-<span class="nv">cd</span><span class="w"> </span><span class="nv">stage</span><span class="w"></span>
-#<span class="w"> </span><span class="o">-</span><span class="nv">Q</span><span class="w"> </span><span class="nv">qemu</span><span class="w"> </span><span class="nv">mode</span><span class="w"></span>
-#<span class="w"> </span><span class="o">-</span><span class="nv">M</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="nv">fuzzer</span><span class="w"></span>
+<span class="nv">cd</span><span class="w"> </span><span class="nv">stage</span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">Q</span><span class="w"> </span><span class="nv">qemu</span><span class="w"> </span><span class="nv">mode</span>
+#<span class="w"> </span><span class="o">-</span><span class="nv">M</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="nv">fuzzer</span>
 #<span class="w"> </span><span class="o">-</span><span class="nv">d</span><span class="w"> </span><span class="nv">don</span><span class="err">&#39;t do deterministic steps (too slow for a text format)</span>
 <span class="err"># -f create file grub.cfg</span>
-<span class="err">$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .</span><span class="w"></span>
+<span class="err">$AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -d -- ../grub-core/grub-emu -d .</span>
 </code></pre></div>
 
 <p>Sadly:</p>
 <div class="highlight"><pre><span></span><code><span class="c">:::text</span>
-<span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> The program took more than 1000 ms to process one of the initial test cases</span><span class="nt">.</span><span class="c"></span>
+<span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> The program took more than 1000 ms to process one of the initial test cases</span><span class="nt">.</span>
 <span class="c">    This is bad news; raising the limit with the </span><span class="nb">-</span><span class="c">t option is possible</span><span class="nt">,</span><span class="c"> but</span>
-<span class="c">    will probably make the fuzzing process extremely slow</span><span class="nt">.</span><span class="c"></span>
+<span class="c">    will probably make the fuzzing process extremely slow</span><span class="nt">.</span>
 
 <span class="c">    If this test case is just a fluke</span><span class="nt">,</span><span class="c"> the other option is to just avoid it</span>
-<span class="c">    altogether</span><span class="nt">,</span><span class="c"> and find one that is less of a CPU hog</span><span class="nt">.</span><span class="c"></span>
+<span class="c">    altogether</span><span class="nt">,</span><span class="c"> and find one that is less of a CPU hog</span><span class="nt">.</span>
 
 <span class="k">[</span><span class="nb">-</span><span class="k">]</span><span class="c"> PROGRAM ABORT : Test case &#39;id:000000</span><span class="nt">,</span><span class="c">time:0</span><span class="nt">,</span><span class="c">orig:echo</span><span class="nb">-</span><span class="c">hi&#39; results in a timeout</span>
 <span class="c">         Location : perform_dry_run()</span><span class="nt">,</span><span class="c"> src/afl</span><span class="nb">-</span><span class="c">fuzz</span><span class="nb">-</span><span class="c">init</span><span class="nt">.</span><span class="c">c:866</span>
@@ -299,9 +302,9 @@ $AFL_PATH/afl-fuzz -Q -i ../in -o ../out -M main -f thefile -- ../grub-core/grub
 <p>You should be able to find a hang pretty quickly with this, an as-yet-unfixed
 bug where grub will print output forever from a corrupt file: (your mileage may
 vary, as will the paths.)</p>
-<div class="highlight"><pre><span></span><code>:::shell
-cp ../out/main/hangs/id:000000,src:000000,time:43383,op:havoc,rep:16 thefile
-../grub-core/grub-emu -d . | less # observe this going on forever
+<div class="highlight"><pre><span></span><code><span class="o">::</span><span class="p">:</span><span class="nx">shell</span>
+<span class="nx">cp</span><span class="w"> </span><span class="p">..</span><span class="o">/</span><span class="nx">out</span><span class="o">/</span><span class="nx">main</span><span class="o">/</span><span class="nx">hangs</span><span class="o">/</span><span class="nx">id</span><span class="p">:</span><span class="mi">000000</span><span class="p">,</span><span class="nx">src</span><span class="p">:</span><span class="mi">000000</span><span class="p">,</span><span class="nx">time</span><span class="p">:</span><span class="mi">43383</span><span class="p">,</span><span class="nx">op</span><span class="p">:</span><span class="nx">havoc</span><span class="p">,</span><span class="nx">rep</span><span class="p">:</span><span class="mi">16</span><span class="w"> </span><span class="nx">thefile</span>
+<span class="p">..</span><span class="o">/</span><span class="nx">grub</span><span class="o">-</span><span class="nx">core</span><span class="o">/</span><span class="nx">grub</span><span class="o">-</span><span class="nx">emu</span><span class="w"> </span><span class="o">-</span><span class="nx">d</span><span class="w"> </span><span class="p">.</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">less</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="k">observe</span><span class="w"> </span><span class="nx">this</span><span class="w"> </span><span class="nx">going</span><span class="w"> </span><span class="nx">on</span><span class="w"> </span><span class="nx">forever</span>
 </code></pre></div>
 
 <p><code>zcat</code>, on the other hand, reports it as simply corrupt:</p>
@@ -329,6 +332,9 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -340,15 +346,13 @@ hoops to jump through to go faster with the <code>afl-cc</code> instrumentation.
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

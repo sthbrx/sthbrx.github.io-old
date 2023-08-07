@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -139,11 +142,11 @@ logic, fonts, graphics, partition tables, filesystems and so on - just not
 platform specific driver code or the ability to actually load and boot a kernel.</p>
 <p>Previously, we talked about some issues building grub with AFL++'s
 instrumentation:</p>
-<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span><span class="w"></span>
-.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span><span class="w"></span>
-...<span class="w"></span>
-<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span><span class="w"></span>
-<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code>:::<span class="nv">text</span>
+.<span class="o">/</span><span class="nv">configure</span><span class="w"> </span><span class="o">--</span><span class="nv">with</span><span class="o">-</span><span class="nv">platform</span><span class="o">=</span><span class="nv">emu</span><span class="w"> </span><span class="o">--</span><span class="nv">disable</span><span class="o">-</span><span class="nv">grub</span><span class="o">-</span><span class="nv">emu</span><span class="o">-</span><span class="nv">sdl</span><span class="w"> </span><span class="nv">CC</span><span class="o">=</span><span class="mh">$AF</span><span class="nv">L_PATH</span><span class="o">/</span><span class="nv">afl</span><span class="o">-</span><span class="nv">cc</span>
+...
+<span class="nv">checking</span><span class="w"> </span><span class="nv">whether</span><span class="w"> </span><span class="nv">target</span><span class="w"> </span><span class="nv">compiler</span><span class="w"> </span><span class="nv">is</span><span class="w"> </span><span class="nv">working</span>...<span class="w"> </span><span class="nv">no</span>
+<span class="nv">configure</span>:<span class="w"> </span><span class="nv">error</span>:<span class="w"> </span><span class="nv">cannot</span><span class="w"> </span><span class="nv">compile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">target</span>
 </code></pre></div>
 
 <p>It also doesn't work with <code>afl-gcc</code>.</p>
@@ -154,10 +157,10 @@ make CC=&quot;$AFL_PATH/afl-cc&quot;
 </code></pre></div>
 
 <p>Sadly, things still break:</p>
-<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span><span class="w"></span>
-<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
-<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
-<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="o">:::</span><span class="n">text</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">disk</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x20</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">regexp</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x70</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="nl">ld:</span><span class="w"> </span><span class="n">blocklist</span><span class="p">.</span><span class="k">module</span><span class="o">:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">x28</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="no">`__afl_global_area_ptr</span><span class="p">&#39;;</span><span class="w"> </span><span class="n">kernel</span><span class="p">.</span><span class="nl">exec:</span><span class="p">(.</span><span class="n">bss</span><span class="o">+</span><span class="mh">0</span><span class="n">xe078</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">defined</span><span class="w"> </span><span class="n">here</span>
 </code></pre></div>
 
 <p>The problem is the module linkage that I talked about in <a href="/blog/2021/03/04/fuzzing-grub-part-1">part 1</a>.
@@ -181,10 +184,10 @@ it's not my idea of fun to work with.</p>
 <p>But, for the sake of completeness, I tried again.</p>
 <p>It gets unpleasant quickly. The generated <code>grub-core/Makefile.core.am</code> adds each module to <code>platform_PROGRAMS</code>, and then each is built with <code>LDFLAGS_MODULE = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) -Wl,-r,-d</code>.</p>
 <p>Basically, in the makefile this ends up being (e.g.):</p>
-<div class="highlight"><pre><span></span><code><span class="err">:::make</span><span class="w"></span>
-<span class="nf">tar.module$(EXEEXT)</span><span class="o">:</span> <span class="k">$(</span><span class="nv">tar_module_OBJECTS</span><span class="k">)</span> <span class="k">$(</span><span class="nv">tar_module_DEPENDENCIES</span><span class="k">)</span> <span class="k">$(</span><span class="nv">EXTRA_tar_module_DEPENDENCIES</span><span class="k">)</span> 
-    @rm -f tar.module<span class="k">$(</span>EXEEXT<span class="k">)</span>
-    <span class="k">$(</span>AM_V_CCLD<span class="k">)$(</span>tar_module_LINK<span class="k">)</span> <span class="k">$(</span>tar_module_OBJECTS<span class="k">)</span> <span class="k">$(</span>tar_module_LDADD<span class="k">)</span> <span class="k">$(</span>LIBS<span class="k">)</span>
+<div class="highlight"><pre><span></span><code><span class="err">:::make</span>
+<span class="nf">tar.module$(EXEEXT)</span><span class="o">:</span><span class="w"> </span><span class="k">$(</span><span class="nv">tar_module_OBJECTS</span><span class="k">)</span> <span class="k">$(</span><span class="nv">tar_module_DEPENDENCIES</span><span class="k">)</span> <span class="k">$(</span><span class="nv">EXTRA_tar_module_DEPENDENCIES</span><span class="k">)</span> 
+<span class="w">    </span>@rm<span class="w"> </span>-f<span class="w"> </span>tar.module<span class="k">$(</span>EXEEXT<span class="k">)</span>
+<span class="w">    </span><span class="k">$(</span>AM_V_CCLD<span class="k">)$(</span>tar_module_LINK<span class="k">)</span><span class="w"> </span><span class="k">$(</span>tar_module_OBJECTS<span class="k">)</span><span class="w"> </span><span class="k">$(</span>tar_module_LDADD<span class="k">)</span><span class="w"> </span><span class="k">$(</span>LIBS<span class="k">)</span>
 </code></pre></div>
 
 <p>Ideally I don't want them to be linked at all; there's no benefit if
@@ -284,8 +287,8 @@ suggested GCC's <code>-mmodel</code>, which in Clang seems to be <code>-mcmodel<
 in a few different links.</p>
 <p>My default llvm is llvm-12, so I tried building with llvm-9 and llvm-11 in case
 that helped. Both built a binary, but it would fail to start:</p>
-<div class="highlight"><pre><span></span><code><span class="p">:::</span><span class="n">text</span><span class="w"></span>
-<span class="o">==</span><span class="mi">375638</span><span class="o">==</span><span class="n">AddressSanitizer</span><span class="w"> </span><span class="n">CHECK</span><span class="w"> </span><span class="n">failed</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">llvm</span><span class="o">-</span><span class="n">toolchain</span><span class="o">-</span><span class="mi">9</span><span class="o">-</span><span class="mi">8</span><span class="n">fovFY</span><span class="o">/</span><span class="n">llvm</span><span class="o">-</span><span class="n">toolchain</span><span class="o">-</span><span class="mi">9</span><span class="o">-</span><span class="mf">9.0</span><span class="o">.</span><span class="mi">1</span><span class="o">/</span><span class="n">compiler</span><span class="o">-</span><span class="n">rt</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">sanitizer_common</span><span class="o">/</span><span class="n">sanitizer_common_libcdep</span><span class="o">.</span><span class="n">cc</span><span class="p">:</span><span class="mi">23</span><span class="w"> </span><span class="s2">&quot;((SoftRssLimitExceededCallback)) == ((nullptr))&quot;</span><span class="w"> </span><span class="p">(</span><span class="mh">0x423660</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0</span><span class="p">)</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="p">:::</span><span class="n">text</span>
+<span class="o">==</span><span class="mi">375638</span><span class="o">==</span><span class="n">AddressSanitizer</span><span class="w"> </span><span class="n">CHECK</span><span class="w"> </span><span class="n">failed</span><span class="p">:</span><span class="w"> </span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">llvm</span><span class="o">-</span><span class="n">toolchain</span><span class="o">-</span><span class="mi">9</span><span class="o">-</span><span class="mi">8</span><span class="n">fovFY</span><span class="o">/</span><span class="n">llvm</span><span class="o">-</span><span class="n">toolchain</span><span class="o">-</span><span class="mi">9</span><span class="o">-</span><span class="mf">9.0</span><span class="o">.</span><span class="mi">1</span><span class="o">/</span><span class="n">compiler</span><span class="o">-</span><span class="n">rt</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">sanitizer_common</span><span class="o">/</span><span class="n">sanitizer_common_libcdep</span><span class="o">.</span><span class="n">cc</span><span class="p">:</span><span class="mi">23</span><span class="w"> </span><span class="s2">&quot;((SoftRssLimitExceededCallback)) == ((nullptr))&quot;</span><span class="w"> </span><span class="p">(</span><span class="mh">0x423660</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0</span><span class="p">)</span>
 </code></pre></div>
 
 <p>The same happens if I build with llvm-12 and <code>afl-clang</code>, the old-style
@@ -297,12 +300,12 @@ the old-school <code>afl-gcc</code> or the newer GCC plugin-based <code>afl-gcc-
 some hypotheses around shared library vs static library ASAN, but having spent
 way more work time on this than was reasonable, I was disinclined to debug it
 further.) Here's what worked for me:</p>
-<div class="highlight"><pre><span></span><code><span class="p">:::</span><span class="n">shell</span><span class="w"></span>
-<span class="o">./</span><span class="n">configure</span><span class="w"> </span><span class="o">--</span><span class="n">with</span><span class="o">-</span><span class="n">platform</span><span class="o">=</span><span class="n">emu</span><span class="w"> </span><span class="o">--</span><span class="n">disable</span><span class="o">-</span><span class="n">grub</span><span class="o">-</span><span class="n">emu</span><span class="o">-</span><span class="n">sdl</span><span class="w"></span>
-<span class="c1"># the ASAN option is required because one of the tools leaks memory and</span><span class="w"></span>
-<span class="c1"># that breaks the generation of documentation.</span><span class="w"></span>
-<span class="c1"># -Wno-nested-extern makes __AFL_INIT work on gcc</span><span class="w"></span>
-<span class="n">ASAN_OPTIONS</span><span class="o">=</span><span class="n">detect_leaks</span><span class="o">=</span><span class="mi">0</span><span class="w"> </span><span class="n">AFL_USE_ASAN</span><span class="o">=</span><span class="mi">1</span><span class="w"> </span><span class="n">make</span><span class="w"> </span><span class="n">CC</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">afl</span><span class="o">-</span><span class="n">gcc</span><span class="o">-</span><span class="n">fast</span><span class="w"> </span><span class="n">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span><span class="w"> </span><span class="n">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wno-nested-extern&quot;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="p">:::</span><span class="n">shell</span>
+<span class="o">./</span><span class="n">configure</span><span class="w"> </span><span class="o">--</span><span class="n">with</span><span class="o">-</span><span class="n">platform</span><span class="o">=</span><span class="n">emu</span><span class="w"> </span><span class="o">--</span><span class="n">disable</span><span class="o">-</span><span class="n">grub</span><span class="o">-</span><span class="n">emu</span><span class="o">-</span><span class="n">sdl</span>
+<span class="c1"># the ASAN option is required because one of the tools leaks memory and</span>
+<span class="c1"># that breaks the generation of documentation.</span>
+<span class="c1"># -Wno-nested-extern makes __AFL_INIT work on gcc</span>
+<span class="n">ASAN_OPTIONS</span><span class="o">=</span><span class="n">detect_leaks</span><span class="o">=</span><span class="mi">0</span><span class="w"> </span><span class="n">AFL_USE_ASAN</span><span class="o">=</span><span class="mi">1</span><span class="w"> </span><span class="n">make</span><span class="w"> </span><span class="n">CC</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">afl</span><span class="o">-</span><span class="n">gcc</span><span class="o">-</span><span class="n">fast</span><span class="w"> </span><span class="n">LDFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wl,--allow-multiple-definition&quot;</span><span class="w"> </span><span class="n">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-Wno-nested-extern&quot;</span>
 </code></pre></div>
 
 <p>GCC doesn't support as many sanitisers as LLVM, but happily it does support
@@ -328,6 +331,9 @@ than there was between part 1 and part 2!</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -339,15 +345,13 @@ than there was between part 1 and part 2!</p></div>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

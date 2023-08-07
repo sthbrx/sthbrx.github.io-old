@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL &mdash; Store Halfword Byte-Reverse Indexed</title>
+  <meta name="author" content="OzLabs">
+
+  <link href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate"
+        title="Store Halfword Byte-Reverse Indexed RSS Feed" />
+
+
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://sthbrx.github.io/favicon.png" rel="icon">
+
+  <link href="https://sthbrx.github.io/theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+
+  <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+
+  <script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ts = document.createElement('span')
+  ts.className = 'toggle-sidebar'
+  ts = document.getElementById('content').appendChild(ts);
+  ts.addEventListener('click', function(e) {
+    e.preventDefault();
+    body = document.getElementsByTagName('body')[0];
+    bodyClasses = body.classList.toggle('collapse-sidebar');
+  });
+  var sections = document.querySelectorAll('aside.sidebar > section');
+  if (sections.length > 1) {
+    for (index = 0; index < sections.length; index++) {
+      section = sections[index];
+      if ((sections.length >= 3) && index % 3 === 0) {
+        section.classList.add("first");
+      }
+      var count = ((index +1) % 2) ? "odd" : "even";
+      section.classList.add(count);
+    }
+  }
+  if (sections.length >= 3) {
+    document.querySelector('aside.sidebar').classList.add('thirds');
+  }
+});
+  </script>
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-91189608-1', 'auto');
+
+    ga('send', 'pageview');
+    </script>
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="https://sthbrx.github.io/">Store Halfword Byte-Reverse Indexed</a></h1>
+    <h2>A Power Technical Blog</h2>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="https://sthbrx.github.io/rss.xml" rel="subscribe-rss">RSS</a></li>
+</ul>
+
+
+<ul class="main-navigation">
+      <li class="active">
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/development.html">Development</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/education.html">Education</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/performance.html">Performance</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a>
+      </li>
+      <li >
+        <a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a>
+      </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</h1>
+    <p class="meta">
+<time datetime="2023-08-07T12:00:00+10:00" pubdate>Mon 07 August 2023</time>    </p>
+</header>
+
+  <div class="byline_index">
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">
+          <a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a>
+    </span>
+  </span>
+<time datetime="2023-08-07T12:00:00+10:00" pubdate>Mon 07 August 2023</time>  <span class="categories">
+    <a class='category' href='https://sthbrx.github.io/category/cryptography.html'>Cryptography</a>
+  </span>
+</p>  </div>
+  <div class="entry-content"><p>So I've just managed to upstream some changes to OpenSSL for a <a href="https://github.com/openssl/openssl/blob/master/crypto/ec/ecp_nistp384.c">new strategy</a> I've developed for efficient arithmetic used in secp384r1, a curve prescribed by NIST for digital signatures and key exchange. In spite of its prevalence, its implementation in OpenSSL has remained somewhat unoptimised, even as less frequently used curves (P224, P256, P521) each have their own optimisations.</p>
+<p>The strategy I have used could be called a 56-bit redundant limb implementation with <em>Solinas reduction</em>. Without too much micro-optimisation, we get ~5.5x speedup over the default (Montgomery Multiplication) implementation for creation of digital signatures.</p>
+<p>How is this possible? Well first let's quickly explain some language:</p>
+<h2>Elliptic Curves</h2>
+<p>When it comes to cryptography, it's highly likely that those with a computer science background will be familiar with ideas such as key-exchange and private-key signing. The stand-in asymmetric cipher in a typical computer science curriculum is typically RSA. However, the heyday of Elliptic Curve ciphers has well and truly arrived, and their operation seems no less mystical than when they were just a toy for academia.</p>
+<p>The word 'Elliptic' may seem to imply continuous mathematics. As a useful cryptographic problem, we fundamentally are just interested with the algebraic properties of these curves, whose points are elements of a <a href="https://en.wikipedia.org/wiki/Finite_field">finite field</a>. Irrespective of the underlying finite field, the algebraic properties of the elliptic curve group can be shown to exist by an application of <a href="https://en.wikipedia.org/wiki/Bézout%27s_theorem#:~:text=Bézout%27s%20theorem%20is%20a%20statement,the%20degrees%20of%20the%20polynomials.">Bézout's Theorem</a>. The <a href="https://en.wikipedia.org/wiki/Algebraic_group">group operator</a> on points on an elliptic curve for a particular choice of field involves the intersection of lines intersecting either once, twice or thrice with the curve, granting notions of addition and doubling for the points of intersection, and giving the 'point at infinity' as the group identity. A closed form exists for computing a point double/addition in arbitrary fields (different closed forms can apply, but determined by the field's <a href="https://en.wikipedia.org/wiki/Characteristic_(algebra)">characteristic</a>, and the same closed form applies for all large prime fields).</p>
+<p>Our algorithm uses a field of the form <span class="math">\(\mathbb{F}_p\)</span>, that is the <a href="https://en.wikipedia.org/wiki/Finite_field#Existence_and_uniqueness">unique</a> field with <span class="math">\(p\)</span> (a prime) elements. The most straightforward construction of this field is arithmetic modulo <span class="math">\(p\)</span>. The other finite fields used in practise in ECC are of the form <span class="math">\(\mathbb{F}_{2^m}\)</span> and are sometimes called 'binary fields' (representible as polynomials with binary coefficients). Their field structure is also used in AES through byte substitution, implemented by inversion modulo <span class="math">\(\mathbb{F}_{2^8}\)</span>.</p>
+<p>From a performance perspective, great optimisations can be made by implementing efficient fixed-point arithmetic specialised to modulo by single prime constant, <span class="math">\(p\)</span>. From here on out, I'll be speaking from this abstraction layer alone.</p>
+<h2>Limbs</h2>
+<p>We wish to multiply two <span class="math">\(m\)</span>-bit numbers, each of which represented with <span class="math">\(n\)</span> 64-bit machine words in some way. Let's suppose just for now that <span class="math">\(n\)</span> divides <span class="math">\(m\)</span> neatly, then the quotient <span class="math">\(d\)</span> is the minimum number of bits in each machine word that will be required for representing our number. Suppose we use the straightforward representation whereby the least significant <span class="math">\(d\)</span> bits are used for storing parts of our number, which we better call <span class="math">\(x\)</span> because this is crypto and descriptive variable names are considered harmful (apparently).</p>
+<div class="math">$$x = \sum_{k = 0}^{n-1} 2^{dk} l_k$$</div>
+<p>If we then drop the requirement for each of our <span class="math">\(n\)</span> machine words (also referred to as a 'limb' from hereon out) to have no more than the least significant <span class="math">\(d\)</span> bits populated, we say that such an implementation uses 'redundant limbs', meaning that the <span class="math">\(k\)</span>-th limb has high bits which overlap with the place values represented in the <span class="math">\((k+1)\)</span>-th limb.</p>
+<h2>Multiplication (mod p)</h2>
+<p>The fundamental difficulty with making modulo arithmetic fast is to do with the following property of multiplication.</p>
+<p>Let <span class="math">\(a\)</span> and <span class="math">\(b\)</span> be <span class="math">\(m\)</span>-bit numbers, then <span class="math">\(0 \leq a &lt; 2^m\)</span> and <span class="math">\(0 \leq b &lt; 2^m\)</span>, but critically we cannot say the same about <span class="math">\(ab\)</span>. Instead, the best we can say is that <span class="math">\(0 \leq ab &lt; 2^{2m}\)</span>. Multiplication can in the worst case double the number of bits that must be stored, unless we can reduce modulo our prime.</p>
+<p>If we begin with non-redundant, 56-bit limbs, then for <span class="math">\(a\)</span> and <span class="math">\(b\)</span> not too much larger than <span class="math">\(2^{384} &gt; p_{384}\)</span> that are 'reduced sufficiently' then we can multiply our limbs in the following ladder, so long as we are capable of storing the following sums without overflow.</p>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="cm">/* and so on ... */</span>
+
+<span class="w">    </span><span class="n">out</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+
+<span class="w">    </span><span class="n">out</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">6</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+
+<span class="w">    </span><span class="n">out</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">6</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+
+<span class="w">    </span><span class="n">out</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<span class="w">           </span><span class="o">+</span><span class="w"> </span><span class="p">((</span><span class="n">uint128_t</span><span class="p">)</span><span class="w"> </span><span class="n">in1</span><span class="p">[</span><span class="mi">6</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">in2</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+
+<span class="w">    </span><span class="cm">/* ... and so forth */</span>
+</code></pre></div>
+
+<p>This is possible, if we back each of the 56-bit limbs with a 64-bit machine word, with products being stored in 128-bit machine words. The numbers <span class="math">\(a\)</span> and <span class="math">\(b\)</span> were able to be stored with 7 limbs, whereas we use 13 limbs for storing the product. If <span class="math">\(a\)</span> and <span class="math">\(b\)</span> were stored non-redundantly, than each of the output (redundant) limbs must contain values less than <span class="math">\(6 \cdot 2^{56} \cdot 2^{56} &lt; 2^{115}\)</span>, so there is no possibility of overflow in 128 bits. We even have room spare to do some additions/subtractions in cheap, redundant limb arithmetic.</p>
+<p>But we can't keep doing our sums in redundant limb arithmetic forever, we must eventually reduce. Doing so may be expensive, and so we would rather reduce only when strictly necessary!</p>
+<h2>Solinas-ish Reduction</h2>
+<p>Our prime is a <em>Solinas</em> (<em>Pseudo/Generalised-Mersenne</em>) <em>Prime</em>. Mersenne Primes are primes expressible as <span class="math">\(2^m - 1\)</span>. This can be generalised to low-degree polynomials in <span class="math">\(2^m\)</span>. For example, another NIST curve uses <span class="math">\(p_{224} = 2^{224} - 2^{96} + 1\)</span> (a 224-bit number) where <span class="math">\(p_{224} = f(2^{32})\)</span> for <span class="math">\(f(t) = t^7 - t^3 + 1\)</span>. The simpler the choice of polynomial, the simpler the modular reduction logic.</p>
+<p>Our choice of <span class="math">\(t\)</span> is <span class="math">\(2^{56}\)</span>. <a href="https://en.wikipedia.org/wiki/Solinas_prime#Modular_reduction_algorithm">Wikipedia</a> the ideal case for Solinas reduction where the bitwidth of the prime is divisible by <span class="math">\(\log_2{t}\)</span>, but that is not our scenario. We choose 56-bits for some pretty simple realities of hardware. 56 is less than 64 (standard machine word size) but not by too much, and the difference is byte-addressible (<span class="math">\(64-56=8\)</span>). Let me explain:</p>
+<h2>Just the Right Amount of Reduction (mod p)</h2>
+<p>Let's first describe the actual prime that is our modulus.</p>
+<div class="math">$$p_{384} = 2^{384} - 2^{128} - 2^{96} + 2^{32} - 1$$</div>
+<p>Yuck. This number is so yuck in fact, that noone has so far managed to upstream a Solinas' reduction method for it in OpenSSL, in spite of <code>secp384r1</code> being the preferred curve for ECDH (Elliptic Curve Diffie-Hellman key exchange) and ECDSA (Elliptic Curve Digital Signature Algorithm) by NIST.</p>
+<p>In 56-bit limbs, we would express this number so:</p>
+<p>Let <span class="math">\(f(t) = 2^{48} t^6 - 2^{16} t^2 - 2^{40} t + (2^{32} - 1)\)</span>, then observe that all coefficients are smaller than <span class="math">\(2^{56}\)</span>, and that <span class="math">\(p_{384} = f(2^{56})\)</span>.</p>
+<p>Now let <span class="math">\(\delta(t) = 2^{16} t^2 + 2^{40} t - 2^{32} + 1\)</span>, consider that <span class="math">\(p_{384} = 2^{384} - \delta(2^{56})\)</span>, and thus <span class="math">\(2^{384} \equiv \delta(2^{56}) \mod{p_{384}}\)</span>. From now on let's call <span class="math">\(\delta(2^{56})\)</span> just <span class="math">\(\delta\)</span>. Thus, 'reduction' can be achieved as follows for suitable <span class="math">\(X\)</span> and <span class="math">\(Y\)</span>:</p>
+<div class="math">$$ab = X + 2^{384} Y \equiv X + \delta Y \mod{p_{384}}$$</div>
+<h3>Calculating <span class="math">\(\delta Y\)</span></h3>
+<h4>First Substitution</h4>
+<p>First make a choice of <span class="math">\(X\)</span> and <span class="math">\(Y\)</span>. The first thing to observe here is that this can actually be made a large number of ways! We choose:</p>
+<div class="math">$$X_1 = \sum_{k=0}^8\texttt{in[k]} t^k$$</div>
+<div class="math">$$Y_1 = 2^8 t^2 \sum_{k=9}^{12}\texttt{in[k]} t^{k-9} = 2^8 \sum_{k=9}^{12}\texttt{in[k]} t^{k-7}$$</div>
+<p>'Where does the <span class="math">\(2^8 t^{2}\)</span> come from?' I hear you ask. See <span class="math">\(t^9 = t^2 \cdot t^7 = t^2 (2^8 \cdot 2^{384}) \equiv (2^8 t^2) \delta \mod{f(t)}\)</span>. It's clear to see that the place value of <code>in[9] ... in[12]</code> is greater than <span class="math">\(2^{384}\)</span>.</p>
+<p>I'm using the subscripts here because we're in fact going to do a series of these reductions to reach a suitably small answer. That's because our equation for reducing <span class="math">\(t^7\)</span> terms is as follows:</p>
+<div class="math">$$t^7 \equiv 2^8\delta \equiv 2^{24} t^2 + 2^{48} t + (-2^{40} + 2^8) \mod{f(t)}$$</div>
+<p>Thus reducing <code>in[12]</code> involves computing:</p>
+<div class="math">$$\texttt{in[12]} t^{12} = \texttt{in[12]} (t^5)(t^7) \equiv 2^8\delta \cdot \texttt{in[12]} t^5 \mod{f(t)}$$</div>
+<p>But <span class="math">\(\delta\)</span> is a degree two polynomial, and so our numbers can still have two more limbs than we would want them to have. To be safe, let's store <span class="math">\(X_1 + \delta Y_1\)</span> in accumulator limbs <code>acc[0] ... acc[8]</code> (this will at first appear to be one more limb than necessary), then we can eliminate <code>in[12]</code> with the following logic.</p>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="cm">/* assign accumulators to begin */</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">9</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="w">        </span><span class="n">acc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">in</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+
+<span class="w">    </span><span class="cm">/* X += 2^128 Y */</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xffffffff</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">24</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* X += 2^96 Y */</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xff</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">48</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* X += (-2^32 + 1) Y */</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="p">((</span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xffff</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">40</span><span class="p">);</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">48</span><span class="p">;</span>
+<span class="w">    </span><span class="n">acc</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="n">in</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xffffffffffff</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+</code></pre></div>
+
+<p>Notice that for each term in <span class="math">\(\delta = 2^{128} + 2^{96} + (2^{32} - 1)\)</span> we do two additions/subtractions. This is in order to split up operands in order to minimise the final size of numbers and prevent over/underflows. Consequently, we need an <code>acc[8]</code> to receive the high bits of our <code>in[12]</code> substitution given above.</p>
+<h4>Second Substitution</h4>
+<p>Let's try and now eliminate through substitution <code>acc[7]</code> and <code>acc[8]</code>. Let</p>
+<div class="math">$$X_2 = \sum^{6}_{k=0}\texttt{acc[k]}t^k $$</div>
+<div class="math">$$Y_2 = 2^8(\texttt{acc[7]} t^7 + \texttt{acc[8]} t^8)$$</div>
+<p>But this time, <span class="math">\(\delta Y_2\)</span> is a number that comfortably can take up just five limbs, so we can update <code>acc[0], ..., acc[5]</code> comfortably in-place.</p>
+<h4>Third Substitution</h4>
+<p>Finally, let's reduce all the high bits of <code>in[6]</code>. Since <code>in[6]</code> has place value <span class="math">\(t^6 = 2^{336}\)</span>, thus we wish to reduce all but the least significant <span class="math">\(384 - 336 = 48\)</span> bits.</p>
+<p>A goal in designing this algorithm is to ensure that <code>acc[6]</code> has as tight a bound as reasonably possible. Intuitively, if we can cause <code>acc[6]</code> to be as large as possible by absorbing the high bits of lower limbs, we reduce the number of bits that must be carried forward later on. As such, we perform a carry of the high-bits of <code>acc[4]</code>, <code>acc[5]</code> into <code>acc[6]</code> before we begin our substitution.</p>
+<p>Again, let</p>
+<div class="math">$$X_3 = \sum^{5}_{k=0}\texttt{acc[k]}t^k + (\texttt{acc[6]} \text{(low bits)})t^6$$</div>
+<div class="math">$$Y_3 = 2^{48}(\texttt{acc[6]} \text{(high bits, right shifted)}) t^6$$</div>
+<p>The equation for eliminating <span class="math">\(2^{48}t^6\)</span> is pretty straightforward:</p>
+<div class="math">$$2^{384} = 2^{48}t^6 \equiv 2^{16}t^2 + 2^{40}t + (-2^{32} + 1) \mod{f(t)}$$</div>
+<h4>Carries</h4>
+<p>Finally, as each of <code>acc[0], ..., acc[6]</code> can contain values larger than <span class="math">\(2^{56}\)</span>, we carry their respective high bits into <code>acc[6]</code> so as to remove any redundancy. Conveniently, our preemptive carrying before the third substitution has granted us a pretty tight bound on our final calculation - the final reduced number has the range <span class="math">\([0, 2^{384}]\)</span>.</p>
+<h4>Canonicalisation</h4>
+<p>This is 'just the right amount of reduction' but not <em>canonicalisation</em>. That is, since <span class="math">\(0 &lt; p_{384} &lt; 2^{384}\)</span>, there can be multiple possible reduced values for a given congruence class. <code>felem_contract</code> is a method which uses the fact that <span class="math">\(0  \leq x &lt; 2 p_{384}\)</span> to further reduce the output of <code>felem_reduce</code> into the range <span class="math">\([0, p_{384})\)</span> in constant time.</p>
+<p>This code has many more dragons I won't explain here, but the basic premise to the calculations performed there is as follows:</p>
+<p>Given a 385 bit input, checking whether our input (expressed as a concatenation of bits) <span class="math">\(b_{384}b_{383} \ldots b_1b_0\)</span> is greater than or equal to <span class="math">\(p_{384}\)</span> whose bits we denote <span class="math">\(q_{384}, \ldots, q_0\)</span> (<span class="math">\(q_{384} = 0\)</span>) is determined by the following logical predicate (<span class="math">\(G(384)\)</span>):</p>
+<div class="math">$$G(k) \equiv (b_k \land \lnot q_k) \lor ((b_k = q_k) \land G(k-1))$$</div>
+<div class="math">$$G(0) \equiv b_k = q_k$$</div>
+<p>With <span class="math">\(p_{384}\)</span> being a Solinas'/Pseudo-Mersenne Prime, it has a large number of contiguous runs of repeated bits, so we can of course use this to massively simplify our predicate. Doing this in constant time involves some interesting bit-shifting/masking schenanigans. Essentially, you want a bit vector of all ones/zeros depending on the value of <span class="math">\(G(384)\)</span>, we then logically 'and' with this bitmask to 'conditionally' subtract <span class="math">\(p_{384}\)</span> from our result.</p>
+<h3>A Side Note about the Weird Constants</h3>
+<p>Okay so we're implementing our modular arithmetic with unsigned integer limbs that together represent a number of the following form:</p>
+<div class="math">$$x = \sum_{k = 0}^{n-1} 2^{dk} l_k$$</div>
+<p>How do we then do subtractions in a way which will make overflow impossible? Well computing <span class="math">\(a - b\)</span> is really straightforward if every limb of <span class="math">\(a\)</span> is larger than every limb of <span class="math">\(b\)</span>. We then add a suitable multiple of <span class="math">\(p_{384}\)</span> to <span class="math">\(a\)</span> that causes each limb of <span class="math">\(a\)</span> to be sufficiently large.</p>
+<p>Thankfully, with redundant-limb arithmetic, we can do this easily by means of <em>telescopic sums</em>. For example, in <code>felem_reduce</code> we wanted all limbs of our <span class="math">\(p_{384}\)</span> multiple to be sufficiently large. We overshot any requirement and provided such a multiple which gives a lower bound <span class="math">\(2^{123}\)</span>. We first scale our prime accordingly so that its 'lead term' (speaking in the polynomial representation) is <span class="math">\(2^{124}\)</span>.</p>
+<div class="math">$$2^{76} f(t) = 2^{124} t^6 - 2^{92} t^2 - 2^{116} t + (2^{108} - 2^{76}) t^0$$</div>
+<p>Notice that most limbs of this multiple (the limbs will be the coefficients) are either too small or negative. We then transform this expression into a suitable telescopic sum. Observe that when <span class="math">\(t = 2^{56}\)</span>, <span class="math">\(2^{124} t^k = 2^{124-56}t^{k+1} = 2^{68} t^{k+1}\)</span>, and so simply introduce into each limb where required a <span class="math">\(2^{124}\)</span> term by means of addition, subtracting the same number from a higher limb.</p>
+<div class="math">$$
+\begin{align*}
+2^{76} f(t) &amp;= (2^{124} - 2^{68}) t^6 \\
+            &amp;+ (2^{124} - 2^{68}) t^5 \\
+            &amp;+ (2^{124} - 2^{68}) t^4 \\
+            &amp;+ (2^{124} - 2^{68}) t^3 \\
+            &amp;+ (2^{124} - 2^{92} - 2^{68}) t^2 \\
+            &amp;+ (2^{124} - 2^{116} - 2^{68}) t \\
+            &amp;+ (2^{124} + 2^{108} - 2^{76})
+\end{align*}
+$$</div>
+<p>We can then subtract values whose limbs are no larger than the least of these limbs above without fear of underflows providing us with an incorrect result. In our case, that upper bound for limb value is <span class="math">\(2^{124} - 2^{116} - 2^{68} &gt; 2^{123}\)</span>. Very comfortable.</p>
+<h2>Concerning Timing Side-Channels</h2>
+<p>Cryptographic routines must perform all of their calculations in constant time. More specifically, it is important that timing cryptography code should not reveal any private keys or random nonces used during computation. Ultimately, all of our work so far has been to speed up field arithmetic in the modulo field with prime <span class="math">\(p_{384}\)</span>. But this is done in order to facilitate calculations in the secp384r1 elliptic curve, and ECDSA/ECDH each depend on being able to perform scalar 'point multiplication' (repeat application of the group operator). Since such an operation is inherently iterative, it presents the greatest potential for timing attacks.</p>
+<p>We implement constant-time multiplication with the <em>wNAF</em> ladder method. This relies on pre-computing a window of multiples of the group generator, and then scaling and selectively adding multiples when required. <a href="https://en.wikipedia.org/wiki/Elliptic_curve_point_multiplication#Point_multiplication">Wikipedia</a> provides a helpful primer to this method  by cumulatively building upon more naive approaches.</p>
+<h2>Conclusion</h2>
+<p>While the resulting code borrows from and uses common language of Solinas reduction, ultimately there are a number of implementation decisions that were guided by heuristic - going from theory to implementation was far from cut-and-dry. The limb size, carry order, choice of substitutions as well as pre and post conditions made here are ultimately arbitrary. You could easily imagine there being further refinements obtaining a better result. For now, I hope this post serves to demystify the inner workings of ECC implementations in OpenSSL. These algorithms, although particular and sophisticated, need not be immutable.</p>
+<script type="text/javascript">if (!document.getElementById('mathjaxscript_pelican_#%@#$@#')) {
+    var align = "center",
+        indent = "0em",
+        linebreak = "false";
+
+    if (false) {
+        align = (screen.width < 768) ? "left" : align;
+        indent = (screen.width < 768) ? "0em" : indent;
+        linebreak = (screen.width < 768) ? 'true' : linebreak;
+    }
+
+    var mathjaxscript = document.createElement('script');
+    mathjaxscript.id = 'mathjaxscript_pelican_#%@#$@#';
+    mathjaxscript.type = 'text/javascript';
+    mathjaxscript.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.3/latest.js?config=TeX-AMS-MML_HTMLorMML';
+
+    var configscript = document.createElement('script');
+    configscript.type = 'text/x-mathjax-config';
+    configscript[(window.opera ? "innerHTML" : "text")] =
+        "MathJax.Hub.Config({" +
+        "    config: ['MMLorHTML.js']," +
+        "    TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'none' } }," +
+        "    jax: ['input/TeX','input/MathML','output/HTML-CSS']," +
+        "    extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']," +
+        "    displayAlign: '"+ align +"'," +
+        "    displayIndent: '"+ indent +"'," +
+        "    showMathMenu: true," +
+        "    messageStyle: 'normal'," +
+        "    tex2jax: { " +
+        "        inlineMath: [ ['\\\\(','\\\\)'] ], " +
+        "        displayMath: [ ['$$','$$'] ]," +
+        "        processEscapes: true," +
+        "        preview: 'TeX'," +
+        "    }, " +
+        "    'HTML-CSS': { " +
+        "        availableFonts: ['STIX', 'TeX']," +
+        "        preferredFont: 'STIX'," +
+        "        styles: { '.MathJax_Display, .MathJax .mo, .MathJax .mi, .MathJax .mn': {color: 'inherit ! important'} }," +
+        "        linebreaks: { automatic: "+ linebreak +", width: '90% container' }," +
+        "    }, " +
+        "}); " +
+        "if ('default' !== 'default') {" +
+            "MathJax.Hub.Register.StartupHook('HTML-CSS Jax Ready',function () {" +
+                "var VARIANT = MathJax.OutputJax['HTML-CSS'].FONTDATA.VARIANT;" +
+                "VARIANT['normal'].fonts.unshift('MathJax_default');" +
+                "VARIANT['bold'].fonts.unshift('MathJax_default-bold');" +
+                "VARIANT['italic'].fonts.unshift('MathJax_default-italic');" +
+                "VARIANT['-tex-mathit'].fonts.unshift('MathJax_default-italic');" +
+            "});" +
+            "MathJax.Hub.Register.StartupHook('SVG Jax Ready',function () {" +
+                "var VARIANT = MathJax.OutputJax.SVG.FONTDATA.VARIANT;" +
+                "VARIANT['normal'].fonts.unshift('MathJax_default');" +
+                "VARIANT['bold'].fonts.unshift('MathJax_default-bold');" +
+                "VARIANT['italic'].fonts.unshift('MathJax_default-italic');" +
+                "VARIANT['-tex-mathit'].fonts.unshift('MathJax_default-italic');" +
+            "});" +
+        "}";
+
+    (document.body || document.getElementsByTagName('head')[0]).appendChild(configscript);
+    (document.body || document.getElementsByTagName('head')[0]).appendChild(mathjaxscript);
+}
+</script></div>
+    <footer>
+<div class="sharing">
+</div>    </footer>
+  </article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div>
+  </section>
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/05/detecting-rootless-docker/">Detecting rootless Docker</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/04/04/dumb-bugs-the-pci-device-that-wasnt/">Dumb bugs: the PCI device that wasn't</a>
+      </li>
+      <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
+        <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
+        <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
+        <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>
+        <li><a href="https://sthbrx.github.io/category/performance.html">Performance</a></li>
+        <li><a href="https://sthbrx.github.io/category/petitboot.html">Petitboot</a></li>
+        <li><a href="https://sthbrx.github.io/category/snowpatch.html">snowpatch</a></li>
+        <li><a href="https://sthbrx.github.io/category/virtualisation-and-emulation.html">Virtualisation and Emulation</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="https://sthbrx.github.io/tag/ssh.html">ssh</a>,    <a href="https://sthbrx.github.io/tag/docker.html">Docker</a>,    <a href="https://sthbrx.github.io/tag/syzkaller.html">syzkaller</a>,    <a href="https://sthbrx.github.io/tag/linux.html">linux</a>,    <a href="https://sthbrx.github.io/tag/power8.html">power8</a>,    <a href="https://sthbrx.github.io/tag/distro.html">distro</a>,    <a href="https://sthbrx.github.io/tag/kernel.html">kernel</a>,    <a href="https://sthbrx.github.io/tag/hardening.html">hardening</a>,    <a href="https://sthbrx.github.io/tag/testing.html">testing</a>,    <a href="https://sthbrx.github.io/tag/conferences.html">conferences</a>,    <a href="https://sthbrx.github.io/tag/instruction-set-architecture.html">Instruction Set Architecture</a>,    <a href="https://sthbrx.github.io/tag/openpower.html">openpower</a>,    <a href="https://sthbrx.github.io/tag/firmware.html">firmware</a>,    <a href="https://sthbrx.github.io/tag/goodposts.html">goodposts</a>,    <a href="https://sthbrx.github.io/tag/realcontent.html">realcontent</a>,    <a href="https://sthbrx.github.io/tag/madposting.html">madposting</a>,    <a href="https://sthbrx.github.io/tag/op-test.html">op-test</a>,    <a href="https://sthbrx.github.io/tag/qemu.html">qemu</a>,    <a href="https://sthbrx.github.io/tag/pci.html">pci</a>,    <a href="https://sthbrx.github.io/tag/sparseposting.html">sparseposting</a>,    <a href="https://sthbrx.github.io/tag/petitboot.html">petitboot</a>,    <a href="https://sthbrx.github.io/tag/security.html">security</a>,    <a href="https://sthbrx.github.io/tag/vscode.html">vscode</a>,    <a href="https://sthbrx.github.io/tag/code.html">code</a>,    <a href="https://sthbrx.github.io/tag/openbmc.html">openbmc</a>,    <a href="https://sthbrx.github.io/tag/ipmi.html">ipmi</a>,    <a href="https://sthbrx.github.io/tag/opencapi.html">opencapi</a>,    <a href="https://sthbrx.github.io/tag/openpower-summit.html">openpower summit</a>,    <a href="https://sthbrx.github.io/tag/easyposts.html">easyposts</a>,    <a href="https://sthbrx.github.io/tag/linuxboot.html">linuxboot</a>,    <a href="https://sthbrx.github.io/tag/google.html">google</a>,    <a href="https://sthbrx.github.io/tag/intel.html">intel</a>,    <a href="https://sthbrx.github.io/tag/osfc.html">osfc</a>,    <a href="https://sthbrx.github.io/tag/shortposts.html">shortposts</a>,    <a href="https://sthbrx.github.io/tag/facebook.html">facebook</a>,    <a href="https://sthbrx.github.io/tag/performance.html">performance</a>,    <a href="https://sthbrx.github.io/tag/phoronix.html">phoronix</a>,    <a href="https://sthbrx.github.io/tag/benchmarks.html">benchmarks</a>,    <a href="https://sthbrx.github.io/tag/stupid-ideas.html">stupid ideas</a>,    <a href="https://sthbrx.github.io/tag/network.html">network</a>,    <a href="https://sthbrx.github.io/tag/power.html">power</a>,    <a href="https://sthbrx.github.io/tag/xdp.html">xdp</a>,    <a href="https://sthbrx.github.io/tag/networking.html">networking</a>,    <a href="https://sthbrx.github.io/tag/remoteposts.html">remoteposts</a>,    <a href="https://sthbrx.github.io/tag/ceph.html">ceph</a>,    <a href="https://sthbrx.github.io/tag/raid.html">raid</a>,    <a href="https://sthbrx.github.io/tag/storage.html">storage</a>,    <a href="https://sthbrx.github.io/tag/erasure.html">erasure</a>,    <a href="https://sthbrx.github.io/tag/lustre.html">lustre</a>,    <a href="https://sthbrx.github.io/tag/hpc.html">hpc</a>,    <a href="https://sthbrx.github.io/tag/nvlink.html">nvlink</a>,    <a href="https://sthbrx.github.io/tag/namd.html">namd</a>,    <a href="https://sthbrx.github.io/tag/cuda.html">cuda</a>,    <a href="https://sthbrx.github.io/tag/gpu.html">gpu</a>,    <a href="https://sthbrx.github.io/tag/minsky.html">minsky</a>,    <a href="https://sthbrx.github.io/tag/s822lc-for-hpc.html">S822LC for hpc</a>,    <a href="https://sthbrx.github.io/tag/debug.html">debug</a>,    <a href="https://sthbrx.github.io/tag/virtualisation.html">virtualisation</a>,    <a href="https://sthbrx.github.io/tag/dmesg.html">dmesg</a>,    <a href="https://sthbrx.github.io/tag/printk.html">printk</a>,    <a href="https://sthbrx.github.io/tag/boot.html">boot</a>,    <a href="https://sthbrx.github.io/tag/early.html">early</a>,    <a href="https://sthbrx.github.io/tag/error.html">error</a>,    <a href="https://sthbrx.github.io/tag/centos.html">centos</a>,    <a href="https://sthbrx.github.io/tag/centos7.html">centos7</a>,    <a href="https://sthbrx.github.io/tag/p8.html">p8</a>,    <a href="https://sthbrx.github.io/tag/bmc.html">bmc</a>,    <a href="https://sthbrx.github.io/tag/rhel.html">RHEL</a>,    <a href="https://sthbrx.github.io/tag/skiroot.html">skiroot</a>,    <a href="https://sthbrx.github.io/tag/devmapper.html">devmapper</a>,    <a href="https://sthbrx.github.io/tag/lvm.html">lvm</a>,    <a href="https://sthbrx.github.io/tag/cgroups.html">cgroups</a>,    <a href="https://sthbrx.github.io/tag/numa.html">numa</a>,    <a href="https://sthbrx.github.io/tag/development.html">Development</a>,    <a href="https://sthbrx.github.io/tag/netboot.html">netboot</a>,    <a href="https://sthbrx.github.io/tag/pxe.html">pxe</a>,    <a href="https://sthbrx.github.io/tag/education.html">Education</a>,    <a href="https://sthbrx.github.io/tag/work-experience.html">work experience</a>,    <a href="https://sthbrx.github.io/tag/asm.html">asm</a>,    <a href="https://sthbrx.github.io/tag/vdso.html">vdso</a>,    <a href="https://sthbrx.github.io/tag/snowpatch.html">snowpatch</a>,    <a href="https://sthbrx.github.io/tag/tools.html">tools</a>,    <a href="https://sthbrx.github.io/tag/intern.html">intern</a>,    <a href="https://sthbrx.github.io/tag/srop.html">SROP</a>,    <a href="https://sthbrx.github.io/tag/mitigation.html">mitigation</a>,    <a href="https://sthbrx.github.io/tag/double.html">double</a>,    <a href="https://sthbrx.github.io/tag/float.html">float</a>,    <a href="https://sthbrx.github.io/tag/hex.html">hex</a>,    <a href="https://sthbrx.github.io/tag/debugging.html">debugging</a>,    <a href="https://sthbrx.github.io/tag/skiboot.html">skiboot</a>,    <a href="https://sthbrx.github.io/tag/opal.html">OPAL</a>,    <a href="https://sthbrx.github.io/tag/fsp.html">FSP</a>,    <a href="https://sthbrx.github.io/tag/patches.html">patches</a>,    <a href="https://sthbrx.github.io/tag/based16.html">based16</a>,    <a href="https://sthbrx.github.io/tag/linux-gods.html">Linux Gods</a>,    <a href="https://sthbrx.github.io/tag/ozlabs.html">Ozlabs</a>,    <a href="https://sthbrx.github.io/tag/offtopic.html">offtopic</a>,    <a href="https://sthbrx.github.io/tag/autoboot.html">autoboot</a>,    <a href="https://sthbrx.github.io/tag/kexec.html">kexec</a>,    <a href="https://sthbrx.github.io/tag/aufs.html">aufs</a>,    <a href="https://sthbrx.github.io/tag/overlay.html">overlay</a>,    <a href="https://sthbrx.github.io/tag/php.html">php</a>,    <a href="https://sthbrx.github.io/tag/capi.html">capi</a>  </section>
+
+  <section>
+    <h1><a href="https://sthbrx.github.io/authors.html">Authors</a></h1>
+    <ul id="authors_list">
+        <li><a href="https://sthbrx.github.io/author/alastair-dsilva.html">Alastair D'Silva</a></li>
+        <li><a href="https://sthbrx.github.io/author/andrew-donnellan.html">Andrew Donnellan</a></li>
+        <li><a href="https://sthbrx.github.io/author/anton-blanchard.html">Anton Blanchard</a></li>
+        <li><a href="https://sthbrx.github.io/author/benjamin-gray.html">Benjamin Gray</a></li>
+        <li><a href="https://sthbrx.github.io/author/callum-scarvell.html">Callum Scarvell</a></li>
+        <li><a href="https://sthbrx.github.io/author/cyril-bur.html">Cyril Bur</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-axtens.html">Daniel Axtens</a></li>
+        <li><a href="https://sthbrx.github.io/author/daniel-black.html">Daniel Black</a></li>
+        <li><a href="https://sthbrx.github.io/author/joel-stanley.html">Joel Stanley</a></li>
+        <li><a href="https://sthbrx.github.io/author/nick-piggin.html">Nick Piggin</a></li>
+        <li><a href="https://sthbrx.github.io/author/rashmica-gupta.html">Rashmica Gupta</a></li>
+        <li><a href="https://sthbrx.github.io/author/rohan-mclure.html">Rohan McLure</a></li>
+        <li><a href="https://sthbrx.github.io/author/russell-currey.html">Russell Currey</a></li>
+        <li><a href="https://sthbrx.github.io/author/samuel-mendoza-jonas.html">Samuel Mendoza-Jonas</a></li>
+        <li><a href="https://sthbrx.github.io/author/suraj-jitindar-singh.html">Suraj Jitindar Singh</a></li>
+    </ul>
+  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="https://sthbrx.github.io/rss.xml" type="application/rss+xml" rel="alternate">RSS</a></li>
+            <li><a href="https://github.com/sthbrx/" target="_blank">GitHub</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/linuxppc-dev" target="_blank">linuxppc mailing list</a></li>
+            <li><a href="https://lists.ozlabs.org/listinfo/skiboot" target="_blank">Skiboot mailing list</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://ozlabs.org" target="_blank">OzLabs</a></li>
+        </ul>
+    </section>
+
+    <section>
+        <h1>Disclaimer</h1>
+        <div>
+This blog represents the views of the individual authors, and doesn't necessarily represent IBM's positions, strategies or opinions.        </div>
+    </section>
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+    Copyright &copy;  2015&ndash;2023  OzLabs &mdash;
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+  <script type="text/javascript">
+    var disqus_shortname = 'sthbrx';
+    var disqus_identifier = '/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/';
+    var disqus_url = 'https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/';
+    var disqus_title = 'Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL';
+    (function() {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = "//" + disqus_shortname + '.disqus.com/embed.js';
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+     })();
+  </script>
+</body>
+</html>

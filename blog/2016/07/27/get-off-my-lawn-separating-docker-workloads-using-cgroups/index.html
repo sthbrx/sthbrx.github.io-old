@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -137,30 +140,30 @@ NUMA node17 CPU(s):    64-95
 
 <p>Now all we have to do is find some way to tell Linux to restrict a group of processes to a particular NUMA node and the corresponding CPUs. How? Enter control groups, or <code>cgroups</code> for short. Processes can be put into a cgroup, and then a cgroup controller can control the resouces allocated to the cgroup. Cgroups are hierarchical, and there are controllers for a number of different ways you could control a group of processes. Most helpfully for us, there's one called <code>cpuset</code>, which can control CPU affinity, and restrict memory allocation to a NUMA node.</p>
 <p>We then just have to get the processes into the relevant cgroup. Fortunately, Docker is incredibly helpful for this!<sup id="fnref:2"><a class="footnote-ref" href="#fn:2">2</a></sup> Docker containers are put in the <code>docker</code> cgroup. Each container gets it's own cgroup under the docker cgroup, and fortunately Docker deals well with the somewhat broken state of cpuset inheritance.<sup id="fnref:3"><a class="footnote-ref" href="#fn:3">3</a></sup> So it suffices to create a cpuset cgroup for docker, and allocate some resources to it, and Docker will do the rest. Here we'll allocate the last 3 sockets and NUMA nodes to Docker containers:</p>
-<div class="highlight"><pre><span></span><code>cgcreate -g cpuset:docker
-<span class="nb">echo</span> <span class="m">32</span>-127 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.cpus
-<span class="nb">echo</span> <span class="m">1</span>,16-17 &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mems
-<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
+<div class="highlight"><pre><span></span><code>cgcreate<span class="w"> </span>-g<span class="w"> </span>cpuset:docker
+<span class="nb">echo</span><span class="w"> </span><span class="m">32</span>-127<span class="w"> </span>&gt;<span class="w"> </span>/sys/fs/cgroup/cpuset/docker/cpuset.cpus
+<span class="nb">echo</span><span class="w"> </span><span class="m">1</span>,16-17<span class="w"> </span>&gt;<span class="w"> </span>/sys/fs/cgroup/cpuset/docker/cpuset.mems
+<span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/fs/cgroup/cpuset/docker/cpuset.mem_hardwall
 </code></pre></div>
 
 <p><code>mem_hardwall</code> prevents memory allocations under docker from spilling over into the one remaining NUMA node.</p>
 <p>So, does this work? I created a container with sysbench and then ran the following:</p>
-<div class="highlight"><pre><span></span><code>root@0d3f339d4181:/# sysbench --test<span class="o">=</span>cpu --num-threads<span class="o">=</span><span class="m">128</span> --max-requests<span class="o">=</span><span class="m">10000000</span> run
+<div class="highlight"><pre><span></span><code>root@0d3f339d4181:/#<span class="w"> </span>sysbench<span class="w"> </span>--test<span class="o">=</span>cpu<span class="w"> </span>--num-threads<span class="o">=</span><span class="m">128</span><span class="w"> </span>--max-requests<span class="o">=</span><span class="m">10000000</span><span class="w"> </span>run
 </code></pre></div>
 
 <p>Now I've asked for 128 threads, but the cgroup only has CPUs/hwthreads 32-127 allocated. So If I run htop, I shouldn't see any load on CPUs 0-31. What do I actually see?</p>
 <p><img alt="htop screenshot, showing load only on CPUs 32-127" src="/images/dja/cgroup1.png"></p>
 <p>It works! Now, we create a cgroup for performance tests using the first socket and NUMA node:</p>
-<div class="highlight"><pre><span></span><code>cgcreate -g cpuset:perf-cgroup
-<span class="nb">echo</span> <span class="m">0</span>-31 &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
-<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
-<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
+<div class="highlight"><pre><span></span><code>cgcreate<span class="w"> </span>-g<span class="w"> </span>cpuset:perf-cgroup
+<span class="nb">echo</span><span class="w"> </span><span class="m">0</span>-31<span class="w"> </span>&gt;<span class="w"> </span>/sys/fs/cgroup/cpuset/perf-cgroup/cpuset.cpus
+<span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mems
+<span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/fs/cgroup/cpuset/perf-cgroup/cpuset.mem_hardwall
 </code></pre></div>
 
 <p>Docker conveniently lets us put new containers under a different cgroup, which means we can simply do:</p>
-<div class="highlight"><pre><span></span><code>dja@p88 ~&gt; docker run -it --rm --cgroup-parent<span class="o">=</span>/perf-cgroup/ ppc64le/ubuntu bash
-root@b037049f94de:/# <span class="c1"># ... install sysbench</span>
-root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<span class="o">=</span><span class="m">128</span> --max-requests<span class="o">=</span><span class="m">10000000</span> run
+<div class="highlight"><pre><span></span><code>dja@p88<span class="w"> </span>~&gt;<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span>--cgroup-parent<span class="o">=</span>/perf-cgroup/<span class="w"> </span>ppc64le/ubuntu<span class="w"> </span>bash
+root@b037049f94de:/#<span class="w"> </span><span class="c1"># ... install sysbench</span>
+root@b037049f94de:/#<span class="w"> </span>sysbench<span class="w"> </span>--test<span class="o">=</span>cpu<span class="w"> </span>--num-threads<span class="o">=</span><span class="m">128</span><span class="w"> </span>--max-requests<span class="o">=</span><span class="m">10000000</span><span class="w"> </span>run
 </code></pre></div>
 
 <p>And the result?</p>
@@ -197,6 +200,9 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -208,15 +214,13 @@ root@b037049f94de:/# sysbench --test<span class="o">=</span>cpu --num-threads<sp
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

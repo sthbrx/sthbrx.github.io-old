@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -127,11 +130,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <p><code>PATH="/scratch/dja/public/op-build/output/host/bin:/scratch/dja/public/op-build/output/host/sbin:/scratch/dja/public/op-build/output/host/usr/bin:/scratch/dja/public/op-build/output/host/usr/sbin:/home/dja/bin:/home/dja/bin:/home/dja/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/openpower/common/x86_64/bin" /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/create_pnor_image.pl -xml_layout_file /scratch/dja/public/op-build/output/build/openpower-pnor-ed1682e10526ebd85825427fbf397361bb0e34aa/"defaultPnorLayoutWithGoldenSide.xml" -pnor_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/"habanero.pnor" -hb_image_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/hostboot_build_images/ -scratch_dir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_pnor_scratch/ -outdir /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/ -payload /scratch/dja/public/op-build/output/images/"skiboot.lid" -bootkernel /scratch/dja/public/op-build/output/images/zImage.epapr -sbe_binary_filename "venice_sbe.img.ecc" -sbec_binary_filename "centaur_sbec_pad.img.ecc" -wink_binary_filename "p8.ref_image.hdr.bin.ecc" -occ_binary_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/occ/"occ.bin" -targeting_binary_filename "HABANERO_HB.targeting.bin.ecc" -openpower_version_filename /scratch/dja/public/op-build/output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/openpower_version/openpower-pnor.version.txt</code></p>
 <p>Replace the <code>-bootkernel</code> arguement with the path to ppc64le_hello, e.g.: <code>-bootkernel /scratch/dja/public/ppc64le_hello/ppc64le_hello</code></p>
 <p>Don't forget to move it into place! </p>
-<div class="highlight"><pre><span></span><code>mv output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor output/images/habanero.pnor
+<div class="highlight"><pre><span></span><code>mv<span class="w"> </span>output/host/usr/powerpc64-buildroot-linux-gnu/sysroot/pnor/habanero.pnor<span class="w"> </span>output/images/habanero.pnor
 </code></pre></div>
 
 <p>Then we can use skiboot's boot test script (written by Cyril and me, coincidentally!) to flash it.</p>
-<div class="highlight"><pre><span></span><code>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh -vp -t hab2-bmc -P &lt;path to&gt;/habanero.pnor
+<div class="highlight"><pre><span></span><code>ppc64le_hello/skiboot/external/boot-tests/boot_test.sh<span class="w"> </span>-vp<span class="w"> </span>-t<span class="w"> </span>hab2-bmc<span class="w"> </span>-P<span class="w"> </span>&lt;path<span class="w"> </span>to&gt;/habanero.pnor
 </code></pre></div>
 
 <p>It's not going to get into Petitboot, so just interrupt it after it powers up the box and connect with IPMI. It boots, kinda:</p>
@@ -165,14 +168,14 @@ Hello OPAL!
 </code></pre></div>
 
 <p>Yes, it does wrap horribly. However, the big issue here (which you'll have to scroll to see!) is the "CPU0 not found?". Fortunately, we can fix this with a little patch to <code>cpu_init</code> in main.c to test for a PowerPC POWER8:</p>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/cpus/PowerPC,POWER8@20&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="p">}</span><span class="w"></span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">printk</span><span class="p">(</span><span class="s">&quot;CPU0 not found?</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="w">        </span><span class="k">return</span><span class="p">;</span><span class="w"></span>
-<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/cpus/cpu@0&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fdt_path_offset</span><span class="p">(</span><span class="n">fdt</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/cpus/PowerPC,POWER8@20&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cpu0_node</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">printk</span><span class="p">(</span><span class="s">&quot;CPU0 not found?</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 </code></pre></div>
 
 <p>This is definitely the <em>wrong</em> way to do this, but it works for now.</p>
@@ -289,6 +292,9 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -300,15 +306,13 @@ EA 0xFFFFFFF000 -&gt; hash 0xFFFFFFF -&gt; pteg 0x3FF8 = unmap
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

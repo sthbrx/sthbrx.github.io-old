@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -157,24 +160,24 @@ reference for every syscall. On PowerPC something like this happens
 <span class="cm"> *</span>
 <span class="cm"> * int __kernel_clock_gettime(clockid_t clock_id, struct timespec *tp);</span>
 <span class="cm"> *</span>
-<span class="cm"> */</span><span class="w"></span>
-<span class="nf">V_FUNCTION_BEGIN</span><span class="p">(</span><span class="no">__kernel_clock_gettime</span><span class="p">)</span><span class="w"></span>
-<span class="w">  </span><span class="na">.cfi_startproc</span><span class="w"></span>
-<span class="w">    </span><span class="cm">/* Check for supported clock IDs */</span><span class="w"></span>
-<span class="w">    </span><span class="nf">cmpwi</span><span class="w">   </span><span class="no">cr0</span><span class="p">,</span><span class="no">r3</span><span class="p">,</span><span class="no">CLOCK_REALTIME</span><span class="w"></span>
-<span class="w">    </span><span class="nf">cmpwi</span><span class="w">   </span><span class="no">cr1</span><span class="p">,</span><span class="no">r3</span><span class="p">,</span><span class="no">CLOCK_MONOTONIC</span><span class="w"></span>
-<span class="w">    </span><span class="nf">cror</span><span class="w">    </span><span class="no">cr0</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="p">,</span><span class="no">cr0</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="p">,</span><span class="no">cr1</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="w"></span>
-<span class="w">    </span><span class="nf">bne</span><span class="w"> </span><span class="no">cr0</span><span class="p">,</span><span class="mi">99</span><span class="no">f</span><span class="w"></span>
+<span class="cm"> */</span>
+<span class="nf">V_FUNCTION_BEGIN</span><span class="p">(</span><span class="no">__kernel_clock_gettime</span><span class="p">)</span>
+<span class="w">  </span><span class="na">.cfi_startproc</span>
+<span class="w">    </span><span class="cm">/* Check for supported clock IDs */</span>
+<span class="w">    </span><span class="nf">cmpwi</span><span class="w">   </span><span class="no">cr0</span><span class="p">,</span><span class="no">r3</span><span class="p">,</span><span class="no">CLOCK_REALTIME</span>
+<span class="w">    </span><span class="nf">cmpwi</span><span class="w">   </span><span class="no">cr1</span><span class="p">,</span><span class="no">r3</span><span class="p">,</span><span class="no">CLOCK_MONOTONIC</span>
+<span class="w">    </span><span class="nf">cror</span><span class="w">    </span><span class="no">cr0</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="p">,</span><span class="no">cr0</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span><span class="p">,</span><span class="no">cr1</span><span class="p">*</span><span class="mi">4</span><span class="err">+</span><span class="no">eq</span>
+<span class="w">    </span><span class="nf">bne</span><span class="w"> </span><span class="no">cr0</span><span class="p">,</span><span class="mi">99</span><span class="no">f</span>
 
-<span class="w">    </span><span class="cm">/* [snip] */</span><span class="w"></span>
+<span class="w">    </span><span class="cm">/* [snip] */</span>
 
 <span class="w">    </span><span class="cm">/*</span>
 <span class="cm">     * syscall fallback</span>
-<span class="cm">     */</span><span class="w"></span>
-<span class="err">99:</span><span class="w"></span>
-<span class="w">    </span><span class="nf">li</span><span class="w">  </span><span class="no">r0</span><span class="p">,</span><span class="no">__NR_clock_gettime</span><span class="w"></span>
-<span class="w">    </span><span class="nf">sc</span><span class="w"></span>
-<span class="w">    </span><span class="nf">blr</span><span class="w"></span>
+<span class="cm">     */</span>
+<span class="err">99:</span>
+<span class="w">    </span><span class="nf">li</span><span class="w">  </span><span class="no">r0</span><span class="p">,</span><span class="no">__NR_clock_gettime</span>
+<span class="w">    </span><span class="nf">sc</span>
+<span class="w">    </span><span class="nf">blr</span>
 </code></pre></div>
 
 <p>For those not familiar, this couldn't be more simple. The start checks
@@ -187,26 +190,26 @@ kernel and branch to link register aka 'return'.  In this case the
 result? Or course it should, vdsotest is assuming a C ABI with return
 values and errno but the kernel doesn't do that, the kernel ABI is
 different. How does this even work on x86? Ohhhhh vdsotest does <sup id="fnref:2"><a class="footnote-ref" href="#fn:2">2</a></sup></p>
-<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">record_syscall_result</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">syscall_result</span><span class="w"> </span><span class="o">*</span><span class="n">res</span><span class="p">,</span><span class="w"></span>
-<span class="w">                     </span><span class="kt">int</span><span class="w"> </span><span class="n">sr_ret</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sr_errno</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">record_syscall_result</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">syscall_result</span><span class="w"> </span><span class="o">*</span><span class="n">res</span><span class="p">,</span>
+<span class="w">                     </span><span class="kt">int</span><span class="w"> </span><span class="n">sr_ret</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sr_errno</span><span class="p">)</span>
+<span class="p">{</span>
 <span class="w">    </span><span class="cm">/* Calling the vDSO directly instead of through libc can lead to:</span>
 <span class="cm">     * - The vDSO code punts to the kernel (e.g. unrecognized clock id).</span>
 <span class="cm">     * - The kernel returns an error (e.g. -22 (-EINVAL))</span>
 <span class="cm">     * So we need to recognize this situation and fix things up.</span>
 <span class="cm">     * Fortunately we&#39;re dealing only with syscalls that return -ve values</span>
 <span class="cm">     * on error.</span>
-<span class="cm">     */</span><span class="w"></span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sr_ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">sr_errno</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="n">sr_errno</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">sr_ret</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="n">sr_ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"></span>
-<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sr_ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">sr_errno</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">sr_errno</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">sr_ret</span><span class="p">;</span>
+<span class="w">        </span><span class="n">sr_ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="o">*</span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">syscall_result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">sr_ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sr_ret</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">sr_errno</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sr_errno</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="p">};</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="o">*</span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">syscall_result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">sr_ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sr_ret</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">sr_errno</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sr_errno</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>That little hack isn't working on PowerPC and here's why:</p>
@@ -255,6 +258,9 @@ libc</li>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -266,15 +272,13 @@ libc</li>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

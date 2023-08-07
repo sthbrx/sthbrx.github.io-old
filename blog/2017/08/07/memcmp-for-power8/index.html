@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -133,19 +136,19 @@ be extremely inefficient for each userspace programmer if they had to
 implement even the naive version of these functions let alone
 optimised versions. Let us take <code>memcmp()</code> for example, I could
 trivially implement this in C like:</p>
-<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">memcmp</span><span class="p">(</span><span class="kt">uint8_t</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="kt">uint8_t</span><span class="w"> </span><span class="o">*</span><span class="n">p2</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">memcmp</span><span class="p">(</span><span class="kt">uint8_t</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="kt">uint8_t</span><span class="w"> </span><span class="o">*</span><span class="n">p2</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
 
-<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">p2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"></span>
-<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"></span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">p2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"></span>
-<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
-<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">p2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">p2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>However, while it is incredibly portable it is simply not going to
@@ -205,36 +208,36 @@ saved somewhere before reboot. The command line argument was always
 15.</p>
 <div class="highlight"><pre><span></span><code><span class="ch">#!/bin/sh</span>
 
-ppc64_cpu --smt<span class="o">=</span>off
+ppc64_cpu<span class="w"> </span>--smt<span class="o">=</span>off
 
 <span class="c1">#Host actually boots with ksm off but be sure</span>
-<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/kernel/mm/ksm/run
+<span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/mm/ksm/run
 
 <span class="c1">#Scan a lot of pages</span>
-<span class="nb">echo</span> <span class="m">999999</span> &gt; /sys/kernel/mm/ksm/pages_to_scan
+<span class="nb">echo</span><span class="w"> </span><span class="m">999999</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/mm/ksm/pages_to_scan
 
-<span class="nb">echo</span> <span class="s2">&quot;Starting QEMUs&quot;</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Starting QEMUs&quot;</span>
 <span class="nv">i</span><span class="o">=</span><span class="m">0</span>
-<span class="k">while</span> <span class="o">[</span> <span class="s2">&quot;</span><span class="nv">$i</span><span class="s2">&quot;</span> -lt <span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span> <span class="o">]</span> <span class="p">;</span> <span class="k">do</span>
-    qemu-system-ppc64 -smp <span class="m">1</span> -m 1G -nographic -vga none <span class="se">\</span>
-        -machine pseries,accel<span class="o">=</span>kvm,kvm-type<span class="o">=</span>HV <span class="se">\</span>
-        -kernel guest.kernel  -initrd guest.initrd <span class="se">\</span>
-        -monitor pty -serial pty <span class="p">&amp;</span>
-    <span class="nv">i</span><span class="o">=</span><span class="k">$(</span>expr <span class="nv">$i</span> + <span class="m">1</span><span class="k">)</span><span class="p">;</span>
+<span class="k">while</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$i</span><span class="s2">&quot;</span><span class="w"> </span>-lt<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span>qemu-system-ppc64<span class="w"> </span>-smp<span class="w"> </span><span class="m">1</span><span class="w"> </span>-m<span class="w"> </span>1G<span class="w"> </span>-nographic<span class="w"> </span>-vga<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-machine<span class="w"> </span>pseries,accel<span class="o">=</span>kvm,kvm-type<span class="o">=</span>HV<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-kernel<span class="w"> </span>guest.kernel<span class="w">  </span>-initrd<span class="w"> </span>guest.initrd<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-monitor<span class="w"> </span>pty<span class="w"> </span>-serial<span class="w"> </span>pty<span class="w"> </span><span class="p">&amp;</span>
+<span class="w">    </span><span class="nv">i</span><span class="o">=</span><span class="k">$(</span>expr<span class="w"> </span><span class="nv">$i</span><span class="w"> </span>+<span class="w"> </span><span class="m">1</span><span class="k">)</span><span class="p">;</span>
 <span class="k">done</span>
 
-<span class="nb">echo</span> <span class="s2">&quot;Letting all the VMs boot&quot;</span>
-sleep <span class="m">30</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Letting all the VMs boot&quot;</span>
+sleep<span class="w"> </span><span class="m">30</span>
 
-<span class="nb">echo</span> <span class="s2">&quot;Turning KSM om&quot;</span>
-<span class="nb">echo</span> <span class="m">1</span> &gt; /sys/kernel/mm/ksm/run
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Turning KSM om&quot;</span>
+<span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/mm/ksm/run
 
-<span class="nb">echo</span> <span class="s2">&quot;Letting KSM do its thing&quot;</span>
-sleep 2m
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Letting KSM do its thing&quot;</span>
+sleep<span class="w"> </span>2m
 
-<span class="nb">echo</span> <span class="m">0</span> &gt; /sys/kernel/mm/ksm/run
+<span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/mm/ksm/run
 
-dd <span class="k">if</span><span class="o">=</span>/sys/kernel/debug/ksm/memcmp_deltas <span class="nv">of</span><span class="o">=</span>deltas <span class="nv">bs</span><span class="o">=</span><span class="m">4096</span> <span class="nv">count</span><span class="o">=</span><span class="m">100</span>
+dd<span class="w"> </span><span class="k">if</span><span class="o">=</span>/sys/kernel/debug/ksm/memcmp_deltas<span class="w"> </span><span class="nv">of</span><span class="o">=</span>deltas<span class="w"> </span><span class="nv">bs</span><span class="o">=</span><span class="m">4096</span><span class="w"> </span><span class="nv">count</span><span class="o">=</span><span class="m">100</span>
 </code></pre></div>
 
 <p>The guest kernel was a <code>pseries_le_defconfig</code> <code>4.13-rc3</code> with the same
@@ -304,6 +307,9 @@ more invasive patch to KSM.</p></div>
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -315,15 +321,13 @@ more invasive patch to KSM.</p></div>
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

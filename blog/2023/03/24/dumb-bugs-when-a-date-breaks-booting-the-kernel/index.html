@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -199,22 +202,22 @@ qemu-system-ppc64: OS terminated: OS panic: VFS: Unable to mount root fs on unkn
 <p>Regardless, I set about tracing the usage of <code>KBUILD_BUILD_TIMESTAMP</code> inside the kernel. The stacktrace in the panic gave the end point of the search; the function <code>mount_block_root()</code> wasn't happy. So all I had to do was work out at which point <code>mount_block_root()</code> tried to access the <code>KBUILD_BUILD_TIMESTAMP</code> value.</p>
 <p>In short, that went nowhere.</p>
 <p><code>mount_block_root()</code> effectively just tries to open a file in the filesystem. There's massive amounts of code handling this, and any part could have had the undocumented dependency on <code>KBUILD_BUILD_TIMESTAMP</code>. Approaching from the other direction, <code>KBUILD_BUILD_TIMESTAMP</code> is turned into <code>build-timestamp</code> inside a Makefile, which is in turn related to a file <code>include/generated/utsversion.h</code>. This file <code>#define</code>s <code>UTS_VERSION</code> equal to the <code>KBUILD_BUILD_TIMESTAMP</code> value. Searching the kernel for <code>UTS_VERSION</code>, we hit <code>init/version-timestamp.c</code> which stores it in a struct with other build information:</p>
-<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">uts_namespace</span><span class="w"> </span><span class="n">init_uts_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REFCOUNT_INIT</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span><span class="w"></span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">sysname</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_SYSNAME</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">nodename</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_NODENAME</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">release</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_RELEASE</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">version</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_VERSION</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">machine</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_MACHINE</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="p">.</span><span class="n">domainname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_DOMAINNAME</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="w">    </span><span class="p">.</span><span class="n">user_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">init_user_ns</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">inum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PROC_UTS_INIT_INO</span><span class="p">,</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">uts_namespace</span><span class="w"> </span><span class="n">init_uts_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REFCOUNT_INIT</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">sysname</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_SYSNAME</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">nodename</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_NODENAME</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">release</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_RELEASE</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">version</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_VERSION</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">machine</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_MACHINE</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">domainname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UTS_DOMAINNAME</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">.</span><span class="n">user_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">init_user_ns</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">inum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PROC_UTS_INIT_INO</span><span class="p">,</span>
 <span class="cp">#ifdef CONFIG_UTS_NS</span>
-<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">utsns_operations</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="p">.</span><span class="n">ns</span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">utsns_operations</span><span class="p">,</span>
 <span class="cp">#endif</span>
-<span class="p">};</span><span class="w"></span>
+<span class="p">};</span>
 </code></pre></div>
 
 <p>This is where the trail goes cold: I don't know if you've ever tried this, but searching for <code>.version</code> in the kernel's codebase is not a very fruitful endeavor when you're interested in a specific kind of version.</p>
@@ -293,11 +296,11 @@ Files build/broken/vmlinux.strip.gz and build/working/vmlinux.strip.gz differ
 <span class="cm"> * Timestamps after 2106-02-07 06:28:15 UTC have an ascii hex time_t</span>
 <span class="cm"> * representation that exceeds 8 chars and breaks the cpio header</span>
 <span class="cm"> * specification.</span>
-<span class="cm"> */</span><span class="w"></span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">default_mtime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mh">0xffffffff</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ERROR: Timestamp too large for cpio format</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="cm"> */</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">default_mtime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mh">0xffffffff</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ERROR: Timestamp too large for cpio format</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
 </code></pre></div>
 
 <p>But we are using an <code>int64_t</code>. What would happen if one were to provide a negative timestamp?</p>
@@ -309,23 +312,23 @@ Files build/broken/vmlinux.strip.gz and build/working/vmlinux.strip.gz differ
 <p>Perhaps this could be improved to require that all input is consumed without unexpected EOF, such as how the userspace <code>cpio</code> tool works (which, by the way, recognises the corrupt archive as such and refuses to decompress it). The parsing logic is mostly from the before-times though (i.e., pre initial git commit), so it's difficult to distinguish intentional leniency and bugs.</p>
 <h2>Afterword</h2>
 <p>Incidentally, in investigating this I came across another bug. There is a helper function <code>panic_show_mem()</code> in the initramfs that's meant to dump memory information and then call <code>panic()</code>. It takes in standard <code>printf()</code> style format string and arguments, and tries to forward them to <code>panic()</code> which ultimately prints them.</p>
-<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">panic_show_mem</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">;</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">panic_show_mem</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">;</span>
 
-<span class="w">    </span><span class="n">show_mem</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="n">panic</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w"></span>
-<span class="w">    </span><span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="n">show_mem</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">    </span><span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="p">);</span>
+<span class="w">    </span><span class="n">panic</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">);</span>
+<span class="w">    </span><span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
+<span class="p">}</span>
 
-<span class="kt">void</span><span class="w"> </span><span class="nf">panic</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span><span class="w"></span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">panic</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span>
 </code></pre></div>
 
 <p>But variadic arguments don't quite work this way: instead of forwarding the list <code>args</code> as intended, <code>panic()</code> will instead interpret <code>args</code> as a single argument for the format string <code>fmt</code>. Standard library functions address this by providing <code>v*</code> variants of <code>printf()</code> and friends. For example,</p>
-<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">printf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">printf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span>
 
-<span class="kt">int</span><span class="w"> </span><span class="nf">vprintf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w"></span>
+<span class="kt">int</span><span class="w"> </span><span class="nf">vprintf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">fmt</span><span class="p">,</span><span class="w"> </span><span class="kt">va_list</span><span class="w"> </span><span class="n">args</span><span class="p">);</span>
 </code></pre></div>
 
 <p>We might create a <code>vpanic()</code> function in the kernel that follows this style, but it seems easier to just make <code>panic_show_mem()</code> a macro and 'forward' the arguments in the source code</p>
@@ -364,6 +367,9 @@ Files build/broken/vmlinux.strip.gz and build/working/vmlinux.strip.gz differ
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -375,15 +381,13 @@ Files build/broken/vmlinux.strip.gz and build/working/vmlinux.strip.gz differ
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

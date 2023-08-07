@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <ul class="main-navigation">
       <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
+      <li >
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
       <li >
@@ -305,7 +308,7 @@ improvement in this benchmark.</p>
 <h3>OpenSSL</h3>
 <p><a href="https://www.openssl.org/">OpenSSL</a> is among other things a cryptographic library. The Phoronix benchmark
 measures the number of RSA 4096 signs per second:</p>
-<div class="highlight"><pre><span></span><code>$ openssl speed -multi <span class="k">$(</span>nproc<span class="k">)</span> rsa4096
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>openssl<span class="w"> </span>speed<span class="w"> </span>-multi<span class="w"> </span><span class="k">$(</span>nproc<span class="k">)</span><span class="w"> </span>rsa4096
 </code></pre></div>
 
 <p>Phoronix used OpenSSL-1.1.0f, which is almost half as slow for this benchmark (on POWER9) than mainline OpenSSL.
@@ -402,7 +405,7 @@ but not great for CPUs. The image size (1280x720) to tile size ratio limits the
 number of jobs created and therefore the number threads used.</p>
 <p>To obtain a realistic CPU measurement with more that 15 threads you can force
 the use of the CPU file by overwriting the GPU file with the CPU one:</p>
-<div class="highlight"><pre><span></span><code>$ cp
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>cp
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_cpu.blend
 ~/.phoronix-test-suite/installed-tests/system/blender-1.0.2/benchmark/pabellon_barcelona/pavillon_barcelone_gpu.blend
 </code></pre></div>
@@ -509,6 +512,9 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -520,15 +526,13 @@ but it would be interesting to see a re-run of the Phoronix benchmarks with thes
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

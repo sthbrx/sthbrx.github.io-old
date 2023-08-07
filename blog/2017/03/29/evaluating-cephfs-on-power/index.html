@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <ul class="main-navigation">
+      <li >
+        <a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a>
+      </li>
       <li class="active">
         <a href="https://sthbrx.github.io/category/development.html">Development</a>
       </li>
@@ -161,12 +164,12 @@ upon which which this is based:
 <ul>
 <li>Clone the Ceph repo by following the instructions here: <a href="http://docs.ceph.com/docs/master/install/clone-source/">http://docs.ceph.com/docs/master/install/clone-source/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nv">mkdir</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
-<span class="w">    </span><span class="nv">cd</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">clone</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"> </span><span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span><span class="w">  </span>#<span class="w"> </span><span class="nv">This</span><span class="w"> </span><span class="nv">may</span><span class="w"> </span><span class="nv">take</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="k">while</span><span class="w"></span>
-<span class="w">    </span><span class="nv">cd</span><span class="w"> </span><span class="nv">ceph</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">checkout</span><span class="w"> </span><span class="nv">master</span><span class="w"></span>
-<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">submodule</span><span class="w"> </span><span class="nv">update</span><span class="w"> </span><span class="o">--</span><span class="nv">force</span><span class="w"> </span><span class="o">--</span><span class="nv">init</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nv">mkdir</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
+<span class="w">    </span><span class="nv">cd</span><span class="w"> </span>$<span class="nv">HOME</span><span class="o">/</span><span class="nv">src</span>
+<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">clone</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span><span class="w"> </span><span class="nv">https</span>:<span class="o">//</span><span class="nv">github</span>.<span class="nv">com</span><span class="o">/</span><span class="nv">ceph</span><span class="o">/</span><span class="nv">ceph</span>.<span class="nv">git</span><span class="w">  </span>#<span class="w"> </span><span class="nv">This</span><span class="w"> </span><span class="nv">may</span><span class="w"> </span><span class="nv">take</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="k">while</span>
+<span class="w">    </span><span class="nv">cd</span><span class="w"> </span><span class="nv">ceph</span>
+<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">checkout</span><span class="w"> </span><span class="nv">master</span>
+<span class="w">    </span><span class="nv">git</span><span class="w"> </span><span class="nv">submodule</span><span class="w"> </span><span class="nv">update</span><span class="w"> </span><span class="o">--</span><span class="nv">force</span><span class="w"> </span><span class="o">--</span><span class="nv">init</span><span class="w"> </span><span class="o">--</span><span class="nv">recursive</span>
 </code></pre></div>
 
 <ul>
@@ -188,8 +191,8 @@ upon which which this is based:
 <ul>
 <li>Build the packages as per the instructions: <a href="http://docs.ceph.com/docs/master/install/build-ceph/">http://docs.ceph.com/docs/master/install/build-ceph/</a></li>
 </ul>
-<div class="highlight"><pre><span></span><code>    cd $HOME/src/ceph
-    sudo dpkg-buildpackage -J$(nproc) # This will take a couple of hours (16 cpus)
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nx">cd</span><span class="w"> </span><span class="err">$</span><span class="nx">HOME</span><span class="o">/</span><span class="nx">src</span><span class="o">/</span><span class="nx">ceph</span>
+<span class="w">    </span><span class="nx">sudo</span><span class="w"> </span><span class="nx">dpkg</span><span class="o">-</span><span class="nx">buildpackage</span><span class="w"> </span><span class="o">-</span><span class="nx">J</span><span class="err">$</span><span class="p">(</span><span class="nx">nproc</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="nx">This</span><span class="w"> </span><span class="nx">will</span><span class="w"> </span><span class="nx">take</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="nx">couple</span><span class="w"> </span><span class="nx">of</span><span class="w"> </span><span class="nx">hours</span><span class="w"> </span><span class="p">(</span><span class="mi">16</span><span class="w"> </span><span class="nx">cpus</span><span class="p">)</span>
 </code></pre></div>
 
 <ul>
@@ -206,26 +209,26 @@ upon which which this is based:
 </code></pre></div>
 
 <h3>Configure the ceph-deploy user environment</h3>
-<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">su</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span><span class="w"></span>
-<span class="w">    </span><span class="n">node</span><span class="o">=</span><span class="n n-Quoted">`hostname`</span><span class="w"></span>
-<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span><span class="w"></span>
-<span class="w">    </span><span class="n">mkdir</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">cd</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span><span class="w"></span>
-<span class="w">    </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">$node</span><span class="w"> </span><span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd pool default size = 2&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
-<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="n">su</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span>
+<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">keygen</span>
+<span class="w">    </span><span class="n">node</span><span class="o">=</span><span class="n n-Quoted">`hostname`</span>
+<span class="w">    </span><span class="n">ssh</span><span class="o">-</span><span class="n">copy</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="nv">@$node</span>
+<span class="w">    </span><span class="n">mkdir</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span>
+<span class="w">    </span><span class="n">cd</span><span class="w"> </span><span class="n">$HOME</span><span class="o">/</span><span class="n">ceph</span><span class="o">-</span><span class="n">cluster</span>
+<span class="w">    </span><span class="n">ceph</span><span class="o">-</span><span class="n">deploy</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">$node</span><span class="w"> </span><span class="c1"># If this fails, remove the bogus 127.0.1.1 entry from /etc/hosts</span>
+<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd pool default size = 2&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span>
+<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s1">&#39;osd crush chooseleaf type = 0&#39;</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ceph</span><span class="p">.</span><span class="n">conf</span>
 </code></pre></div>
 
 <h3>Complete the Ceph deployment</h3>
-<div class="highlight"><pre><span></span><code>    ceph-deploy install <span class="nv">$node</span>
-    ceph-deploy mon create-initial
-    drives=&quot;vda vdb vdc&quot;  # the 1TB drives - check that these are correct for your system
-    for drive in <span class="nv">$drives</span>; do ceph-deploy disk zap <span class="nv">$node</span>:<span class="nv">$drive</span>; ceph-deploy osd prepare <span class="nv">$node</span>:<span class="nv">$drive</span>; done
-    for drive in <span class="nv">$drives</span>; do ceph-deploy osd activate <span class="nv">$node</span>:/dev/<span class="cp">${</span><span class="n">drive</span><span class="cp">}</span>1; done
-    ceph-deploy admin <span class="nv">$node</span>
-    sudo chmod +r /etc/ceph/ceph.client.admin.keyring
-    ceph -s # Check the state of the cluster
+<div class="highlight"><pre><span></span><code><span class="w">    </span>ceph-deploy<span class="w"> </span>install<span class="w"> </span><span class="nv">$node</span>
+<span class="w">    </span>ceph-deploy<span class="w"> </span>mon<span class="w"> </span>create-initial
+<span class="w">    </span>drives=&quot;vda<span class="w"> </span>vdb<span class="w"> </span>vdc&quot;<span class="w">  </span>#<span class="w"> </span>the<span class="w"> </span>1TB<span class="w"> </span>drives<span class="w"> </span>-<span class="w"> </span>check<span class="w"> </span>that<span class="w"> </span>these<span class="w"> </span>are<span class="w"> </span>correct<span class="w"> </span>for<span class="w"> </span>your<span class="w"> </span>system
+<span class="w">    </span>for<span class="w"> </span>drive<span class="w"> </span>in<span class="w"> </span><span class="nv">$drives</span>;<span class="w"> </span>do<span class="w"> </span>ceph-deploy<span class="w"> </span>disk<span class="w"> </span>zap<span class="w"> </span><span class="nv">$node</span>:<span class="nv">$drive</span>;<span class="w"> </span>ceph-deploy<span class="w"> </span>osd<span class="w"> </span>prepare<span class="w"> </span><span class="nv">$node</span>:<span class="nv">$drive</span>;<span class="w"> </span>done
+<span class="w">    </span>for<span class="w"> </span>drive<span class="w"> </span>in<span class="w"> </span><span class="nv">$drives</span>;<span class="w"> </span>do<span class="w"> </span>ceph-deploy<span class="w"> </span>osd<span class="w"> </span>activate<span class="w"> </span><span class="nv">$node</span>:/dev/<span class="cp">${</span><span class="n">drive</span><span class="cp">}</span>1;<span class="w"> </span>done
+<span class="w">    </span>ceph-deploy<span class="w"> </span>admin<span class="w"> </span><span class="nv">$node</span>
+<span class="w">    </span>sudo<span class="w"> </span>chmod<span class="w"> </span>+r<span class="w"> </span>/etc/ceph/ceph.client.admin.keyring
+<span class="w">    </span>ceph<span class="w"> </span>-s<span class="w"> </span>#<span class="w"> </span>Check<span class="w"> </span>the<span class="w"> </span>state<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>cluster
 </code></pre></div>
 
 <h3>Configure CephFS</h3>
@@ -260,6 +263,9 @@ upon which which this is based:
     <h1>Recent Posts</h1>
     <ul id="recent_posts">
       <li class="post">
+          <a href="https://sthbrx.github.io/blog/2023/08/07/going-out-on-a-limb-efficient-elliptic-curve-arithmetic-in-openssl/">Going out on a Limb: Efficient Elliptic Curve Arithmetic in OpenSSL</a>
+      </li>
+      <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/08/04/quirks-of-parsing-ssh-configs/">Quirks of parsing SSH configs</a>
       </li>
       <li class="post">
@@ -271,15 +277,13 @@ upon which which this is based:
       <li class="post">
           <a href="https://sthbrx.github.io/blog/2023/03/24/dumb-bugs-when-a-date-breaks-booting-the-kernel/">Dumb bugs: When a date breaks booting the kernel</a>
       </li>
-      <li class="post">
-          <a href="https://sthbrx.github.io/blog/2022/11/16/what-distro-options-are-there-for-power8-in-2022/">What distro options are there for POWER8 in 2022?</a>
-      </li>
     </ul>
   </section>
   <section>
       
     <h1>Categories</h1>
     <ul id="recent_posts">
+        <li><a href="https://sthbrx.github.io/category/cryptography.html">Cryptography</a></li>
         <li><a href="https://sthbrx.github.io/category/development.html">Development</a></li>
         <li><a href="https://sthbrx.github.io/category/education.html">Education</a></li>
         <li><a href="https://sthbrx.github.io/category/openpower.html">OpenPOWER</a></li>

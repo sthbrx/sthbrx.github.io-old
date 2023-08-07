@@ -27,17 +27,17 @@ ret_from_kernel_thread+0x5c/0x64
 &lt;h2&gt;Why does my VGA require arbitration?&lt;/h2&gt;
 &lt;p&gt;I'd never heard of the &lt;a href="https://en.wikipedia.org/wiki/VGA_connector"&gt;VGA&lt;/a&gt; arbiter in the kernel (do kids these days know what VGA is?), or &lt;code&gt;vgaarb&lt;/code&gt; as it's called.  What it does is irrelevant to this bug, but I found the history pretty interesting!  &lt;a href="https://lists.freedesktop.org/archives/xorg/2005-March/006663.html"&gt;Benjamin Herrenschmidt proposed VGA arbitration back in 2005&lt;/a&gt; as a way of resolving conflicts between multiple legacy VGA devices that want to use the same address assignments.  This was previously handled in userspace by the X server, but issues arose with multiple X servers on the same machine.  Plus, it's probably not a good idea for this kind of thing to be handled by userspace.  &lt;a href="https://docs.kernel.org/gpu/vgaarbiter.html"&gt;You can read more about the VGA arbiter in the kernel docs&lt;/a&gt;, but it's probably not something anyone has thought much about in a long time.&lt;/p&gt;
 &lt;h2&gt;The bad access&lt;/h2&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;bool&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;vga_arbiter_add_pci_device&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pdev&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;vga_device&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;vgadev&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="kt"&gt;unsigned&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;flags&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_bus&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;bus&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;bridge&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;u16&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;cmd&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;bool&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;vga_arbiter_add_pci_device&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pdev&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;vga_device&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;vgadev&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="kt"&gt;unsigned&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;flags&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_bus&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;bus&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;bridge&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;u16&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;cmd&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* Only deal with VGA class devices */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="n"&gt;pdev&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;class&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;PCI_CLASS_DISPLAY_VGA&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;                &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nb"&gt;false&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* Only deal with VGA class devices */&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="n"&gt;pdev&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;class&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;PCI_CLASS_DISPLAY_VGA&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="w"&gt;                &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nb"&gt;false&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;We're blowing up on the read to &lt;code&gt;pdev-&amp;gt;class&lt;/code&gt;, and it's not something like the data being uninitialised, it's out-of-bounds.  If we look back at the call trace:&lt;/p&gt;
@@ -52,11 +52,11 @@ vio_bus_scan_register_devices+0xc4/0x13c
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;This thing is a VIO device, not a PCI device!  Let's jump into the caller, &lt;code&gt;pci_notify()&lt;/code&gt;, to find out how we got our &lt;code&gt;pdev&lt;/code&gt;.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;pci_notify&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;nb&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;unsigned&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;action&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;                      &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;device&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pdev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;to_pci_dev&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;pci_notify&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;nb&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;unsigned&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;long&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;action&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;span class="w"&gt;                      &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;device&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;pci_dev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pdev&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;to_pci_dev&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;So &lt;code&gt;pci_notify()&lt;/code&gt; gets called with our VIO device (somehow), and we're converting that &lt;code&gt;struct device&lt;/code&gt; into a &lt;code&gt;struct pci_dev&lt;/code&gt; with no error checking.  We could solve this particular bug by just checking that our device is &lt;em&gt;actually&lt;/em&gt; a PCI device before we proceed - but we're in a function called &lt;code&gt;pci_notify&lt;/code&gt;, we're expecting a PCI device to come in, so this would just be a bandaid.&lt;/p&gt;
@@ -66,26 +66,26 @@ vio_bus_scan_register_devices+0xc4/0x13c
 &lt;p&gt;The kernel's device subsystem allows consumers to register callbacks so that they can be notified of a given event.  I'm not going to go into a ton of detail on how they work, because I don't fully understand myself, and there's a lot of internals of the device subsystem involved.
 The best references I could find for this are &lt;a href="https://elixir.bootlin.com/linux/latest/source/include/linux/notifier.h"&gt;notifier.h&lt;/a&gt;, and for our purposes here, &lt;a href="https://elixir.bootlin.com/linux/latest/source/include/linux/device/bus.h#L260"&gt;the register notifier functions in bus.h&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;Something's clearly gone awry if we can end up in a function named &lt;code&gt;pci_notify()&lt;/code&gt; without passing it a PCI device.  We find where the notifier is registered in &lt;code&gt;vgaarb.c&lt;/code&gt; here:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pci_notifier&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;notifier_call&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pci_notify&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;};&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pci_notifier&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;notifier_call&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pci_notify&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;span class="p"&gt;};&lt;/span&gt;
 
-&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;__init&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;vga_arb_device_init&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* some stuff removed here... */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;__init&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;vga_arb_device_init&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* some stuff removed here... */&lt;/span&gt;
 
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;bus_register_notifier&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;pci_bus_type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;pci_notifier&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;bus_register_notifier&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;pci_bus_type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;pci_notifier&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;This all looks sane.  A blocking notifier is registered so that &lt;code&gt;pci_notify()&lt;/code&gt; gets called whenever there's a notification going out to PCI buses.  Our VIO device is distinctly &lt;em&gt;not&lt;/em&gt; on a PCI bus, and in my debugging I couldn't find any potential causes of such confusion, so how on earth is a notification for PCI buses being applied to our non-PCI device?&lt;/p&gt;
 &lt;p&gt;Deep in the guts of the device subsystem, if we have a look at &lt;code&gt;device_add()&lt;/code&gt; we find the following:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;device_add&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;device&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* lots of device init stuff... */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;device_add&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;device&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* lots of device init stuff... */&lt;/span&gt;
 
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bus&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;                &lt;/span&gt;&lt;span class="n"&gt;blocking_notifier_call_chain&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bus&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bus_notifier&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;                                             &lt;/span&gt;&lt;span class="n"&gt;BUS_NOTIFY_ADD_DEVICE&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bus&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="w"&gt;                &lt;/span&gt;&lt;span class="n"&gt;blocking_notifier_call_chain&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bus&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bus_notifier&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;span class="w"&gt;                                             &lt;/span&gt;&lt;span class="n"&gt;BUS_NOTIFY_ADD_DEVICE&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;If the device we're initialising is attached to a bus, then we call the bus notifier of that bus with the &lt;code&gt;BUS_NOTIFY_ADD_DEVICE&lt;/code&gt; notification, and the device in question.  So we're going through the process of adding a VIO device, and somehow calling into a notifier that's only registered for PCI devices.  I did a bunch of debugging to see if our VIO device was somehow malformed and pointing to a PCI bus, or the &lt;code&gt;struct subsys_private&lt;/code&gt; (that's the &lt;code&gt;bus-&amp;gt;p&lt;/code&gt; above) was somehow pointing to the wrong place, but everything seemed sane.  My thesis of there being confusion while matching devices to buses was getting harder to justify - everything still looked sane.&lt;/p&gt;
@@ -93,11 +93,11 @@ The best references I could find for this are &lt;a href="https://elixir.bootlin
 &lt;p&gt;I do not like debuggers.  I am an avid &lt;code&gt;printk()&lt;/code&gt; enthusiast.  There's no real justification for this, a bunch of my problems could almost certainly be solved easier by using actual tools, but my brain seemingly enjoys the routine of printing and building and running until I figure out what's going on.  It was becoming increasingly obvious, however, that &lt;code&gt;printk&lt;/code&gt; could not save me here, and we needed to go deeper.&lt;/p&gt;
 &lt;p&gt;Very thankfully for me, even though this bug was discovered on real hardware, it reproduces easily in &lt;a href="https://www.qemu.org"&gt;QEMU&lt;/a&gt;, making iteration easy.  With &lt;a href="https://qemu-project.gitlab.io/qemu/system/gdb.html"&gt;GDB attached to QEMU&lt;/a&gt;, it's time to dive in to the guts of this issue and figure out what's happening.&lt;/p&gt;
 &lt;p&gt;Somehow, VIO buses are ending up with &lt;code&gt;pci_notify()&lt;/code&gt; in their &lt;code&gt;bus_notifier&lt;/code&gt; list.  Let's break down the data structures here with a look at &lt;code&gt;struct notifier_block&lt;/code&gt;:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;notifier_fn_t&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;notifier_call&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;__rcu&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;next&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;priority&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;};&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;notifier_fn_t&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;notifier_call&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;__rcu&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;next&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;priority&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;};&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;So notifier chains are &lt;a href="https://en.wikipedia.org/wiki/Linked_list#Singly_linked_list"&gt;singly linked lists&lt;/a&gt;.  Callbacks are registered through functions like &lt;code&gt;bus_register_notifier()&lt;/code&gt;, then after a long chain of breadcrumbs we reach &lt;a href="https://elixir.bootlin.com/linux/latest/source/kernel/notifier.c#L22"&gt;&lt;code&gt;notifier_chain_register()&lt;/code&gt;&lt;/a&gt; which walks the list of &lt;code&gt;-&amp;gt;next&lt;/code&gt; pointers until it reaches &lt;code&gt;NULL&lt;/code&gt;, at which point it sets &lt;code&gt;-&amp;gt;next&lt;/code&gt; of the tail node to the &lt;code&gt;struct notifier_block&lt;/code&gt; that was passed in.  It's very important to note here that the data being appended to the list here is &lt;em&gt;not just the callback function&lt;/em&gt; (i.e. &lt;code&gt;pci_notify()&lt;/code&gt;), but the &lt;code&gt;struct notifier_block&lt;/code&gt; itself (i.e. &lt;code&gt;struct notifier_block pci_notifier&lt;/code&gt; from earlier).  There's no new data being initialised, just updating a pointer to the object that was passed by the caller.&lt;/p&gt;
@@ -118,21 +118,21 @@ pci_notify
 &lt;p&gt;Time to find out if our assumption is correct - the same &lt;code&gt;struct notifier_block&lt;/code&gt; is being registered to both bus types.  Let's start going through them!&lt;/p&gt;
 &lt;p&gt;First up, we have &lt;code&gt;__gcov_.perf_trace_module_free&lt;/code&gt;.  Thankfully, I recognised this as complete bait.  Trying to figure out what gcov and perf are doing here is going to be its own giant rabbit hole, and unless building without gcov makes our problem disappear, we skip this one and keep on looking.  Rabbit holes in the kernel never end, we have to be strategic with our time!&lt;/p&gt;
 &lt;p&gt;Next, we reach &lt;code&gt;fail_iommu_bus_notify&lt;/code&gt;, so let's take a look at that.&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notifier&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;notifier_call&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notify&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;};&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;notifier_block&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notifier&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;notifier_call&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notify&lt;/span&gt;
+&lt;span class="p"&gt;};&lt;/span&gt;
 
-&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;__init&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;fail_iommu_setup&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;__init&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;fail_iommu_setup&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
 &lt;span class="cp"&gt;#ifdef CONFIG_PCI&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;bus_register_notifier&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;pci_bus_type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notifier&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;bus_register_notifier&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;pci_bus_type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notifier&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;span class="cp"&gt;#endif&lt;/span&gt;
 &lt;span class="cp"&gt;#ifdef CONFIG_IBMVIO&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;bus_register_notifier&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;vio_bus_type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notifier&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;bus_register_notifier&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;vio_bus_type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;fail_iommu_bus_notifier&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;span class="cp"&gt;#endif&lt;/span&gt;
 
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Sure enough, here's our bug.  The same node is being registered to two different bus types:&lt;/p&gt;
@@ -159,64 +159,64 @@ pci_notify
 
 &lt;h2&gt;The fix&lt;/h2&gt;
 &lt;p&gt;Ultimately, the fix turned out to be pretty simple:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="w"&gt;Author: Russell Currey &amp;lt;ruscur@russell.cc&amp;gt;&lt;/span&gt;
-&lt;span class="w"&gt;Date:   Wed Mar 22 14:37:42 2023 +1100&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;Author: Russell Currey &amp;lt;ruscur@russell.cc&amp;gt;
+Date:   Wed Mar 22 14:37:42 2023 +1100
 
-&lt;span class="w"&gt; &lt;/span&gt;   powerpc/iommu: Fix notifiers being shared by PCI and VIO buses&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;   powerpc/iommu: Fix notifiers being shared by PCI and VIO buses
 
-&lt;span class="w"&gt; &lt;/span&gt;   fail_iommu_setup() registers the fail_iommu_bus_notifier struct to both&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   PCI and VIO buses.  struct notifier_block is a linked list node, so this&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   causes any notifiers later registered to either bus type to also be&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   registered to the other since they share the same node.&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;   fail_iommu_setup() registers the fail_iommu_bus_notifier struct to both
+&lt;span class="w"&gt; &lt;/span&gt;   PCI and VIO buses.  struct notifier_block is a linked list node, so this
+&lt;span class="w"&gt; &lt;/span&gt;   causes any notifiers later registered to either bus type to also be
+&lt;span class="w"&gt; &lt;/span&gt;   registered to the other since they share the same node.
 
-&lt;span class="w"&gt; &lt;/span&gt;   This causes issues in (at least) the vgaarb code, which registers a&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   notifier for PCI buses.  pci_notify() ends up being called on a vio&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   device, converted with to_pci_dev() even though it&amp;#39;s not a PCI device,&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   and finally makes a bad access in vga_arbiter_add_pci_device() as&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   discovered with KASAN:&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;   This causes issues in (at least) the vgaarb code, which registers a
+&lt;span class="w"&gt; &lt;/span&gt;   notifier for PCI buses.  pci_notify() ends up being called on a vio
+&lt;span class="w"&gt; &lt;/span&gt;   device, converted with to_pci_dev() even though it&amp;#39;s not a PCI device,
+&lt;span class="w"&gt; &lt;/span&gt;   and finally makes a bad access in vga_arbiter_add_pci_device() as
+&lt;span class="w"&gt; &lt;/span&gt;   discovered with KASAN:
 
-&lt;span class="w"&gt; &lt;/span&gt;   [stack trace redacted, see above]&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;   [stack trace redacted, see above]
 
-&lt;span class="w"&gt; &lt;/span&gt;   Fix this by creating separate notifier_block structs for each bus type.&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;   Fix this by creating separate notifier_block structs for each bus type.
 
-&lt;span class="w"&gt; &lt;/span&gt;   Fixes: d6b9a81b2a45 (&amp;quot;powerpc: IOMMU fault injection&amp;quot;)&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   Reported-by: Nageswara R Sastry &amp;lt;rnsastry@linux.ibm.com&amp;gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;   Signed-off-by: Russell Currey &amp;lt;ruscur@russell.cc&amp;gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;   Fixes: d6b9a81b2a45 (&amp;quot;powerpc: IOMMU fault injection&amp;quot;)
+&lt;span class="w"&gt; &lt;/span&gt;   Reported-by: Nageswara R Sastry &amp;lt;rnsastry@linux.ibm.com&amp;gt;
+&lt;span class="w"&gt; &lt;/span&gt;   Signed-off-by: Russell Currey &amp;lt;ruscur@russell.cc&amp;gt;
 
-&lt;span class="gh"&gt;diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gh"&gt;index ee95937bdaf1..6f1117fe3870 100644&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gd"&gt;--- a/arch/powerpc/kernel/iommu.c&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+++ b/arch/powerpc/kernel/iommu.c&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gu"&gt;@@ -171,17 +171,26 @@ static int fail_iommu_bus_notify(struct notifier_block *nb,&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;        return 0;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;}&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="gh"&gt;diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c&lt;/span&gt;
+&lt;span class="gh"&gt;index ee95937bdaf1..6f1117fe3870 100644&lt;/span&gt;
+&lt;span class="gd"&gt;--- a/arch/powerpc/kernel/iommu.c&lt;/span&gt;
+&lt;span class="gi"&gt;+++ b/arch/powerpc/kernel/iommu.c&lt;/span&gt;
+&lt;span class="gu"&gt;@@ -171,17 +171,26 @@ static int fail_iommu_bus_notify(struct notifier_block *nb,&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;        return 0;
+&lt;span class="w"&gt; &lt;/span&gt;}
 
-&lt;span class="gd"&gt;-static struct notifier_block fail_iommu_bus_notifier = {&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+/*&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+ * PCI and VIO buses need separate notifier_block structs, since they&amp;#39;re linked&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+ * list nodes.  Sharing a notifier_block would mean that any notifiers later&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+ * registered for PCI buses would also get called by VIO buses and vice versa.&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+ */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+static struct notifier_block fail_iommu_pci_bus_notifier = {&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+        .notifier_call = fail_iommu_bus_notify&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+};&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+static struct notifier_block fail_iommu_vio_bus_notifier = {&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;        .notifier_call = fail_iommu_bus_notify&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;};&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="gd"&gt;-static struct notifier_block fail_iommu_bus_notifier = {&lt;/span&gt;
+&lt;span class="gi"&gt;+/*&lt;/span&gt;
+&lt;span class="gi"&gt;+ * PCI and VIO buses need separate notifier_block structs, since they&amp;#39;re linked&lt;/span&gt;
+&lt;span class="gi"&gt;+ * list nodes.  Sharing a notifier_block would mean that any notifiers later&lt;/span&gt;
+&lt;span class="gi"&gt;+ * registered for PCI buses would also get called by VIO buses and vice versa.&lt;/span&gt;
+&lt;span class="gi"&gt;+ */&lt;/span&gt;
+&lt;span class="gi"&gt;+static struct notifier_block fail_iommu_pci_bus_notifier = {&lt;/span&gt;
+&lt;span class="gi"&gt;+        .notifier_call = fail_iommu_bus_notify&lt;/span&gt;
+&lt;span class="gi"&gt;+};&lt;/span&gt;
+&lt;span class="gi"&gt;+&lt;/span&gt;
+&lt;span class="gi"&gt;+static struct notifier_block fail_iommu_vio_bus_notifier = {&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;        .notifier_call = fail_iommu_bus_notify
+&lt;span class="w"&gt; &lt;/span&gt;};
 
-&lt;span class="w"&gt; &lt;/span&gt;static int __init fail_iommu_setup(void)&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;{&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;#ifdef CONFIG_PCI&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gd"&gt;-        bus_register_notifier(&amp;amp;pci_bus_type, &amp;amp;fail_iommu_bus_notifier);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+        bus_register_notifier(&amp;amp;pci_bus_type, &amp;amp;fail_iommu_pci_bus_notifier);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;#endif&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;#ifdef CONFIG_IBMVIO&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gd"&gt;-        bus_register_notifier(&amp;amp;vio_bus_type, &amp;amp;fail_iommu_bus_notifier);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="gi"&gt;+        bus_register_notifier(&amp;amp;vio_bus_type, &amp;amp;fail_iommu_vio_bus_notifier);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt; &lt;/span&gt;#endif&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;static int __init fail_iommu_setup(void)
+&lt;span class="w"&gt; &lt;/span&gt;{
+&lt;span class="w"&gt; &lt;/span&gt;#ifdef CONFIG_PCI
+&lt;span class="gd"&gt;-        bus_register_notifier(&amp;amp;pci_bus_type, &amp;amp;fail_iommu_bus_notifier);&lt;/span&gt;
+&lt;span class="gi"&gt;+        bus_register_notifier(&amp;amp;pci_bus_type, &amp;amp;fail_iommu_pci_bus_notifier);&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;#endif
+&lt;span class="w"&gt; &lt;/span&gt;#ifdef CONFIG_IBMVIO
+&lt;span class="gd"&gt;-        bus_register_notifier(&amp;amp;vio_bus_type, &amp;amp;fail_iommu_bus_notifier);&lt;/span&gt;
+&lt;span class="gi"&gt;+        bus_register_notifier(&amp;amp;vio_bus_type, &amp;amp;fail_iommu_vio_bus_notifier);&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;#endif
 
-&lt;span class="w"&gt; &lt;/span&gt;        return 0;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt; &lt;/span&gt;        return 0;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Easy!  Problem solved.  The &lt;a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=d6b9a81b2a45"&gt;commit that introduced this bug back in 2012&lt;/a&gt; was written by the legendary &lt;a href="http://antonblanchardfacts.com"&gt;Anton Blanchard&lt;/a&gt;, so it's always a treat to discover an Anton bug.  Ultimately this bug is of little consequence, but it's always fun to catch dormant issues with powerful tools like KASAN.&lt;/p&gt;
@@ -312,16 +312,16 @@ pci_notify
 &lt;p&gt;Well, the kernel is in panic.  Who cares if it flushes the console?  It's dead.  It doesn't need to do anything else.&lt;/p&gt;
 &lt;p&gt;Oh, right.  It prints the reason it panicked.  Turns out that's pretty useful.&lt;/p&gt;
 &lt;p&gt;There's a pretty simple fix here that we can push into the firmware.  Most kernels are configured to reboot after panic, typically with some delay.  In OpenPOWER, the kernel reboots by calling into skiboot with the &lt;code&gt;opal_cec_reboot()&lt;/code&gt; function.  So all we need to do is flush out the console buffer:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;int64&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OPAL: Reboot request...&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;int64&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;opal_cec_reboot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="n"&gt;printf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OPAL: Reboot request...&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 
 &lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="n"&gt;console_complete_flush&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// &amp;lt;-- what I added&lt;/span&gt;
 
 &lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="c1"&gt;// rebooting stuff happens here...&lt;/span&gt;
 
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_SUCCESS&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_SUCCESS&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;Writing a complete flushing function was pretty easy, then call it from the power down and reboot functions.  Easy, all nicely contained in firmware.&lt;/p&gt;
@@ -331,7 +331,7 @@ pci_notify
 &lt;p&gt;Oh, wait.  That will never get accepted upstream, ever.  Let's try again.&lt;/p&gt;
 &lt;p&gt;Well, there are &lt;code&gt;#ifdef&lt;/code&gt;s in the code that are architecture specific, for s390 and SPARC.  I could add an &lt;code&gt;#ifdef&lt;/code&gt; to check if we're an OpenPOWER machine, and if so, run the pollers a bunch of times.  That would also involve including architecture specific code from &lt;code&gt;arch/powerpc&lt;/code&gt;, and that's somewhat gross.  Maybe I could upstream this, but it'd be difficult.  There must be a better way.&lt;/p&gt;
 &lt;p&gt;As a kernel noob, I found myself digging into what every function called by &lt;code&gt;panic()&lt;/code&gt; actually did, to see if there's a way I could use it.  I looked over it at first, but eventually I started looking harder at this line:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="n"&gt;kmsg_dump&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;It turns out &lt;code&gt;kmsg_dump()&lt;/code&gt; does what it says: dumps messages from the kernel.  Different parts of the kernel can register their own dumpers, so the kernel can have a variety of dumpers for different purposes.  One existing example in OpenPOWER is a kmsg dumper that stores messages in &lt;code&gt;nvram&lt;/code&gt; (non-volatile RAM), so you can find it after you reboot.&lt;/p&gt;
@@ -344,29 +344,29 @@ pci_notify
 &lt;span class="cm"&gt; * however, the kernel no longer calls OPAL_POLL_EVENTS and the panic message&lt;/span&gt;
 &lt;span class="cm"&gt; * may not be completely printed.  This function does not actually dump the&lt;/span&gt;
 &lt;span class="cm"&gt; * message, it just ensures that OPAL completely flushes the console buffer.&lt;/span&gt;
-&lt;span class="cm"&gt; */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;force_opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;kmsg_dumper&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dumper&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;                                     &lt;/span&gt;&lt;span class="k"&gt;enum&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;kmsg_dump_reason&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;reason&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="kt"&gt;int64_t&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="cm"&gt; */&lt;/span&gt;
+&lt;span class="k"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;force_opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;struct&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nc"&gt;kmsg_dumper&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dumper&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;span class="w"&gt;                                     &lt;/span&gt;&lt;span class="k"&gt;enum&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;kmsg_dump_reason&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;reason&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="kt"&gt;int64_t&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 
 &lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
 &lt;span class="cm"&gt;     * Outside of a panic context the pollers will continue to run,&lt;/span&gt;
 &lt;span class="cm"&gt;     * so we don&amp;#39;t need to do any special flushing.&lt;/span&gt;
-&lt;span class="cm"&gt;     */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;reason&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="cm"&gt;     */&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;reason&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;KMSG_DUMP_PANIC&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;opal_check_token&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;OPAL_CONSOLE_FLUSH&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;opal_check_token&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;OPAL_CONSOLE_FLUSH&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;==&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_UNSUPPORTED&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;||&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;==&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_PARAMETER&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;            &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;==&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_UNSUPPORTED&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;||&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ret&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;==&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_PARAMETER&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="w"&gt;            &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* Incrementally flush until there&amp;#39;s nothing left */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;while&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_SUCCESS&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;else&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/* Incrementally flush until there&amp;#39;s nothing left */&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;while&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;opal_console_flush&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OPAL_SUCCESS&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;else&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
 &lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="cm"&gt;/*&lt;/span&gt;
 &lt;span class="cm"&gt;         * If OPAL_CONSOLE_FLUSH is not implemented in the firmware,&lt;/span&gt;
 &lt;span class="cm"&gt;         * the console can still be flushed by calling the polling&lt;/span&gt;
@@ -374,13 +374,13 @@ pci_notify
 &lt;span class="cm"&gt;         * how much output still needs to be flushed, but we can be&lt;/span&gt;
 &lt;span class="cm"&gt;         * generous since the kernel is in panic and doesn&amp;#39;t need&lt;/span&gt;
 &lt;span class="cm"&gt;         * to do much else.&lt;/span&gt;
-&lt;span class="cm"&gt;         */&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KERN_NOTICE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;quot;opal: OPAL_CONSOLE_FLUSH missing.&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;for&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;1024&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;            &lt;/span&gt;&lt;span class="n"&gt;opal_poll_events&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nb"&gt;NULL&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
-&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="cm"&gt;         */&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="n"&gt;printk&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;KERN_NOTICE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;quot;opal: OPAL_CONSOLE_FLUSH missing.&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="k"&gt;for&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;1024&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="w"&gt;            &lt;/span&gt;&lt;span class="n"&gt;opal_poll_events&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nb"&gt;NULL&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;You can find the full code in-tree &lt;a href="https://github.com/torvalds/linux/blob/master/arch/powerpc/platforms/powernv/opal-kmsg.c"&gt;here&lt;/a&gt;.&lt;/p&gt;
